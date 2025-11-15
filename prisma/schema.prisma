@@ -1,0 +1,113 @@
+// Prisma schema for HRM8 Authentication System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  COMPANY_ADMIN
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_VERIFICATION
+  INVITED
+}
+
+enum CompanyVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationMethod {
+  EMAIL_DOMAIN_CHECK
+  VERIFICATION_EMAIL
+  MANUAL_VERIFICATION
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+model Company {
+  id                String                    @id @default(uuid())
+  name              String
+  website           String
+  domain            String                    @unique // Extracted from website (e.g., "tata.com")
+  verificationStatus CompanyVerificationStatus @default(PENDING)
+  verificationMethod VerificationMethod?
+  
+  // Verification data fields
+  verifiedAt        DateTime?
+  verifiedBy        String?
+  gstNumber         String?
+  registrationNumber String?
+  linkedInUrl       String?
+  
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  
+  // Relations
+  users             User[]
+  invitations       Invitation[]
+  
+  @@index([domain])
+  @@index([verificationStatus])
+}
+
+model User {
+  id            String      @id @default(uuid())
+  email         String      @unique
+  name          String
+  passwordHash  String      @map("password_hash")
+  companyId     String      @map("company_id")
+  role          UserRole
+  status        UserStatus  @default(PENDING_VERIFICATION)
+  isCompanyAdmin Boolean     @default(false) @map("is_company_admin")
+  lastLoginAt   DateTime?   @map("last_login_at")
+  
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  
+  // Relations
+  company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sentInvitations Invitation[] @relation("InvitedBy")
+  
+  @@index([email])
+  @@index([companyId])
+  @@index([status])
+}
+
+model Invitation {
+  id          String           @id @default(uuid())
+  companyId   String           @map("company_id")
+  invitedBy   String           @map("invited_by")
+  email       String
+  token       String           @unique
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime         @map("expires_at")
+  acceptedAt  DateTime?        @map("accepted_at")
+  
+  createdAt   DateTime         @default(now()) @map("created_at")
+  
+  // Relations
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inviter     User             @relation("InvitedBy", fields: [invitedBy], references: [id], onDelete: Cascade)
+  
+  @@index([email])
+  @@index([companyId])
+  @@index([token])
+  @@index([status])
+  @@index([expiresAt])
+}
