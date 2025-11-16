@@ -4,6 +4,7 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { AuthController } from '../controllers/auth/AuthController';
+import { authenticate } from '../middleware/auth';
 import {
   validateCompanyRegistration,
   validateLogin,
@@ -37,6 +38,13 @@ router.post(
   '/accept-invitation',
   validateAcceptInvitation,
   AuthController.acceptInvitation
+);
+
+// Get current user (requires authentication)
+router.get(
+  '/me',
+  authenticate,
+  AuthController.getCurrentUser
 );
 
 // Logout

@@ -1,11 +1,21 @@
 import express, { Request, Response } from 'express';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import routes from './routes';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// CORS configuration
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+  credentials: true, // Allow cookies to be sent
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 // Middleware
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); // Parse cookies

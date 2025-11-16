@@ -4,11 +4,12 @@
  */
 
 import { Request, Response } from 'express';
-import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest } from '../../types';
+import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest, AuthenticatedRequest } from '../../types';
 import { CompanyService } from '../../services/company/CompanyService';
 import { AuthService } from '../../services/auth/AuthService';
 import { InvitationService } from '../../services/invitation/InvitationService';
 import { SessionModel } from '../../models/Session';
+import { UserModel } from '../../models/User';
 import { generateSessionId, getSessionExpiration } from '../../utils/session';
 import { CompanyAlreadyExistsError } from '../../models/Company';
 
@@ -108,9 +109,10 @@ export class AuthController {
       res.cookie('sessionId', sessionId, {
         httpOnly: true, // Prevent XSS attacks
         secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-        sameSite: 'strict', // CSRF protection
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Lax for local development, strict for production
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
         path: '/', // Available on all routes
+        domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Don't set domain for localhost
       });
 
       // Get company name
@@ -233,6 +235,55 @@ export class AuthController {
   }
 
   /**
+   * Get current user
+   * GET /api/auth/me
+   */
+  static async getCurrentUser(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Not authenticated',
+        });
+        return;
+      }
+
+      // Get user details from database
+      const user = await UserModel.findById(req.user.id);
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found',
+        });
+        return;
+      }
+
+      // Get company name
+      const company = await CompanyService.findById(user.companyId);
+      const companyName = company?.name || '';
+
+      res.json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            companyId: user.companyId,
+            companyName,
+          },
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get user',
+      });
+    }
+  }
+
+  /**
    * Logout user
    * POST /api/auth/logout
    */
@@ -249,7 +300,7 @@ export class AuthController {
       res.clearCookie('sessionId', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         path: '/',
       });
 
