@@ -39,5 +39,11 @@ router.post(
   AuthController.acceptInvitation
 );
 
+// Logout
+router.post(
+  '/logout',
+  AuthController.logout
+);
+
 export default router;
 

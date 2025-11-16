@@ -15,18 +15,18 @@ export function enforceCompanyIsolation(
   res: Response,
   next: NextFunction
 ): void {
-  if (!req.user) {
+  if (!req.user?.companyId) {
     res.status(401).json({
       success: false,
-      error: 'Unauthorized',
+      error: 'Unauthorized: Invalid user session',
     });
     return;
   }
 
   const userCompanyId = req.user.companyId;
-
-  // Check company ID in URL params
-  if (req.params.companyId && req.params.companyId !== userCompanyId) {
+  const companyIdParam = req.params.id || req.params.companyId;
+  
+  if (companyIdParam && companyIdParam !== userCompanyId) {
     res.status(403).json({
       success: false,
       error: 'Access denied. You can only access your own company data.',
@@ -34,8 +34,7 @@ export function enforceCompanyIsolation(
     return;
   }
 
-  // Check company ID in request body (if present)
-  if (req.body.companyId && req.body.companyId !== userCompanyId) {
+  if (req.body?.companyId && req.body.companyId !== userCompanyId) {
     res.status(403).json({
       success: false,
       error: 'Access denied. You can only access your own company data.',
@@ -43,7 +42,11 @@ export function enforceCompanyIsolation(
     return;
   }
 
-  // Attach company ID to request for convenience
+  req.params.id = userCompanyId;
+  
+  if (!req.body) {
+    req.body = {};
+  }
   req.body.companyId = userCompanyId;
 
   next();
@@ -66,7 +69,6 @@ export function scopeToCompany(
     return;
   }
 
-  // Attach company scope to request for use in controllers/services
   (req as any).companyScope = {
     companyId: req.user.companyId,
   };

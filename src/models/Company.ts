@@ -7,6 +7,13 @@ import { Company, CompanyVerificationStatus, VerificationMethod } from '../types
 import prisma from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 
+export class CompanyAlreadyExistsError extends Error {
+  constructor(domain: string) {
+    super(`A company with the domain "${domain}" already exists.`);
+    this.name = 'CompanyAlreadyExistsError';
+  }
+}
+
 export class CompanyModel {
   /**
    * Create a new company
@@ -14,22 +21,37 @@ export class CompanyModel {
   static async create(
     companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<Company> {
-    const company = await prisma.company.create({
-      data: {
-        name: companyData.name,
-        website: companyData.website,
-        domain: companyData.domain,
-        verificationStatus: companyData.verificationStatus,
-        verificationMethod: companyData.verificationMethod,
-        verifiedAt: companyData.verificationData?.verifiedAt,
-        verifiedBy: companyData.verificationData?.verifiedBy,
-        gstNumber: companyData.verificationData?.gstNumber,
-        registrationNumber: companyData.verificationData?.registrationNumber,
-        linkedInUrl: companyData.verificationData?.linkedInUrl,
-      },
-    });
+    try {
+      const company = await prisma.company.create({
+        data: {
+          name: companyData.name,
+          website: companyData.website,
+          domain: companyData.domain,
+          verificationStatus: companyData.verificationStatus,
+          verificationMethod: companyData.verificationMethod,
+          verifiedAt: companyData.verificationData?.verifiedAt,
+          verifiedBy: companyData.verificationData?.verifiedBy,
+          gstNumber: companyData.verificationData?.gstNumber,
+          registrationNumber: companyData.verificationData?.registrationNumber,
+          linkedInUrl: companyData.verificationData?.linkedInUrl,
+        },
+      });
 
-    return this.mapPrismaToCompany(company);
+      return this.mapPrismaToCompany(company);
+    } catch (error) {
+      // Check if it's a unique constraint violation on domain
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        error.meta?.target &&
+        Array.isArray(error.meta.target) &&
+        error.meta.target.includes('domain')
+      ) {
+        throw new CompanyAlreadyExistsError(companyData.domain);
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**

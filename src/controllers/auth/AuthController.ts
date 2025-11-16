@@ -8,6 +8,9 @@ import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest } fro
 import { CompanyService } from '../../services/company/CompanyService';
 import { AuthService } from '../../services/auth/AuthService';
 import { InvitationService } from '../../services/invitation/InvitationService';
+import { SessionModel } from '../../models/Session';
+import { generateSessionId, getSessionExpiration } from '../../utils/session';
+import { CompanyAlreadyExistsError } from '../../models/Company';
 
 export class AuthController {
   /**
@@ -24,15 +27,15 @@ export class AuthController {
       const { company, verificationMethod, verificationRequired } = 
         await CompanyService.registerCompany(registrationData);
 
-      // TODO: Hash password
-      // const passwordHash = await bcrypt.hash(registrationData.password, 10);
-
       // Register company admin
+      // TODO: For testing purposes, user is always activated
+      // In production, this should be: !verificationRequired (only activate if auto-verified)
       const adminUser = await AuthService.registerCompanyAdmin(
         company.id,
         registrationData.adminEmail,
         registrationData.adminName,
-        'placeholder-password-hash' // TODO: Replace with actual hash
+        registrationData.password,
+        true // Always activate user for testing purposes
       );
 
       res.status(201).json({
@@ -48,6 +51,16 @@ export class AuthController {
         },
       });
     } catch (error) {
+      // Handle specific errors
+      if (error instanceof CompanyAlreadyExistsError) {
+        res.status(409).json({
+          success: false,
+          error: error.message,
+        });
+        return;
+      }
+
+      // Handle other errors
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Registration failed',
@@ -63,22 +76,44 @@ export class AuthController {
     try {
       const loginData: LoginRequest = req.body;
 
-      // TODO: Validate request data
+      // Validate credentials
+      const result = await AuthService.login(loginData);
 
-      const user = await AuthService.login(loginData);
-
-      if (!user) {
-        res.status(401).json({
+      // Check if login returned an error
+      if ('error' in result) {
+        res.status(result.status).json({
           success: false,
-          error: 'Invalid email or password',
+          error: result.error,
         });
         return;
       }
 
-      // TODO: Generate JWT token
-      const token = 'placeholder-jwt-token';
+      const { user } = result;
 
-      // TODO: Get company name
+      // Generate session ID
+      const sessionId = generateSessionId();
+      const expiresAt = getSessionExpiration(24); // 24 hours
+
+      // Create session in database
+      await SessionModel.create(
+        sessionId,
+        user.id,
+        user.companyId,
+        user.role,
+        user.email,
+        expiresAt
+      );
+
+      // Set session cookie
+      res.cookie('sessionId', sessionId, {
+        httpOnly: true, // Prevent XSS attacks
+        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+        sameSite: 'strict', // CSRF protection
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        path: '/', // Available on all routes
+      });
+
+      // Get company name
       const company = await CompanyService.findById(user.companyId);
       const companyName = company?.name || '';
 
@@ -93,7 +128,6 @@ export class AuthController {
             companyId: user.companyId,
             companyName,
           },
-          token,
         },
       });
     } catch (error) {
@@ -110,7 +144,7 @@ export class AuthController {
    */
   static async acceptInvitation(req: Request, res: Response): Promise<void> {
     try {
-      const { token, password: _password, name }: AcceptInvitationRequest = req.body;
+      const { token, password, name }: AcceptInvitationRequest = req.body;
 
       // TODO: Validate request data
 
@@ -134,15 +168,12 @@ export class AuthController {
         return;
       }
 
-      // TODO: Hash password
-      // const passwordHash = await bcrypt.hash(password, 10);
-
       // Register employee
       const user = await AuthService.registerEmployeeFromInvitation(
         invitation.companyId,
         invitation.email,
         name,
-        'placeholder-password-hash' // TODO: Replace with actual hash
+        password
       );
 
       // Mark invitation as accepted
@@ -169,16 +200,13 @@ export class AuthController {
    */
   static async registerEmployee(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password: _password, name } = req.body;
-
-      // TODO: Validate request data
+      const { email, password, name } = req.body;
 
       // Try to auto-join via email domain
-      // TODO: Hash password
       const user = await AuthService.registerEmployeeAutoJoin(
         email,
         name,
-        'placeholder-password-hash' // TODO: Replace with actual hash
+        password
       );
 
       if (!user) {
@@ -200,6 +228,39 @@ export class AuthController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Registration failed',
+      });
+    }
+  }
+
+  /**
+   * Logout user
+   * POST /api/auth/logout
+   */
+  static async logout(req: Request, res: Response): Promise<void> {
+    try {
+      const sessionId = req.cookies.sessionId;
+
+      if (sessionId) {
+        // Delete session from database
+        await SessionModel.deleteBySessionId(sessionId);
+      }
+
+      // Clear session cookie
+      res.clearCookie('sessionId', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+      });
+
+      res.json({
+        success: true,
+        message: 'Logged out successfully',
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Logout failed',
       });
     }
   }

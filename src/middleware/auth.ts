@@ -1,53 +1,62 @@
 /**
  * Authentication Middleware
- * Verifies JWT tokens and attaches user to request
+ * Verifies session cookies and attaches user to request
  */
 
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../types';
+import { SessionModel } from '../models/Session';
 
 /**
- * Middleware to verify JWT token and authenticate user
+ * Middleware to verify session cookie and authenticate user
  */
-export function authenticate(
+export async function authenticate(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   try {
-    // TODO: Implement JWT verification
-    // For now, placeholder logic
-    
-    const authHeader = req.headers.authorization;
+    const sessionId = req.cookies?.sessionId;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!sessionId) {
       res.status(401).json({
         success: false,
-        error: 'No token provided',
+        error: 'Not authenticated. Please login.',
       });
       return;
     }
 
-    // TODO: Verify JWT token
-    // const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    // const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    
-    // TODO: Fetch user from database
-    // const user = await UserModel.findById(decoded.userId);
-    
-    // For now, placeholder user object
+    const session = await SessionModel.findBySessionId(sessionId);
+
+    if (!session) {
+      res.clearCookie('sessionId', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+      });
+
+      res.status(401).json({
+        success: false,
+        error: 'Invalid or expired session. Please login again.',
+      });
+      return;
+    }
+
+    await SessionModel.updateLastActivity(sessionId);
+
     req.user = {
-      id: 'placeholder-user-id',
-      email: 'placeholder@example.com',
-      companyId: 'placeholder-company-id',
-      role: 'EMPLOYEE' as any,
+      id: session.userId,
+      email: session.email,
+      companyId: session.companyId,
+      role: session.userRole,
     };
 
     next();
   } catch (error) {
     res.status(401).json({
       success: false,
-      error: 'Invalid or expired token',
+      error: 'Authentication failed',
     });
   }
 }
@@ -68,8 +77,6 @@ export function requireCompanyAdmin(
     return;
   }
 
-  // TODO: Check if user is actually a company admin
-  // For now, placeholder check
   if (req.user.role !== 'COMPANY_ADMIN') {
     res.status(403).json({
       success: false,
@@ -80,4 +87,3 @@ export function requireCompanyAdmin(
 
   next();
 }
-

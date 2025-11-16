@@ -83,6 +83,7 @@ model User {
   // Relations
   company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   sentInvitations Invitation[] @relation("InvitedBy")
+  sessions      Session[]
   
   @@index([email])
   @@index([companyId])
@@ -109,5 +110,26 @@ model Invitation {
   @@index([companyId])
   @@index([token])
   @@index([status])
+  @@index([expiresAt])
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  sessionId   String   @unique @map("session_id")
+  userId      String   @map("user_id")
+  companyId   String   @map("company_id")
+  userRole    UserRole @map("user_role")
+  email       String
+  expiresAt   DateTime @map("expires_at")
+  lastActivity DateTime @default(now()) @map("last_activity")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([userId])
+  @@index([companyId])
   @@index([expiresAt])
 }

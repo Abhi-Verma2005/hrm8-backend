@@ -8,6 +8,7 @@ import { UserModel } from '../../models/User';
 import { CompanyService } from '../company/CompanyService';
 import { extractEmailDomain } from '../../utils/domain';
 import { normalizeEmail } from '../../utils/email';
+import { comparePassword, hashPassword } from '../../utils/password';
 
 export class AuthService {
   /**
@@ -17,15 +18,19 @@ export class AuthService {
     companyId: string,
     email: string,
     name: string,
-    passwordHash: string
+    password: string,
+    activate: boolean = false
   ): Promise<User> {
+    // Hash password
+    const passwordHash = await hashPassword(password);
+
     const user = await UserModel.create({
       email: normalizeEmail(email),
       name: name.trim(),
       passwordHash,
       companyId,
       role: UserRole.COMPANY_ADMIN,
-      status: UserStatus.PENDING_VERIFICATION,
+      status: activate ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION,
       isCompanyAdmin: true,
     });
 
@@ -39,8 +44,11 @@ export class AuthService {
     companyId: string,
     email: string,
     name: string,
-    passwordHash: string
+    password: string
   ): Promise<User> {
+    // Hash password
+    const passwordHash = await hashPassword(password);
+
     const user = await UserModel.create({
       email: normalizeEmail(email),
       name: name.trim(),
@@ -60,7 +68,7 @@ export class AuthService {
   static async registerEmployeeAutoJoin(
     email: string,
     name: string,
-    passwordHash: string
+    password: string
   ): Promise<User | null> {
     // Extract email domain
     const emailDomain = extractEmailDomain(email);
@@ -74,6 +82,9 @@ export class AuthService {
 
     // Check if company is verified (optional requirement)
     // You might want to allow auto-join only for verified companies
+
+    // Hash password
+    const passwordHash = await hashPassword(password);
 
     // Create employee user
     const user = await UserModel.create({
@@ -91,30 +102,59 @@ export class AuthService {
 
   /**
    * Login user
+   * Returns user if successful, null if invalid credentials, or throws error with status code for specific cases
    */
-  static async login(loginData: LoginRequest): Promise<User | null> {
-    // TODO: Implement password verification
-    // For now, placeholder logic
-    
+  static async login(loginData: LoginRequest): Promise<{ user: User } | { error: string; status: number }> {
+    // Find user by email
     const user = await UserModel.findByEmail(normalizeEmail(loginData.email));
     
     if (!user) {
-      return null;
+      return { error: 'Invalid email or password', status: 401 };
     }
 
-    // TODO: Verify password hash matches
-    // const isValidPassword = await bcrypt.compare(loginData.password, user.passwordHash);
-    // if (!isValidPassword) return null;
+    // Verify password
+    const isValidPassword = await comparePassword(
+      loginData.password,
+      user.passwordHash
+    );
 
-    // Check if user is active
+    if (!isValidPassword) {
+      return { error: 'Invalid email or password', status: 401 };
+    }
+
+    // Check user status
+    if (user.status === UserStatus.PENDING_VERIFICATION) {
+      return { 
+        error: 'Your account is pending verification. Please verify your email to activate your account.', 
+        status: 403 
+      };
+    }
+
+    if (user.status === UserStatus.INACTIVE) {
+      return { 
+        error: 'Your account has been deactivated. Please contact your administrator.', 
+        status: 403 
+      };
+    }
+
+    if (user.status === UserStatus.INVITED) {
+      return { 
+        error: 'Please accept your invitation and set up your password first.', 
+        status: 403 
+      };
+    }
+
     if (user.status !== UserStatus.ACTIVE) {
-      return null;
+      return { 
+        error: 'Your account is not active. Please contact your administrator.', 
+        status: 403 
+      };
     }
 
     // Update last login
     await UserModel.updateLastLogin(user.id);
 
-    return user;
+    return { user };
   }
 
   /**
