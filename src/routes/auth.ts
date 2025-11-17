@@ -9,6 +9,7 @@ import {
   validateCompanyRegistration,
   validateLogin,
   validateAcceptInvitation,
+  validateResendVerification,
 } from '../validators/auth';
 
 const router: RouterType = Router();
@@ -44,6 +45,13 @@ router.post(
 router.post(
   '/verify-company',
   AuthController.verifyCompany
+);
+
+// Resend verification email for pending company admins
+router.post(
+  '/resend-verification',
+  validateResendVerification,
+  AuthController.resendVerification
 );
 
 // Get current user (requires authentication)

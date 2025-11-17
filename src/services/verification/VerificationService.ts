@@ -12,6 +12,16 @@ import { emailService } from '../email/EmailService';
 import { UserModel } from '../../models/User';
 import { normalizeEmail } from '../../utils/email';
 
+class VerificationResendError extends Error {
+  status: number;
+
+  constructor(message: string, status: number = 400) {
+    super(message);
+    this.name = 'VerificationResendError';
+    this.status = status;
+  }
+}
+
 export class VerificationService {
   /**
    * Verify company using email domain check (automatic)
@@ -54,7 +64,7 @@ export class VerificationService {
   static async initiateEmailVerification(
     company: Company,
     adminEmail: string
-  ): Promise<{ verificationToken: string; method: VerificationMethod }> {
+  ): Promise<{ verificationToken: string; method: VerificationMethod; expiresAt: Date }> {
     // Generate verification token
     const token = generateVerificationToken();
     
@@ -85,6 +95,7 @@ export class VerificationService {
     return {
       verificationToken: token,
       method: VerificationMethod.VERIFICATION_EMAIL,
+      expiresAt,
     };
   }
 
@@ -193,6 +204,41 @@ export class VerificationService {
     
     // If domain doesn't match, use email verification
     return VerificationMethod.VERIFICATION_EMAIL;
+  }
+
+  /**
+   * Resend verification email for a pending admin user
+   */
+  static async resendVerificationEmail(
+    email: string
+  ): Promise<{ email: string; companyId: string; expiresAt: Date }> {
+    const normalizedEmail = normalizeEmail(email);
+    const user = await UserModel.findByEmail(normalizedEmail);
+
+    if (!user) {
+      throw new VerificationResendError('No account found for this email address.', 404);
+    }
+
+    if (user.status !== UserStatus.PENDING_VERIFICATION) {
+      throw new VerificationResendError('This account has already been verified.', 409);
+    }
+
+    const company = await CompanyModel.findById(user.companyId);
+
+    if (!company) {
+      throw new VerificationResendError(
+        'Company associated with this account could not be found.',
+        404
+      );
+    }
+
+    const { expiresAt } = await this.initiateEmailVerification(company, normalizedEmail);
+
+    return {
+      email: normalizedEmail,
+      companyId: company.id,
+      expiresAt,
+    };
   }
 }
 

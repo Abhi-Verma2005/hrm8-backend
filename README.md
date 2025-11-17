@@ -85,3 +85,8 @@ EMAIL_FROM_NAME=HRM8
 
 For detailed endpoint documentation, see the route files in `src/routes/`.
 
+## Pending Verification Flow
+
+- `POST /api/auth/resend-verification` allows pending company admins to request a new verification email. Provide the registered email in the body (`{ "email": "admin@corp.com" }`). The backend re-issues a token (24h expiry) only if the account is still awaiting verification.
+- `POST /api/auth/login` now returns structured error metadata when authentication fails. When status `403` is accompanied by `details.code === 'PENDING_VERIFICATION'`, the frontend should redirect the user to the “Check your email” screen and offer the resend action above. Other codes include `INVALID_CREDENTIALS`, `ACCOUNT_INACTIVE`, `INVITATION_PENDING`, and `ACCOUNT_NOT_ACTIVE`.
+

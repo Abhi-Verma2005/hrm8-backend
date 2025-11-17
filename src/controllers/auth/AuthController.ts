@@ -91,6 +91,7 @@ export class AuthController {
         res.status(result.status).json({
           success: false,
           error: result.error,
+          ...(result.details ? { details: result.details } : {}),
         });
         return;
       }
@@ -353,6 +354,41 @@ export class AuthController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Verification failed',
+      });
+    }
+  }
+
+  /**
+   * Resend verification email for pending company admins
+   * POST /api/auth/resend-verification
+   */
+  static async resendVerification(req: Request, res: Response): Promise<void> {
+    try {
+      const { email } = req.body as { email: string };
+
+      const result = await VerificationService.resendVerificationEmail(email);
+
+      res.json({
+        success: true,
+        data: {
+          message: 'Verification email sent. Please check your inbox.',
+          ...result,
+        },
+      });
+    } catch (error) {
+      console.error('[AuthController.resendVerification] Failed to resend verification email', {
+        email: req.body?.email,
+        error,
+      });
+
+      const status =
+        error instanceof Error && 'status' in error && typeof (error as { status?: number }).status === 'number'
+          ? (error as { status: number }).status
+          : 400;
+
+      res.status(status).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resend verification email',
       });
     }
   }
