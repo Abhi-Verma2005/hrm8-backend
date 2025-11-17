@@ -3,8 +3,8 @@
  * Handles company-related business logic
  */
 
-import { Company, CompanyRegistrationRequest, CompanyVerificationStatus } from '../../types';
-import { extractDomain } from '../../utils/domain';
+import { Company, CompanyRegistrationRequest, CompanyVerificationStatus, VerificationMethod } from '../../types';
+import { extractDomain, extractEmailDomain, doDomainsBelongToSameOrg } from '../../utils/domain';
 import { CompanyModel } from '../../models/Company';
 import { VerificationService } from '../verification/VerificationService';
 
@@ -17,11 +17,20 @@ export class CompanyService {
     registrationData: CompanyRegistrationRequest
   ): Promise<{
     company: Company;
-    verificationMethod: string;
+    verificationMethod: VerificationMethod;
     verificationRequired: boolean;
   }> {
     // Extract domain from website
     const domain = extractDomain(registrationData.companyWebsite);
+    const adminEmailDomain = extractEmailDomain(registrationData.adminEmail);
+
+    // Ensure the admin email belongs to the same organization as the company domain
+    const domainsMatch = doDomainsBelongToSameOrg(domain, adminEmailDomain);
+    if (!domainsMatch) {
+      throw new Error(
+        'Admin email domain must match your company website domain. Please use your corporate email address.'
+      );
+    }
 
     // Create company
     const company = await CompanyModel.create({
@@ -31,19 +40,13 @@ export class CompanyService {
       verificationStatus: CompanyVerificationStatus.PENDING,
     });
 
-    // Determine verification method based on email domain match
-    const verificationMethod = await VerificationService.determineVerificationMethod(
-      company,
-      registrationData.adminEmail
-    );
-
-    const verificationRequired = 
-      verificationMethod !== 'EMAIL_DOMAIN_CHECK'; // Only required if not auto-verified
+    // Always require verification email even after domain match
+    await VerificationService.initiateEmailVerification(company, registrationData.adminEmail);
 
     return {
       company,
-      verificationMethod: verificationMethod as string,
-      verificationRequired,
+      verificationMethod: VerificationMethod.VERIFICATION_EMAIL,
+      verificationRequired: true,
     };
   }
 

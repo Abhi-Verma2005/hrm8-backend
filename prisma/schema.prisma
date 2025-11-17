@@ -61,6 +61,7 @@ model Company {
   // Relations
   users             User[]
   invitations       Invitation[]
+  verificationTokens VerificationToken[]
   
   @@index([domain])
   @@index([verificationStatus])
@@ -131,5 +132,24 @@ model Session {
   @@index([sessionId])
   @@index([userId])
   @@index([companyId])
+  @@index([expiresAt])
+}
+
+model VerificationToken {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  email       String
+  token       String   @unique
+  expiresAt   DateTime @map("expires_at")
+  usedAt      DateTime? @map("used_at")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
+  @@index([email])
+  @@index([token])
   @@index([expiresAt])
 }

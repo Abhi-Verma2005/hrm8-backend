@@ -8,6 +8,7 @@ import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest, Auth
 import { CompanyService } from '../../services/company/CompanyService';
 import { AuthService } from '../../services/auth/AuthService';
 import { InvitationService } from '../../services/invitation/InvitationService';
+import { VerificationService } from '../../services/verification/VerificationService';
 import { SessionModel } from '../../models/Session';
 import { UserModel } from '../../models/User';
 import { generateSessionId, getSessionExpiration } from '../../utils/session';
@@ -29,14 +30,14 @@ export class AuthController {
         await CompanyService.registerCompany(registrationData);
 
       // Register company admin
-      // TODO: For testing purposes, user is always activated
-      // In production, this should be: !verificationRequired (only activate if auto-verified)
+      // Activate user only if email domain matches (auto-verified)
+      // Otherwise, user will be activated after email verification
       const adminUser = await AuthService.registerCompanyAdmin(
         company.id,
         registrationData.adminEmail,
         registrationData.adminName,
         registrationData.password,
-        true // Always activate user for testing purposes
+        !verificationRequired // Only activate if auto-verified via email domain check
       );
 
       res.status(201).json({
@@ -279,6 +280,59 @@ export class AuthController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get user',
+      });
+    }
+  }
+
+  /**
+   * Verify company via email token (public route, no authentication required)
+   * POST /api/auth/verify-company
+   */
+  static async verifyCompany(req: Request, res: Response): Promise<void> {
+    try {
+      const { token, companyId } = req.body;
+
+      if (!token || !companyId) {
+        res.status(400).json({
+          success: false,
+          error: 'Token and companyId are required',
+        });
+        return;
+      }
+
+      console.log('[VerifyCompany] Incoming request', {
+        companyId,
+        tokenSnippet: token.slice(0, 6) + '***',
+      });
+
+      const result = await VerificationService.verifyByEmailToken(companyId, token);
+
+      console.log('[VerifyCompany] Verification result', {
+        companyId,
+        verified: result.verified,
+        error: result.error,
+        email: result.email,
+      });
+
+      if (!result.verified) {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Invalid or expired verification token',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: { 
+          message: 'Company verified successfully. You can now login.',
+          email: result.email, // Return email for frontend to use for auto-login
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Verification failed',
       });
     }
   }

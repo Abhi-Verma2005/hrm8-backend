@@ -8,6 +8,24 @@
  * @param website - Website URL (e.g., "https://www.tata.com" or "www.tata.com" or "tata.com")
  * @returns Extracted domain (e.g., "tata.com")
  */
+const MULTI_LEVEL_TLDS = new Set([
+  'co.uk',
+  'ac.uk',
+  'gov.uk',
+  'org.uk',
+  'co.in',
+  'ac.in',
+  'gov.in',
+  'com.au',
+  'net.au',
+  'org.au',
+  'com.br',
+  'com.sg',
+  'com.hk',
+  'com.tr',
+  'com.sa',
+]);
+
 export function extractDomain(website: string): string {
   try {
     // Remove protocol if present
@@ -53,7 +71,7 @@ export function extractEmailDomain(email: string): string {
 export function isEmailDomainMatching(email: string, companyDomain: string): boolean {
   try {
     const emailDomain = extractEmailDomain(email);
-    return emailDomain === companyDomain.toLowerCase();
+    return doDomainsBelongToSameOrg(companyDomain, emailDomain);
   } catch {
     return false;
   }
@@ -67,5 +85,35 @@ export function isEmailDomainMatching(email: string, companyDomain: string): boo
 export function isValidDomain(domain: string): boolean {
   const domainRegex = /^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i;
   return domainRegex.test(domain);
+}
+
+/**
+ * Normalize a domain to its registrable/base domain (handles common multi-level TLDs)
+ */
+function getRegistrableDomain(domain: string): string {
+  const sanitized = domain.trim().toLowerCase();
+  const parts = sanitized.split('.').filter(Boolean);
+
+  if (parts.length <= 2) {
+    return parts.join('.');
+  }
+
+  const lastTwo = parts.slice(-2).join('.');
+  if (MULTI_LEVEL_TLDS.has(lastTwo) && parts.length >= 3) {
+    return parts.slice(-3).join('.');
+  }
+
+  return lastTwo;
+}
+
+/**
+ * Determine if two domains belong to the same organization (base domain comparison)
+ */
+export function doDomainsBelongToSameOrg(companyDomain: string, otherDomain: string): boolean {
+  if (!companyDomain || !otherDomain) {
+    return false;
+  }
+
+  return getRegistrableDomain(companyDomain) === getRegistrableDomain(otherDomain);
 }
 

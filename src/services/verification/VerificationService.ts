@@ -3,9 +3,14 @@
  * Handles all company verification logic (domain check, email verification, manual)
  */
 
-import { Company, CompanyVerificationStatus, VerificationMethod } from '../../types';
+import { Company, CompanyVerificationStatus, VerificationMethod, UserStatus } from '../../types';
 import { extractEmailDomain } from '../../utils/domain';
 import { CompanyModel } from '../../models/Company';
+import { VerificationTokenModel } from '../../models/VerificationToken';
+import { generateVerificationToken } from '../../utils/token';
+import { emailService } from '../email/EmailService';
+import { UserModel } from '../../models/User';
+import { normalizeEmail } from '../../utils/email';
 
 export class VerificationService {
   /**
@@ -28,6 +33,12 @@ export class VerificationService {
         CompanyVerificationStatus.VERIFIED,
         VerificationMethod.EMAIL_DOMAIN_CHECK
       );
+
+      // Activate the admin user
+      const user = await UserModel.findByEmail(normalizeEmail(adminEmail));
+      if (user && user.status === UserStatus.PENDING_VERIFICATION) {
+        await UserModel.updateStatus(user.id, UserStatus.ACTIVE);
+      }
     }
 
     return {
@@ -44,19 +55,35 @@ export class VerificationService {
     company: Company,
     adminEmail: string
   ): Promise<{ verificationToken: string; method: VerificationMethod }> {
-    // TODO: Generate verification token and send email
-    // For now, return a placeholder token
+    // Generate verification token
+    const token = generateVerificationToken();
     
-    const verificationToken = 'placeholder-token'; // TODO: Generate actual token
+    // Set expiration (24 hours from now)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
 
-    // TODO: Send verification email
-    // await EmailService.sendVerificationEmail(adminEmail, verificationToken, company.name);
-    // Use company and adminEmail when implementing email service
-    void company;
-    void adminEmail;
+    // Store token in database
+    await VerificationTokenModel.create({
+      companyId: company.id,
+      email: adminEmail,
+      token,
+      expiresAt,
+    });
+
+    // Generate verification URL
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+    const verificationUrl = `${frontendUrl}/verify-company?token=${token}&companyId=${company.id}`;
+
+    // Send verification email
+    await emailService.sendVerificationEmail(
+      adminEmail,
+      token,
+      company.name,
+      verificationUrl
+    );
 
     return {
-      verificationToken,
+      verificationToken: token,
       method: VerificationMethod.VERIFICATION_EMAIL,
     };
   }
@@ -67,27 +94,65 @@ export class VerificationService {
   static async verifyByEmailToken(
     companyId: string,
     token: string
-  ): Promise<boolean> {
-    // TODO: Validate token and verify company
-    // This would check the token against stored verification tokens
-    
+  ): Promise<{ verified: boolean; email?: string; error?: string }> {
+    // Get token data first to check if it exists
+    const tokenData = await VerificationTokenModel.findByToken(token);
+    if (!tokenData) {
+      console.warn('[VerifyByEmailToken] Token not found', { tokenSnippet: token.slice(0, 6) + '***' });
+      return { verified: false, error: 'Invalid verification token' };
+    }
+
+    // Verify company ID matches
+    if (tokenData.companyId !== companyId) {
+      console.warn('[VerifyByEmailToken] Token company mismatch', {
+        tokenCompanyId: tokenData.companyId,
+        requestedCompanyId: companyId,
+      });
+      return { verified: false, error: 'Token does not match company' };
+    }
+
+    // Validate token (check expiration and usage)
+    const isValid = await VerificationTokenModel.isValidToken(token);
+    if (!isValid) {
+      if (tokenData.usedAt) {
+        console.warn('[VerifyByEmailToken] Token already used', { tokenSnippet: token.slice(0, 6) + '***' });
+        return { verified: false, error: 'This verification link has already been used' };
+      }
+      if (tokenData.expiresAt < new Date()) {
+        console.warn('[VerifyByEmailToken] Token expired', {
+          tokenSnippet: token.slice(0, 6) + '***',
+          expiresAt: tokenData.expiresAt,
+        });
+        return { verified: false, error: 'This verification link has expired. Please request a new one.' };
+      }
+      console.warn('[VerifyByEmailToken] Token invalid for unknown reason');
+      return { verified: false, error: 'Invalid verification token' };
+    }
+
+    // Verify company exists before updating
     const company = await CompanyModel.findById(companyId);
     if (!company) {
-      return false;
+      console.error('[VerifyByEmailToken] Company not found', { companyId });
+      return { verified: false, error: 'Company not found' };
     }
 
-    // TODO: Verify token matches stored token
-    // For now, placeholder logic - token validation logic will be implemented
-    if (token === 'valid-token') {
-      await CompanyModel.updateVerificationStatus(
-        companyId,
-        CompanyVerificationStatus.VERIFIED,
-        VerificationMethod.VERIFICATION_EMAIL
-      );
-      return true;
+    // Mark token as used
+    await VerificationTokenModel.markAsUsed(tokenData.id);
+
+    // Update company verification status (only update, never create)
+    await CompanyModel.updateVerificationStatus(
+      companyId,
+      CompanyVerificationStatus.VERIFIED,
+      VerificationMethod.VERIFICATION_EMAIL
+    );
+
+    // Activate the admin user
+    const user = await UserModel.findByEmail(normalizeEmail(tokenData.email));
+    if (user && user.status === UserStatus.PENDING_VERIFICATION) {
+      await UserModel.updateStatus(user.id, UserStatus.ACTIVE);
     }
 
-    return false;
+    return { verified: true, email: tokenData.email };
   }
 
   /**

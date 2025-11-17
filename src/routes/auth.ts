@@ -40,6 +40,12 @@ router.post(
   AuthController.acceptInvitation
 );
 
+// Verify company via email token (public route, no authentication required)
+router.post(
+  '/verify-company',
+  AuthController.verifyCompany
+);
+
 // Get current user (requires authentication)
 router.get(
   '/me',

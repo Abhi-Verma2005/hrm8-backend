@@ -78,12 +78,22 @@ export class CompanyModel {
 
   /**
    * Update company verification status
+   * Only updates existing company, never creates a new one
    */
   static async updateVerificationStatus(
     id: string,
     status: CompanyVerificationStatus,
     method?: VerificationMethod
   ): Promise<Company> {
+    // Verify company exists first
+    const existingCompany = await prisma.company.findUnique({
+      where: { id },
+    });
+
+    if (!existingCompany) {
+      throw new Error(`Company with id ${id} not found. Cannot update verification status.`);
+    }
+
     const updateData: Prisma.CompanyUpdateInput = {
       verificationStatus: status,
     };

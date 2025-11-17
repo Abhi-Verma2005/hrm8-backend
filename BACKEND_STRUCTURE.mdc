@@ -1,0 +1,241 @@
+---
+alwaysApply: true
+---
+
+# Backend Architecture & Code Structure (Manual Documentation)
+
+> **Manual Reference File**: This file is maintained by the developer. Cursor AI will update `BACKEND_STRUCTURE.md` and notify you to update this file.
+
+This file serves as your reference copy of the backend structure. When Cursor updates `BACKEND_STRUCTURE.md` after significant changes, review the changes and update this file accordingly.
+
+## How This Works
+
+1. Cursor AI will update `BACKEND_STRUCTURE.md` when it makes significant architectural changes
+2. Cursor will notify you: "Please update `BACKEND_STRUCTURE.mdc` based on the changes in `BACKEND_STRUCTURE.md`"
+3. You review the changes and update this `.mdc` file to match
+
+---
+
+## Architecture Overview
+
+The backend follows a **layered architecture** pattern with clear separation of concerns:
+
+```
+Routes → Controllers → Services → Models → Database (Prisma)
+         ↓              ↓          ↓
+      Validators    Middleware   Utils
+```
+
+### Layer Responsibilities
+
+1. **Routes** (`src/routes/`): Define HTTP endpoints and middleware chain
+2. **Controllers** (`src/controllers/`): Handle HTTP requests/responses, delegate to services
+3. **Services** (`src/services/`): Business logic layer
+4. **Models** (`src/models/`): Data access layer (Prisma abstraction)
+5. **Database**: PostgreSQL via Prisma ORM
+
+## Directory Structure
+
+```
+backend/
+├── src/
+│   ├── server.ts              # Express app entry point
+│   ├── routes/                # Route definitions
+│   │   ├── index.ts           # Main router (combines all routes)
+│   │   ├── auth.ts
+│   │   ├── company.ts
+│   │   └── employee.ts
+│   ├── controllers/           # HTTP request handlers
+│   │   ├── auth/
+│   │   │   └── AuthController.ts
+│   │   ├── company/
+│   │   │   └── CompanyController.ts
+│   │   └── employee/
+│   │       └── EmployeeController.ts
+│   ├── services/              # Business logic
+│   │   ├── auth/
+│   │   │   └── AuthService.ts
+│   │   ├── company/
+│   │   │   └── CompanyService.ts
+│   │   ├── invitation/
+│   │   │   └── InvitationService.ts
+│   │   └── verification/
+│   │       └── VerificationService.ts
+│   ├── models/                # Data access layer
+│   │   ├── User.ts
+│   │   ├── Company.ts
+│   │   ├── Session.ts
+│   │   └── Invitation.ts
+│   ├── middleware/            # Express middleware
+│   │   ├── auth.ts            # Authentication middleware
+│   │   └── companyIsolation.ts # Company data isolation
+│   ├── validators/            # Request validation middleware
+│   │   └── auth.ts
+│   ├── utils/                 # Pure utility functions
+│   │   ├── email.ts
+│   │   ├── password.ts
+│   │   ├── domain.ts
+│   │   ├── session.ts
+│   │   └── token.ts
+│   ├── types/                 # TypeScript type definitions
+│   │   └── index.ts
+│   ├── config/                # Configuration files
+│   │   └── session.ts
+│   └── lib/                   # Library setup
+│       └── prisma.ts          # Prisma client singleton
+├── prisma/
+│   └── schema.prisma          # Database schema
+└── dist/                      # Compiled JavaScript (generated)
+
+```
+
+## Code Patterns
+
+### 1. Models (Data Access Layer)
+
+**Pattern**: Static class with static methods for database operations
+
+**Key Points**:
+- All methods are `static`
+- Methods return domain types (from `types/index.ts`), not Prisma types
+- Private mapping methods convert Prisma → Domain types
+- Handle Prisma-specific errors (e.g., unique constraint violations)
+- Custom errors extend `Error` (e.g., `CompanyAlreadyExistsError`)
+
+### 2. Services (Business Logic)
+
+**Pattern**: Static class with static methods containing business logic
+
+**Key Points**:
+- Use `Model` classes for database access
+- Use `utils/` functions for pure operations
+- Return either success data or error objects
+- Don't throw errors - return error objects for controllers to handle
+- Services don't know about HTTP (no req/res)
+
+### 3. Controllers (HTTP Layer)
+
+**Pattern**: Static class with static async methods handling HTTP
+
+**Key Points**:
+- Methods return `Promise<void>` (use `res.json()` instead of return)
+- Always use try-catch
+- Standard response format: `{ success: boolean, data?: any, error?: string, errors?: string[] }`
+- Check for error objects from services
+- Handle specific error types (e.g., `CompanyAlreadyExistsError`)
+- Set cookies for session management
+
+### 4. Routes
+
+**Pattern**: Express router with middleware chain
+
+**Key Points**:
+- Import controllers and middleware
+- Apply validators before controllers
+- Apply auth middleware for protected routes
+- Export default router
+
+### 5. Middleware
+
+**Pattern**: Express middleware functions
+
+**Key Points**:
+- Use `AuthenticatedRequest` type for authenticated routes
+- Attach data to `req` object (e.g., `req.user`, `req.companyScope`)
+- Call `next()` on success, send response on error
+- Don't proceed on error (return early)
+
+### 6. Validators
+
+**Pattern**: Express middleware validating request data
+
+**Key Points**:
+- Validate request body/params/query
+- Collect all errors in array
+- Return 400 with errors array if validation fails
+- Call `next()` if validation passes
+
+### 7. Utils
+
+**Pattern**: Pure functions (no side effects)
+
+**Key Points**:
+- Pure functions only
+- No dependencies on models/services/controllers
+- Reusable across layers
+- Well-documented with JSDoc
+
+## Type System
+
+### Domain Types (`src/types/index.ts`)
+
+- Define interfaces matching Prisma schema
+- Re-export Prisma enums for convenience
+- Define request/response DTOs
+- Define middleware context types (`AuthenticatedRequest`, `CompanyContext`)
+
+## Authentication Flow
+
+1. User sends credentials → `/api/auth/login`
+2. Controller calls `AuthService.login()`
+3. Service validates credentials using `UserModel`
+4. On success, create session via `SessionModel.create()`
+5. Set HTTP-only cookie with session ID
+6. Subsequent requests include cookie
+7. `authenticate` middleware validates session
+8. Attach user to `req.user`
+
+## Company Isolation
+
+All company-scoped operations must:
+1. Use `enforceCompanyIsolation` middleware (validates params/body match user's company)
+2. Use `scopeToCompany` middleware (adds `req.companyScope` for queries)
+3. Never allow cross-company data access
+
+## Response Format
+
+**Success Response**:
+```json
+{
+  "success": true,
+  "data": { ... }
+}
+```
+
+**Error Response**:
+```json
+{
+  "success": false,
+  "error": "Error message",
+  "errors": ["Validation error 1", "Validation error 2"]
+}
+```
+
+## Error Handling
+
+1. **Validation Errors**: Return 400 with `errors` array
+2. **Authentication Errors**: Return 401
+3. **Authorization Errors**: Return 403
+4. **Not Found Errors**: Return 404
+5. **Business Logic Errors**: Return appropriate 4xx status
+6. **Server Errors**: Return 500 with generic message (detailed in dev mode)
+
+## Database Access
+
+- **Always use Models**: Never use Prisma client directly in Services/Controllers
+- **Prisma Client**: Only in Models and `lib/prisma.ts` (singleton)
+- **Transactions**: Use Prisma transactions in Models when needed
+- **Migrations**: Use `pnpm db:migrate` for schema changes
+
+## Code Style
+
+1. **JSDoc Comments**: All public methods must have JSDoc
+2. **File Headers**: Each file should have a descriptive header comment
+3. **Exports**: Use named exports for classes, default exports for routes
+4. **Async/Await**: Always use async/await (no promises chains)
+5. **Type Safety**: Use TypeScript strictly, avoid `any`
+6. **Error Objects**: Return error objects from services instead of throwing
+
+## Notes
+
+_Add your own notes and observations here as you work with the codebase._
