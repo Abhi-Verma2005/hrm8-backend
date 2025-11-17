@@ -80,19 +80,7 @@ class EmailService {
         text: this.getVerificationEmailText(companyName, verificationUrl, token),
       };
 
-      const info = await transporter.sendMail(mailOptions);
-      
-      // In development without SMTP, log the email
-      if (!process.env.SMTP_USER) {
-        console.log('📧 Verification Email (Development Mode):');
-        console.log('To:', email);
-        console.log('Subject:', mailOptions.subject);
-        console.log('Verification URL:', verificationUrl);
-        console.log('Token:', token);
-        console.log('---');
-      } else {
-        console.log('Verification email sent:', info.messageId);
-      }
+      await transporter.sendMail(mailOptions);
     } catch (error) {
       console.error('Failed to send verification email:', error);
       throw new Error('Failed to send verification email');
