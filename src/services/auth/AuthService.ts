@@ -104,12 +104,20 @@ export class AuthService {
    * Login user
    * Returns user if successful, null if invalid credentials, or throws error with status code for specific cases
    */
-  static async login(loginData: LoginRequest): Promise<{ user: User } | { error: string; status: number }> {
+  static async login(
+    loginData: LoginRequest
+  ): Promise<
+    { user: User } | { error: string; status: number; details?: Record<string, unknown> }
+  > {
     // Find user by email
     const user = await UserModel.findByEmail(normalizeEmail(loginData.email));
     
     if (!user) {
-      return { error: 'Invalid email or password', status: 401 };
+      return { 
+        error: 'Invalid email or password', 
+        status: 401,
+        details: { code: 'INVALID_CREDENTIALS' },
+      };
     }
 
     // Verify password
@@ -119,35 +127,47 @@ export class AuthService {
     );
 
     if (!isValidPassword) {
-      return { error: 'Invalid email or password', status: 401 };
+      return { 
+        error: 'Invalid email or password', 
+        status: 401,
+        details: { code: 'INVALID_CREDENTIALS' },
+      };
     }
 
     // Check user status
     if (user.status === UserStatus.PENDING_VERIFICATION) {
       return { 
         error: 'Your account is pending verification. Please verify your email to activate your account.', 
-        status: 403 
+        status: 403,
+        details: { 
+          code: 'PENDING_VERIFICATION', 
+          email: user.email,
+          companyId: user.companyId,
+        },
       };
     }
 
     if (user.status === UserStatus.INACTIVE) {
       return { 
         error: 'Your account has been deactivated. Please contact your administrator.', 
-        status: 403 
+        status: 403,
+        details: { code: 'ACCOUNT_INACTIVE' },
       };
     }
 
     if (user.status === UserStatus.INVITED) {
       return { 
         error: 'Please accept your invitation and set up your password first.', 
-        status: 403 
+        status: 403,
+        details: { code: 'INVITATION_PENDING' },
       };
     }
 
     if (user.status !== UserStatus.ACTIVE) {
       return { 
         error: 'Your account is not active. Please contact your administrator.', 
-        status: 403 
+        status: 403,
+        details: { code: 'ACCOUNT_NOT_ACTIVE' },
       };
     }
 

@@ -181,3 +181,30 @@ export function validateEmployeeSignup(
   next();
 }
 
+/**
+ * Validate resend verification request
+ */
+export function validateResendVerification(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const { email } = req.body as { email?: string };
+  const errors: string[] = [];
+
+  if (!email || !isValidEmail(email)) {
+    errors.push('Valid email is required');
+  }
+
+  if (errors.length > 0) {
+    res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      errors,
+    });
+    return;
+  }
+
+  next();
+}
+

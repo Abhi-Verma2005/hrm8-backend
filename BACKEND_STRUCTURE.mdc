@@ -185,6 +185,14 @@ backend/
 7. `authenticate` middleware validates session
 8. Attach user to `req.user`
 
+## Recent Auth Enhancements
+
+- `/api/auth/login` now includes structured `details.code` values (e.g., `PENDING_VERIFICATION`, `INVALID_CREDENTIALS`, `ACCOUNT_INACTIVE`) so clients can respond contextually instead of string-matching.
+- New `/api/auth/resend-verification` endpoint validates the email, ensures the admin is still `PENDING_VERIFICATION`, and reissues a 24h token while returning metadata (`email`, `companyId`, `expiresAt`) for UI messaging.
+- `VerificationService.resendVerificationEmail` reuses `initiateEmailVerification`, centralizing the email delivery + token persistence flow and throwing typed errors with HTTP status hints for the controller.
+- Validators now include `validateResendVerification`, which protects the resend endpoint from malformed payloads before it reaches the controller.
+
+
 ## Company Isolation
 
 All company-scoped operations must:
