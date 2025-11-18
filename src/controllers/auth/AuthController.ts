@@ -4,7 +4,7 @@
  */
 
 import { Request, Response } from 'express';
-import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest, AuthenticatedRequest } from '../../types';
+import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest, AuthenticatedRequest, UserStatus } from '../../types';
 import { CompanyService } from '../../services/company/CompanyService';
 import { AuthService } from '../../services/auth/AuthService';
 import { InvitationService } from '../../services/invitation/InvitationService';
@@ -53,7 +53,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AuthController.registerCompany] Registration failed', error);
       // Handle specific errors
       if (error instanceof CompanyAlreadyExistsError) {
         res.status(409).json({
@@ -84,10 +83,6 @@ export class AuthController {
 
       // Check if login returned an error
       if ('error' in result) {
-        console.error('[AuthController.login] Login failed', {
-          email: loginData.email,
-          error: result.error,
-        });
         res.status(result.status).json({
           success: false,
           error: result.error,
@@ -139,7 +134,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AuthController.login] Unexpected error during login', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Login failed',
@@ -161,9 +155,6 @@ export class AuthController {
       const invitation = await InvitationService.findByToken(token);
 
       if (!invitation) {
-        console.error('[AuthController.acceptInvitation] Invitation not found', {
-          tokenSnippet: token.slice(0, 6) + '***',
-        });
         res.status(404).json({
           success: false,
           error: 'Invitation not found',
@@ -173,10 +164,6 @@ export class AuthController {
 
       // Check if invitation is valid
       if (!InvitationService.isInvitationValid(invitation)) {
-        console.error('[AuthController.acceptInvitation] Invitation invalid', {
-          tokenSnippet: token.slice(0, 6) + '***',
-          status: invitation.status,
-        });
         res.status(400).json({
           success: false,
           error: 'Invitation is expired or already used',
@@ -203,7 +190,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AuthController.acceptInvitation] Failed to accept invitation', error);
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to accept invitation',
@@ -227,9 +213,6 @@ export class AuthController {
       );
 
       if (!user) {
-        console.error('[AuthController.registerEmployee] No company for email domain', {
-          emailDomain: email.split('@')[1]?.toLowerCase(),
-        });
         res.status(400).json({
           success: false,
           error: 'No company found for this email domain. Please contact your company admin for an invitation.',
@@ -245,7 +228,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AuthController.registerEmployee] Failed to register employee', error);
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Registration failed',
@@ -260,7 +242,6 @@ export class AuthController {
   static async getCurrentUser(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       if (!req.user) {
-        console.error('[AuthController.getCurrentUser] Unauthorized access attempt');
         res.status(401).json({
           success: false,
           error: 'Not authenticated',
@@ -271,9 +252,6 @@ export class AuthController {
       // Get user details from database
       const user = await UserModel.findById(req.user.id);
       if (!user) {
-        console.error('[AuthController.getCurrentUser] User not found', {
-          userId: req.user.id,
-        });
         res.status(404).json({
           success: false,
           error: 'User not found',
@@ -299,7 +277,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AuthController.getCurrentUser] Failed to fetch current user', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get user',
@@ -316,10 +293,6 @@ export class AuthController {
       const { token, companyId } = req.body;
 
       if (!token || !companyId) {
-        console.error('[AuthController.verifyCompany] Missing token or companyId', {
-          hasToken: Boolean(token),
-          companyId,
-        });
         res.status(400).json({
           success: false,
           error: 'Token and companyId are required',
@@ -327,13 +300,21 @@ export class AuthController {
         return;
       }
 
+      console.log('[VerifyCompany] Incoming request', {
+        companyId,
+        tokenSnippet: token.slice(0, 6) + '***',
+      });
+
       const result = await VerificationService.verifyByEmailToken(companyId, token);
 
+      console.log('[VerifyCompany] Verification result', {
+        companyId,
+        verified: result.verified,
+        error: result.error,
+        email: result.email,
+      });
+
       if (!result.verified) {
-        console.error('[AuthController.verifyCompany] Verification failed', {
-          companyId,
-          error: result.error,
-        });
         res.status(400).json({
           success: false,
           error: result.error || 'Invalid or expired verification token',
@@ -341,6 +322,63 @@ export class AuthController {
         return;
       }
 
+      // After successful verification, automatically create a session for the user
+      // since they've proven their identity via email verification
+      if (result.email) {
+        const user = await UserModel.findByEmail(result.email);
+        
+        if (user && user.status === UserStatus.ACTIVE) {
+          // Generate session ID
+          const sessionId = generateSessionId();
+          const expiresAt = getSessionExpiration(24); // 24 hours
+
+          // Create session in database
+          await SessionModel.create(
+            sessionId,
+            user.id,
+            user.companyId,
+            user.role,
+            user.email,
+            expiresAt
+          );
+
+          // Set session cookie
+          res.cookie('sessionId', sessionId, {
+            httpOnly: true, // Prevent XSS attacks
+            secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Lax for local development, strict for production
+            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+            path: '/', // Available on all routes
+            domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Don't set domain for localhost
+          });
+
+          // Update last login
+          await UserModel.updateLastLogin(user.id);
+
+          // Get company name
+          const company = await CompanyService.findById(user.companyId);
+          const companyName = company?.name || '';
+
+          res.json({
+            success: true,
+            data: { 
+              message: 'Company verified successfully. You have been automatically logged in.',
+              email: result.email,
+              user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                companyId: user.companyId,
+                companyName,
+              },
+            },
+          });
+          return;
+        }
+      }
+
+      // Fallback: verification succeeded but couldn't create session
       res.json({
         success: true,
         data: { 
@@ -349,7 +387,6 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AuthController.verifyCompany] Unexpected error during verification', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Verification failed',
@@ -383,7 +420,6 @@ export class AuthController {
         message: 'Logged out successfully',
       });
     } catch (error) {
-      console.error('[AuthController.logout] Logout failed', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Logout failed',

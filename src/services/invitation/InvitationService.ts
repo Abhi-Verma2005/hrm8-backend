@@ -6,8 +6,10 @@
 import { Invitation, InvitationStatus, EmployeeInvitationRequest } from '../../types';
 import { InvitationModel } from '../../models/Invitation';
 import { UserModel } from '../../models/User';
+import { CompanyService } from '../company/CompanyService';
 import { generateInvitationToken } from '../../utils/token';
 import { normalizeEmail, isValidEmail } from '../../utils/email';
+import { emailService } from '../email/EmailService';
 
 export class InvitationService {
   /**
@@ -69,8 +71,23 @@ export class InvitationService {
           expiresAt,
         });
 
-        // TODO: Send invitation email
-        // await EmailService.sendInvitationEmail(email, token, companyName);
+        // Send invitation email
+        try {
+          const company = await CompanyService.findById(companyId);
+          if (company) {
+            const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+            const invitationUrl = `${baseUrl}/accept-invitation?token=${token}`;
+            await emailService.sendInvitationEmail(
+              normalizedEmail,
+              token,
+              company.name,
+              invitationUrl
+            );
+          }
+        } catch (error) {
+          // Log error but don't fail the invitation creation
+          console.error('Failed to send invitation email:', error);
+        }
 
         sent.push(normalizedEmail);
       } catch (error) {

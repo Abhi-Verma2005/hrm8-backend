@@ -8,24 +8,6 @@
  * @param website - Website URL (e.g., "https://www.tata.com" or "www.tata.com" or "tata.com")
  * @returns Extracted domain (e.g., "tata.com")
  */
-const MULTI_LEVEL_TLDS = new Set([
-  'co.uk',
-  'ac.uk',
-  'gov.uk',
-  'org.uk',
-  'co.in',
-  'ac.in',
-  'gov.in',
-  'com.au',
-  'net.au',
-  'org.au',
-  'com.br',
-  'com.sg',
-  'com.hk',
-  'com.tr',
-  'com.sa',
-]);
-
 export function extractDomain(website: string): string {
   try {
     // Remove protocol if present
@@ -71,7 +53,7 @@ export function extractEmailDomain(email: string): string {
 export function isEmailDomainMatching(email: string, companyDomain: string): boolean {
   try {
     const emailDomain = extractEmailDomain(email);
-    return doDomainsBelongToSameOrg(companyDomain, emailDomain);
+    return emailDomain === companyDomain.toLowerCase();
   } catch {
     return false;
   }
@@ -88,32 +70,41 @@ export function isValidDomain(domain: string): boolean {
 }
 
 /**
- * Normalize a domain to its registrable/base domain (handles common multi-level TLDs)
+ * Check if two domains belong to the same organization
+ * This compares the base domains (e.g., "tata.com" matches "tata.com")
+ * @param domain1 - First domain
+ * @param domain2 - Second domain
+ * @returns true if domains belong to the same organization
  */
-function getRegistrableDomain(domain: string): string {
-  const sanitized = domain.trim().toLowerCase();
-  const parts = sanitized.split('.').filter(Boolean);
-
-  if (parts.length <= 2) {
-    return parts.join('.');
-  }
-
-  const lastTwo = parts.slice(-2).join('.');
-  if (MULTI_LEVEL_TLDS.has(lastTwo) && parts.length >= 3) {
-    return parts.slice(-3).join('.');
-  }
-
-  return lastTwo;
-}
-
-/**
- * Determine if two domains belong to the same organization (base domain comparison)
- */
-export function doDomainsBelongToSameOrg(companyDomain: string, otherDomain: string): boolean {
-  if (!companyDomain || !otherDomain) {
+export function doDomainsBelongToSameOrg(domain1: string, domain2: string): boolean {
+  try {
+    // Normalize both domains
+    const normalized1 = domain1.toLowerCase().trim();
+    const normalized2 = domain2.toLowerCase().trim();
+    
+    // Direct match
+    if (normalized1 === normalized2) {
+      return true;
+    }
+    
+    // Extract base domain (remove subdomains)
+    // For example: "mail.tata.com" -> "tata.com"
+    const getBaseDomain = (domain: string): string => {
+      const parts = domain.split('.');
+      // If domain has 2 or fewer parts, return as is
+      if (parts.length <= 2) {
+        return domain;
+      }
+      // Return last two parts (e.g., "tata.com" from "mail.tata.com")
+      return parts.slice(-2).join('.');
+    };
+    
+    const base1 = getBaseDomain(normalized1);
+    const base2 = getBaseDomain(normalized2);
+    
+    return base1 === base2;
+  } catch {
     return false;
   }
-
-  return getRegistrableDomain(companyDomain) === getRegistrableDomain(otherDomain);
 }
 

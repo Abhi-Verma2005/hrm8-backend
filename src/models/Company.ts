@@ -67,13 +67,35 @@ export class CompanyModel {
 
   /**
    * Find company by domain
+   * Tries exact match first, then base domain match (for subdomains)
    */
   static async findByDomain(domain: string): Promise<Company | null> {
-    const company = await prisma.company.findUnique({
-      where: { domain: domain.toLowerCase() },
+    const normalizedDomain = domain.toLowerCase().trim();
+    
+    // Try exact match first
+    let company = await prisma.company.findUnique({
+      where: { domain: normalizedDomain },
     });
 
-    return company ? this.mapPrismaToCompany(company) : null;
+    if (company) {
+      return this.mapPrismaToCompany(company);
+    }
+
+    // If no exact match, try to find by base domain (for subdomain matching)
+    // e.g., if searching for "mail.company.com", try "company.com"
+    const domainParts = normalizedDomain.split('.');
+    if (domainParts.length > 2) {
+      const baseDomain = domainParts.slice(-2).join('.');
+      company = await prisma.company.findUnique({
+        where: { domain: baseDomain },
+      });
+      
+      if (company) {
+        return this.mapPrismaToCompany(company);
+      }
+    }
+
+    return null;
   }
 
   /**

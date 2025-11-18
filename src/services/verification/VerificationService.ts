@@ -98,13 +98,13 @@ export class VerificationService {
     // Get token data first to check if it exists
     const tokenData = await VerificationTokenModel.findByToken(token);
     if (!tokenData) {
-      console.error('[VerifyByEmailToken] Token not found', { tokenSnippet: token.slice(0, 6) + '***' });
+      console.warn('[VerifyByEmailToken] Token not found', { tokenSnippet: token.slice(0, 6) + '***' });
       return { verified: false, error: 'Invalid verification token' };
     }
 
     // Verify company ID matches
     if (tokenData.companyId !== companyId) {
-      console.error('[VerifyByEmailToken] Token company mismatch', {
+      console.warn('[VerifyByEmailToken] Token company mismatch', {
         tokenCompanyId: tokenData.companyId,
         requestedCompanyId: companyId,
       });
@@ -115,17 +115,17 @@ export class VerificationService {
     const isValid = await VerificationTokenModel.isValidToken(token);
     if (!isValid) {
       if (tokenData.usedAt) {
-        console.error('[VerifyByEmailToken] Token already used', { tokenSnippet: token.slice(0, 6) + '***' });
+        console.warn('[VerifyByEmailToken] Token already used', { tokenSnippet: token.slice(0, 6) + '***' });
         return { verified: false, error: 'This verification link has already been used' };
       }
       if (tokenData.expiresAt < new Date()) {
-        console.error('[VerifyByEmailToken] Token expired', {
+        console.warn('[VerifyByEmailToken] Token expired', {
           tokenSnippet: token.slice(0, 6) + '***',
           expiresAt: tokenData.expiresAt,
         });
         return { verified: false, error: 'This verification link has expired. Please request a new one.' };
       }
-      console.error('[VerifyByEmailToken] Token invalid for unknown reason');
+      console.warn('[VerifyByEmailToken] Token invalid for unknown reason');
       return { verified: false, error: 'Invalid verification token' };
     }
 

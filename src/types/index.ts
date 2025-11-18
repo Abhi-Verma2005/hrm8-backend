@@ -11,6 +11,7 @@ import {
   CompanyVerificationStatus,
   VerificationMethod,
   InvitationStatus,
+  SignupRequestStatus,
 } from '@prisma/client';
 
 export {
@@ -19,6 +20,7 @@ export {
   CompanyVerificationStatus,
   VerificationMethod,
   InvitationStatus,
+  SignupRequestStatus,
 };
 
 // ============================================================================
@@ -67,6 +69,20 @@ export interface Invitation {
   expiresAt: Date;
   acceptedAt?: Date;
   createdAt: Date;
+}
+
+export interface SignupRequest {
+  id: string;
+  companyId: string;
+  email: string;
+  name: string;
+  passwordHash: string;
+  status: SignupRequestStatus;
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  rejectionReason?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // ============================================================================
@@ -129,6 +145,22 @@ export interface CompanyVerificationRequest {
     registrationNumber?: string;
     linkedInUrl?: string;
   };
+}
+
+export interface EmployeeSignupRequest {
+  email: string;
+  name: string;
+  password: string;
+  companyDomain?: string; // Optional: if provided, will try to find company by domain
+}
+
+export interface ApproveSignupRequest {
+  requestId: string;
+}
+
+export interface RejectSignupRequest {
+  requestId: string;
+  reason?: string;
 }
 
 // ============================================================================

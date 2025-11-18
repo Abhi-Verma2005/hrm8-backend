@@ -3,7 +3,7 @@
 # Authentication Flow Test Script
 # This script tests the complete session-based cookie authentication flow
 
-BASE_URL="http://localhost:3000"
+BASE_URL="http://localhost:8080"
 COOKIE_JAR="cookies.txt"
 
 # Colors for output

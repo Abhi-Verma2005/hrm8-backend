@@ -4,11 +4,13 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { AuthController } from '../controllers/auth/AuthController';
+import { SignupRequestController } from '../controllers/signupRequest/SignupRequestController';
 import { authenticate } from '../middleware/auth';
 import {
   validateCompanyRegistration,
   validateLogin,
   validateAcceptInvitation,
+  validateEmployeeSignup,
 } from '../validators/auth';
 
 const router: RouterType = Router();
@@ -24,6 +26,13 @@ router.post(
 router.post(
   '/register/employee',
   AuthController.registerEmployee
+);
+
+// Direct employee signup (creates signup request)
+router.post(
+  '/signup',
+  validateEmployeeSignup,
+  SignupRequestController.createSignupRequest
 );
 
 // Login

@@ -7,6 +7,7 @@ import { Router, type Router as RouterType } from 'express';
 import authRoutes from './auth';
 import companyRoutes from './company';
 import employeeRoutes from './employee';
+import signupRequestRoutes from './signupRequest';
 
 const router: RouterType = Router();
 
@@ -14,6 +15,7 @@ const router: RouterType = Router();
 router.use('/api/auth', authRoutes);
 router.use('/api/companies', companyRoutes);
 router.use('/api/employees', employeeRoutes);
+router.use('/api/signup-requests', signupRequestRoutes);
 
 export default router;
 

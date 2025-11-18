@@ -40,6 +40,12 @@ enum InvitationStatus {
   CANCELLED
 }
 
+enum SignupRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Company {
   id                String                    @id @default(uuid())
   name              String
@@ -62,6 +68,7 @@ model Company {
   users             User[]
   invitations       Invitation[]
   verificationTokens VerificationToken[]
+  signupRequests    SignupRequest[]
   
   @@index([domain])
   @@index([verificationStatus])
@@ -85,6 +92,7 @@ model User {
   company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   sentInvitations Invitation[] @relation("InvitedBy")
   sessions      Session[]
+  reviewedSignupRequests SignupRequest[] @relation("ReviewedBy")
   
   @@index([email])
   @@index([companyId])
@@ -152,4 +160,28 @@ model VerificationToken {
   @@index([email])
   @@index([token])
   @@index([expiresAt])
+}
+
+model SignupRequest {
+  id          String              @id @default(uuid())
+  companyId   String              @map("company_id")
+  email       String
+  name        String
+  passwordHash String              @map("password_hash")
+  status      SignupRequestStatus @default(PENDING)
+  reviewedBy  String?             @map("reviewed_by")
+  reviewedAt  DateTime?           @map("reviewed_at")
+  rejectionReason String?         @map("rejection_reason")
+  
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  
+  // Relations
+  company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reviewer    User?              @relation("ReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  
+  @@index([email])
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
 }
