@@ -7,7 +7,7 @@ import { Request, Response } from 'express';
 import { CompanyService } from '../../services/company/CompanyService';
 import { VerificationService } from '../../services/verification/VerificationService';
 import { CompanyProfileService } from '../../services/company/CompanyProfileService';
-import { UpdateCompanyProfileRequest } from '../../types';
+import { UpdateCompanyProfileRequest, AuthenticatedRequest } from '../../types';
 
 export class CompanyController {
   /**
@@ -154,12 +154,21 @@ export class CompanyController {
    * Update onboarding profile section
    * PUT /api/companies/:id/profile
    */
-  static async updateProfile(req: Request, res: Response): Promise<void> {
+  static async updateProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const payload: UpdateCompanyProfileRequest = req.body;
+      const userId = req.user?.id;
 
-      const profile = await CompanyProfileService.updateSection(id, payload);
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Not authenticated',
+        });
+        return;
+      }
+
+      const profile = await CompanyProfileService.updateSection(id, payload, userId);
 
       res.json({
         success: true,

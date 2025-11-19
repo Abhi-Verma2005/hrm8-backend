@@ -25,6 +25,7 @@ import {
   OPTIONAL_PROFILE_SECTION_KEYS,
   REQUIRED_PROFILE_SECTION_KEYS,
 } from '../../constants/companyProfile';
+import { InvitationService } from '../invitation/InvitationService';
 
 const REQUIRED_SECTION_ENUMS = COMPANY_PROFILE_SECTIONS.filter((section) => section.required).map(
   (section) => section.enumValue
@@ -68,7 +69,8 @@ export class CompanyProfileService {
    */
   static async updateSection(
     companyId: string,
-    payload: UpdateCompanyProfileRequest
+    payload: UpdateCompanyProfileRequest,
+    invitedBy?: string
   ): Promise<CompanyProfile> {
     const profile = await CompanyProfileModel.getOrCreate(companyId);
     const normalizedData = profile.profileData || {};
@@ -77,11 +79,35 @@ export class CompanyProfileService {
       throw new Error(`Unknown section ${payload.section}`);
     }
 
+    // Get existing team members data before update
+    const existingTeamMembers = (normalizedData.teamMembers as CompanyProfileData['teamMembers']) || { invites: [] };
+    const existingInviteEmails = new Set(
+      existingTeamMembers.invites?.map((invite) => invite.email.toLowerCase()) || []
+    );
+
     const updatedData = this.applySectionUpdate(
       normalizedData,
       payload.section,
       payload.data
     );
+
+    // Send invitation emails for new team members
+    if (payload.section === 'teamMembers' && invitedBy) {
+      const teamMembersData = updatedData.teamMembers as CompanyProfileData['teamMembers'];
+      const newInvites = teamMembersData?.invites?.filter(
+        (invite) => !existingInviteEmails.has(invite.email.toLowerCase())
+      ) || [];
+
+      if (newInvites.length > 0) {
+        try {
+          const emails = newInvites.map((invite) => invite.email);
+          await InvitationService.sendInvitations(companyId, invitedBy, { emails });
+        } catch (error) {
+          // Log error but don't fail the profile update
+          console.error('Failed to send team member invitations:', error);
+        }
+      }
+    }
 
     const completedSections = this.calculateCompletedSections(
       profile.completedSections,
