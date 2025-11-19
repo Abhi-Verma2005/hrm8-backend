@@ -27,6 +27,21 @@ enum CompanyVerificationStatus {
   REJECTED
 }
 
+enum CompanyProfileStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum CompanyProfileSection {
+  BASIC_DETAILS
+  PRIMARY_LOCATION
+  PERSONAL_PROFILE
+  TEAM_MEMBERS
+  BILLING
+  BRANDING
+}
+
 enum VerificationMethod {
   EMAIL_DOMAIN_CHECK
   VERIFICATION_EMAIL
@@ -71,9 +86,27 @@ model Company {
   invitations       Invitation[]
   verificationTokens VerificationToken[]
   signupRequests    SignupRequest[]
+  profile           CompanyProfile?
   
   @@index([domain])
   @@index([verificationStatus])
+}
+
+model CompanyProfile {
+  id                   String                 @id @default(uuid())
+  companyId            String                 @unique @map("company_id")
+  status               CompanyProfileStatus   @default(NOT_STARTED)
+  completionPercentage Int                    @default(0) @map("completion_percentage")
+  completedSections    CompanyProfileSection[] @default([]) @map("completed_sections")
+  profileData          Json?                  @map("profile_data")
+  lastReminderAt       DateTime?              @map("last_reminder_at")
+  skipUntil            DateTime?              @map("skip_until")
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 model User {

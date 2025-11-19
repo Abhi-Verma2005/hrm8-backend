@@ -6,6 +6,8 @@
 import { Request, Response } from 'express';
 import { CompanyService } from '../../services/company/CompanyService';
 import { VerificationService } from '../../services/verification/VerificationService';
+import { CompanyProfileService } from '../../services/company/CompanyProfileService';
+import { UpdateCompanyProfileRequest } from '../../types';
 
 export class CompanyController {
   /**
@@ -124,6 +126,75 @@ export class CompanyController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to initiate verification',
+      });
+    }
+  }
+
+  /**
+   * Get company onboarding profile
+   * GET /api/companies/:id/profile
+   */
+  static async getProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const data = await CompanyProfileService.getProgress(id);
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to load profile',
+      });
+    }
+  }
+
+  /**
+   * Update onboarding profile section
+   * PUT /api/companies/:id/profile
+   */
+  static async updateProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const payload: UpdateCompanyProfileRequest = req.body;
+
+      const profile = await CompanyProfileService.updateSection(id, payload);
+
+      res.json({
+        success: true,
+        data: {
+          profile,
+        },
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update profile',
+      });
+    }
+  }
+
+  /**
+   * Complete onboarding profile
+   * POST /api/companies/:id/profile/complete
+   */
+  static async completeProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const profile = await CompanyProfileService.completeProfile(id);
+
+      res.json({
+        success: true,
+        data: {
+          profile,
+          message: 'Company profile completed successfully.',
+        },
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to complete profile',
       });
     }
   }

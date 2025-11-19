@@ -9,6 +9,8 @@ import {
   UserRole,
   UserStatus,
   CompanyVerificationStatus,
+  CompanyProfileStatus,
+  CompanyProfileSection,
   VerificationMethod,
   InvitationStatus,
   SignupRequestStatus,
@@ -18,6 +20,8 @@ export {
   UserRole,
   UserStatus,
   CompanyVerificationStatus,
+  CompanyProfileStatus,
+  CompanyProfileSection,
   VerificationMethod,
   InvitationStatus,
   SignupRequestStatus,
@@ -43,6 +47,115 @@ export interface Company {
     registrationNumber?: string;
     linkedInUrl?: string;
   };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CompanyProfilePhone {
+  countryCode: string;
+  number: string;
+  type?: 'mobile' | 'work' | 'office' | 'fax' | 'other';
+}
+
+export interface CompanyProfileLocation {
+  id: string;
+  name: string;
+  streetAddress: string;
+  city: string;
+  stateOrRegion: string;
+  postalCode: string;
+  country: string;
+  isPrimary?: boolean;
+}
+
+export interface CompanyProfileBasicDetails {
+  companyName: string;
+  companySize: string;
+  industries: string[];
+  phone: CompanyProfilePhone;
+  websiteUrl?: string;
+  yearFounded?: number;
+  overview?: string;
+  logoUrl?: string;
+  iconUrl?: string;
+}
+
+export interface CompanyProfilePersonalInfo {
+  positionTitle?: string;
+  phone?: CompanyProfilePhone;
+  location?: string;
+}
+
+export interface CompanyProfileTeamMemberInvite {
+  email: string;
+  role: string;
+  authorizationLevel?: string;
+  approvalLevel?: string;
+  status?: 'pending' | 'accepted' | 'declined';
+}
+
+export interface CompanyProfileBillingData {
+  paymentPreference?: 'payg' | 'subscription';
+  subscriptionPlan?: string;
+  registeredBusinessName?: string;
+  taxId?: string;
+  registeredCountry?: string;
+  isCharity?: boolean;
+  supportingDocuments?: Array<{ id: string; name: string; url: string }>;
+  paymentMethod?: {
+    type: 'card' | 'invoice' | 'bank';
+    last4?: string;
+    brand?: string;
+  };
+  billingAddress?: {
+    street: string;
+    city: string;
+    stateOrRegion: string;
+    postalCode: string;
+    country: string;
+  };
+  accountsEmail?: string;
+}
+
+export interface CompanyProfileBrandingData {
+  careersPageEnabled?: boolean;
+  subdomain?: string;
+  brandColor?: string;
+  companyIntroduction?: string;
+  logoUrl?: string;
+  iconUrl?: string;
+}
+
+export type CompanyProfileSectionKey =
+  | 'basicDetails'
+  | 'primaryLocation'
+  | 'personalProfile'
+  | 'teamMembers'
+  | 'billing'
+  | 'branding';
+
+export interface CompanyProfileData {
+  basicDetails?: CompanyProfileBasicDetails;
+  primaryLocation?: CompanyProfileLocation;
+  additionalLocations?: CompanyProfileLocation[];
+  personalProfile?: CompanyProfilePersonalInfo;
+  teamMembers?: {
+    invites: CompanyProfileTeamMemberInvite[];
+    defaultAdminId?: string;
+  };
+  billing?: CompanyProfileBillingData;
+  branding?: CompanyProfileBrandingData;
+}
+
+export interface CompanyProfile {
+  id: string;
+  companyId: string;
+  status: CompanyProfileStatus;
+  completionPercentage: number;
+  completedSections: CompanyProfileSection[];
+  profileData?: CompanyProfileData;
+  lastReminderAt?: Date;
+  skipUntil?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -103,6 +216,18 @@ export interface CompanyRegistrationRequest {
   password: string;
   countryOrRegion: string;
   acceptTerms: boolean;
+}
+
+export interface UpdateCompanyProfileRequest {
+  section: CompanyProfileSectionKey;
+  data: Record<string, unknown>;
+  markComplete?: boolean;
+}
+
+export interface CompanyProfileProgressResponse {
+  profile: CompanyProfile;
+  requiredSections: CompanyProfileSectionKey[];
+  optionalSections: CompanyProfileSectionKey[];
 }
 
 export interface CompanyRegistrationResponse {

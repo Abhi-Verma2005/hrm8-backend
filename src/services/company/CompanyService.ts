@@ -7,6 +7,7 @@ import { Company, CompanyRegistrationRequest, CompanyVerificationStatus, Verific
 import { extractDomain, extractEmailDomain, doDomainsBelongToSameOrg } from '../../utils/domain';
 import { CompanyModel } from '../../models/Company';
 import { VerificationService } from '../verification/VerificationService';
+import { CompanyProfileService } from './CompanyProfileService';
 
 export class CompanyService {
   /**
@@ -41,6 +42,9 @@ export class CompanyService {
       acceptedTerms: registrationData.acceptTerms,
       verificationStatus: CompanyVerificationStatus.PENDING,
     });
+
+    // Initialize onboarding profile for company
+    await CompanyProfileService.initializeProfile(company.id);
 
     // Always require verification email even after domain match
     await VerificationService.initiateEmailVerification(company, registrationData.adminEmail);

@@ -80,7 +80,7 @@ class EmailService {
         text: this.getVerificationEmailText(companyName, verificationUrl, token),
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      await transporter.sendMail(mailOptions);
       
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
@@ -90,8 +90,6 @@ class EmailService {
         console.log('Verification URL:', verificationUrl);
         console.log('Token:', token);
         console.log('---');
-      } else {
-        console.log('Verification email sent:', info.messageId);
       }
     } catch (error) {
       console.error('Failed to send verification email:', error);
@@ -199,7 +197,7 @@ The HRM8 Team
         text: this.getInvitationEmailText(companyName, invitationUrl, token),
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      await transporter.sendMail(mailOptions);
       
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
@@ -209,8 +207,6 @@ The HRM8 Team
         console.log('Invitation URL:', invitationUrl);
         console.log('Token:', token);
         console.log('---');
-      } else {
-        console.log('Invitation email sent:', info.messageId);
       }
     } catch (error) {
       console.error('Failed to send invitation email:', error);
@@ -334,7 +330,7 @@ The HRM8 Team
         ),
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      await transporter.sendMail(mailOptions);
       
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
@@ -344,8 +340,6 @@ The HRM8 Team
         console.log('Employee:', employeeName, `(${employeeEmail})`);
         console.log('Review URL:', reviewUrl);
         console.log('---');
-      } else {
-        console.log('Signup request notification sent:', info.messageId);
       }
     } catch (error) {
       console.error('Failed to send signup request notification:', error);
@@ -455,7 +449,7 @@ The HRM8 Team
         text: this.getSignupRequestApprovalText(name, companyName, loginUrl),
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      await transporter.sendMail(mailOptions);
       
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
@@ -464,8 +458,6 @@ The HRM8 Team
         console.log('Subject:', mailOptions.subject);
         console.log('Login URL:', loginUrl);
         console.log('---');
-      } else {
-        console.log('Signup request approval email sent:', info.messageId);
       }
     } catch (error) {
       console.error('Failed to send signup request approval email:', error);
@@ -566,7 +558,7 @@ The HRM8 Team
         text: this.getSignupRequestRejectionText(name, companyName, reason),
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      await transporter.sendMail(mailOptions);
       
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
@@ -577,8 +569,6 @@ The HRM8 Team
           console.log('Reason:', reason);
         }
         console.log('---');
-      } else {
-        console.log('Signup request rejection email sent:', info.messageId);
       }
     } catch (error) {
       console.error('Failed to send signup request rejection email:', error);

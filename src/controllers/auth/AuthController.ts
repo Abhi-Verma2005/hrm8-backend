@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest, AuthenticatedRequest, UserStatus } from '../../types';
 import { CompanyService } from '../../services/company/CompanyService';
+import { CompanyProfileService } from '../../services/company/CompanyProfileService';
 import { AuthService } from '../../services/auth/AuthService';
 import { InvitationService } from '../../services/invitation/InvitationService';
 import { VerificationService } from '../../services/verification/VerificationService';
@@ -20,45 +21,19 @@ export class AuthController {
    * POST /api/auth/register/company
    */
   static async registerCompany(req: Request, res: Response): Promise<void> {
-    console.log('[AUTH CONTROLLER] registerCompany - Starting registration', {
-      body: req.body,
-      hasBody: !!req.body,
-    });
-    
     try {
       const registrationData: CompanyRegistrationRequest = req.body;
-      console.log('[AUTH CONTROLLER] registerCompany - Registration data parsed', {
-        companyName: registrationData.companyName,
-        companyWebsite: registrationData.companyWebsite,
-        adminEmail: registrationData.adminEmail,
-        hasAdminFirstName: !!registrationData.adminFirstName,
-        hasAdminLastName: !!registrationData.adminLastName,
-        hasPassword: !!registrationData.password,
-      });
-      
       const adminFullName = `${registrationData.adminFirstName} ${registrationData.adminLastName}`.trim();
-      console.log('[AUTH CONTROLLER] registerCompany - Admin full name:', adminFullName);
 
       // TODO: Validate request data using validators
 
       // Register company
-      console.log('[AUTH CONTROLLER] registerCompany - Calling CompanyService.registerCompany');
       const { company, verificationMethod, verificationRequired } = 
         await CompanyService.registerCompany(registrationData);
-      console.log('[AUTH CONTROLLER] registerCompany - Company registered', {
-        companyId: company.id,
-        verificationMethod,
-        verificationRequired,
-      });
 
       // Register company admin
       // Activate user only if email domain matches (auto-verified)
       // Otherwise, user will be activated after email verification
-      console.log('[AUTH CONTROLLER] registerCompany - Calling AuthService.registerCompanyAdmin', {
-        companyId: company.id,
-        adminEmail: registrationData.adminEmail,
-        shouldActivate: !verificationRequired,
-      });
       const adminUser = await AuthService.registerCompanyAdmin(
         company.id,
         registrationData.adminEmail,
@@ -66,12 +41,7 @@ export class AuthController {
         registrationData.password,
         !verificationRequired // Only activate if auto-verified via email domain check
       );
-      console.log('[AUTH CONTROLLER] registerCompany - Admin user created', {
-        userId: adminUser.id,
-        email: adminUser.email,
-      });
 
-      console.log('[AUTH CONTROLLER] registerCompany - Sending success response');
       res.status(201).json({
         success: true,
         data: {
@@ -85,15 +55,8 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('[AUTH CONTROLLER] registerCompany - Error occurred', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        errorType: error instanceof CompanyAlreadyExistsError ? 'CompanyAlreadyExistsError' : 'Unknown',
-      });
-      
       // Handle specific errors
       if (error instanceof CompanyAlreadyExistsError) {
-        console.log('[AUTH CONTROLLER] registerCompany - Company already exists, returning 409');
         res.status(409).json({
           success: false,
           error: error.message,
@@ -102,7 +65,6 @@ export class AuthController {
       }
 
       // Handle other errors
-      console.log('[AUTH CONTROLLER] registerCompany - Returning 400 error');
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Registration failed',
@@ -161,6 +123,8 @@ export class AuthController {
       const company = await CompanyService.findById(user.companyId);
       const companyName = company?.name || '';
 
+      const profile = await CompanyProfileService.getProfileSummary(user.companyId);
+
       res.json({
         success: true,
         data: {
@@ -172,6 +136,7 @@ export class AuthController {
             companyId: user.companyId,
             companyName,
           },
+          profile,
         },
       });
     } catch (error) {
@@ -304,6 +269,8 @@ export class AuthController {
       const company = await CompanyService.findById(user.companyId);
       const companyName = company?.name || '';
 
+      const profile = await CompanyProfileService.getProfileSummary(user.companyId);
+
       res.json({
         success: true,
         data: {
@@ -315,6 +282,7 @@ export class AuthController {
             companyId: user.companyId,
             companyName,
           },
+          profile,
         },
       });
     } catch (error) {
@@ -341,19 +309,7 @@ export class AuthController {
         return;
       }
 
-      console.log('[VerifyCompany] Incoming request', {
-        companyId,
-        tokenSnippet: token.slice(0, 6) + '***',
-      });
-
       const result = await VerificationService.verifyByEmailToken(companyId, token);
-
-      console.log('[VerifyCompany] Verification result', {
-        companyId,
-        verified: result.verified,
-        error: result.error,
-        email: result.email,
-      });
 
       if (!result.verified) {
         res.status(400).json({
@@ -400,6 +356,8 @@ export class AuthController {
           const company = await CompanyService.findById(user.companyId);
           const companyName = company?.name || '';
 
+          const profile = await CompanyProfileService.getProfileSummary(user.companyId);
+
           res.json({
             success: true,
             data: { 
@@ -413,6 +371,7 @@ export class AuthController {
                 companyId: user.companyId,
                 companyName,
               },
+              profile,
             },
           });
           return;
