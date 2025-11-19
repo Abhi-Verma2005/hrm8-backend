@@ -31,9 +31,12 @@ RESPONSE=$(curl -s -X POST "$BASE_URL/api/auth/register/company" \
   -d '{
     "companyName": "Tata Motors",
     "companyWebsite": "https://www.tatamotors.com",
+    "adminFirstName": "Admin",
+    "adminLastName": "User",
     "adminEmail": "admin@tatamotors.com",
-    "adminName": "Admin User",
-    "password": "TestPassword123"
+    "password": "TestPassword123",
+    "countryOrRegion": "India",
+    "acceptTerms": true
   }')
 
 echo "$RESPONSE" | jq '.'

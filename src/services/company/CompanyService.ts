@@ -37,6 +37,8 @@ export class CompanyService {
       name: registrationData.companyName,
       website: registrationData.companyWebsite,
       domain: domain,
+      countryOrRegion: registrationData.countryOrRegion.trim(),
+      acceptedTerms: registrationData.acceptTerms,
       verificationStatus: CompanyVerificationStatus.PENDING,
     });
 

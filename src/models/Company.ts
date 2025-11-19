@@ -27,6 +27,8 @@ export class CompanyModel {
           name: companyData.name,
           website: companyData.website,
           domain: companyData.domain,
+          countryOrRegion: companyData.countryOrRegion,
+          acceptedTerms: companyData.acceptedTerms,
           verificationStatus: companyData.verificationStatus,
           verificationMethod: companyData.verificationMethod,
           verifiedAt: companyData.verificationData?.verifiedAt,
@@ -200,6 +202,8 @@ export class CompanyModel {
     name: string;
     website: string;
     domain: string;
+    countryOrRegion: string;
+    acceptedTerms: boolean;
     verificationStatus: CompanyVerificationStatus;
     verificationMethod: VerificationMethod | null;
     verifiedAt: Date | null;
@@ -215,6 +219,8 @@ export class CompanyModel {
       name: prismaCompany.name,
       website: prismaCompany.website,
       domain: prismaCompany.domain,
+      countryOrRegion: prismaCompany.countryOrRegion,
+      acceptedTerms: prismaCompany.acceptedTerms,
       verificationStatus: prismaCompany.verificationStatus,
       verificationMethod: prismaCompany.verificationMethod || undefined,
       verificationData: {

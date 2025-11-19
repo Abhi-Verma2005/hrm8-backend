@@ -21,7 +21,10 @@ export class SignupRequestService {
   static async createSignupRequest(
     signupData: EmployeeSignupRequest
   ): Promise<SignupRequest> {
-    const normalizedEmail = normalizeEmail(signupData.email);
+    const normalizedEmail = normalizeEmail(signupData.businessEmail);
+    const firstName = signupData.firstName.trim();
+    const lastName = signupData.lastName.trim();
+    const fullName = `${firstName} ${lastName}`.trim();
 
     // Validate email format
     if (!isValidEmail(normalizedEmail)) {
@@ -61,7 +64,10 @@ export class SignupRequestService {
     const signupRequest = await SignupRequestModel.create({
       companyId: company.id,
       email: normalizedEmail,
-      name: signupData.name.trim(),
+      name: fullName,
+      firstName,
+      lastName,
+      acceptedTerms: signupData.acceptTerms,
       passwordHash,
       status: SignupRequestStatus.PENDING,
     });

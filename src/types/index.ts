@@ -32,6 +32,8 @@ export interface Company {
   name: string;
   website: string;
   domain: string; // Extracted from website (e.g., "tata.com")
+  countryOrRegion: string;
+  acceptedTerms: boolean;
   verificationStatus: CompanyVerificationStatus;
   verificationMethod?: VerificationMethod;
   verificationData?: {
@@ -76,6 +78,9 @@ export interface SignupRequest {
   companyId: string;
   email: string;
   name: string;
+  firstName: string;
+  lastName: string;
+  acceptedTerms: boolean;
   passwordHash: string;
   status: SignupRequestStatus;
   reviewedBy?: string;
@@ -92,9 +97,12 @@ export interface SignupRequest {
 export interface CompanyRegistrationRequest {
   companyName: string;
   companyWebsite: string;
+  adminFirstName: string;
+  adminLastName: string;
   adminEmail: string;
-  adminName: string;
   password: string;
+  countryOrRegion: string;
+  acceptTerms: boolean;
 }
 
 export interface CompanyRegistrationResponse {
@@ -148,9 +156,11 @@ export interface CompanyVerificationRequest {
 }
 
 export interface EmployeeSignupRequest {
-  email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  businessEmail: string;
   password: string;
+  acceptTerms: boolean;
   companyDomain?: string; // Optional: if provided, will try to find company by domain
 }
 

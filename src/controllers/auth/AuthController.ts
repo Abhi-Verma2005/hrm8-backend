@@ -22,6 +22,7 @@ export class AuthController {
   static async registerCompany(req: Request, res: Response): Promise<void> {
     try {
       const registrationData: CompanyRegistrationRequest = req.body;
+      const adminFullName = `${registrationData.adminFirstName} ${registrationData.adminLastName}`.trim();
 
       // TODO: Validate request data using validators
 
@@ -35,7 +36,7 @@ export class AuthController {
       const adminUser = await AuthService.registerCompanyAdmin(
         company.id,
         registrationData.adminEmail,
-        registrationData.adminName,
+        adminFullName,
         registrationData.password,
         !verificationRequired // Only activate if auto-verified via email domain check
       );

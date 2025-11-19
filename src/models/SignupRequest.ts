@@ -18,6 +18,9 @@ export class SignupRequestModel {
         companyId: signupRequestData.companyId,
         email: signupRequestData.email.toLowerCase(),
         name: signupRequestData.name,
+        firstName: signupRequestData.firstName,
+        lastName: signupRequestData.lastName,
+        acceptedTerms: signupRequestData.acceptedTerms,
         passwordHash: signupRequestData.passwordHash,
         status: signupRequestData.status,
         reviewedBy: signupRequestData.reviewedBy,
@@ -159,6 +162,9 @@ export class SignupRequestModel {
     companyId: string;
     email: string;
     name: string;
+    firstName: string;
+    lastName: string;
+    acceptedTerms: boolean;
     passwordHash: string;
     status: SignupRequestStatus;
     reviewedBy: string | null;
@@ -172,6 +178,9 @@ export class SignupRequestModel {
       companyId: prismaSignupRequest.companyId,
       email: prismaSignupRequest.email,
       name: prismaSignupRequest.name,
+      firstName: prismaSignupRequest.firstName,
+      lastName: prismaSignupRequest.lastName,
+      acceptedTerms: prismaSignupRequest.acceptedTerms,
       passwordHash: prismaSignupRequest.passwordHash,
       status: prismaSignupRequest.status,
       reviewedBy: prismaSignupRequest.reviewedBy || undefined,

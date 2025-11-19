@@ -51,6 +51,8 @@ model Company {
   name              String
   website           String
   domain            String                    @unique // Extracted from website (e.g., "tata.com")
+  countryOrRegion   String                    @map("country_or_region") @default("")
+  acceptedTerms     Boolean                   @map("accepted_terms") @default(false)
   verificationStatus CompanyVerificationStatus @default(PENDING)
   verificationMethod VerificationMethod?
   
@@ -167,6 +169,9 @@ model SignupRequest {
   companyId   String              @map("company_id")
   email       String
   name        String
+  firstName   String              @map("first_name") @default("")
+  lastName    String              @map("last_name") @default("")
+  acceptedTerms Boolean           @map("accepted_terms") @default(false)
   passwordHash String              @map("password_hash")
   status      SignupRequestStatus @default(PENDING)
   reviewedBy  String?             @map("reviewed_by")

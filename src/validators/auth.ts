@@ -38,14 +38,24 @@ export function validateCompanyRegistration(
     }
   }
 
-  // Validate admin email
-  if (!data.adminEmail || !isValidEmail(data.adminEmail)) {
-    errors.push('Valid admin email is required');
+  // Validate admin first name
+  if (!data.adminFirstName || data.adminFirstName.trim().length < 2) {
+    errors.push('Admin first name is required and must be at least 2 characters');
   }
 
-  // Validate admin name
-  if (!data.adminName || data.adminName.trim().length < 2) {
-    errors.push('Admin name is required and must be at least 2 characters');
+  // Validate admin last name
+  if (!data.adminLastName || data.adminLastName.trim().length < 2) {
+    errors.push('Admin last name is required and must be at least 2 characters');
+  }
+
+  // Validate admin email
+  if (!data.adminEmail || !isValidEmail(data.adminEmail)) {
+    errors.push('Valid admin business email is required');
+  }
+
+  // Validate terms acceptance
+  if (data.acceptTerms !== true) {
+    errors.push('You must accept the Terms & Conditions and Privacy Policy');
   }
 
   // Validate password
@@ -142,19 +152,29 @@ export function validateEmployeeSignup(
   const data: EmployeeSignupRequest = req.body;
   const errors: string[] = [];
 
-  // Validate email
-  if (!data.email || !isValidEmail(data.email)) {
-    errors.push('Valid email is required');
+  // Validate first name
+  if (!data.firstName || data.firstName.trim().length < 2) {
+    errors.push('First name is required and must be at least 2 characters');
   }
 
-  // Validate name
-  if (!data.name || data.name.trim().length < 2) {
-    errors.push('Name is required and must be at least 2 characters');
+  // Validate last name
+  if (!data.lastName || data.lastName.trim().length < 2) {
+    errors.push('Last name is required and must be at least 2 characters');
+  }
+
+  // Validate business email
+  if (!data.businessEmail || !isValidEmail(data.businessEmail)) {
+    errors.push('Valid business email is required');
   }
 
   // Validate password
   if (!data.password || data.password.length < 8) {
     errors.push('Password is required and must be at least 8 characters');
+  }
+
+  // Validate terms acceptance
+  if (data.acceptTerms !== true) {
+    errors.push('You must accept the Terms & Conditions and Privacy Policy');
   }
 
   // Validate company domain (optional)
