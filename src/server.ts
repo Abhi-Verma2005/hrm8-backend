@@ -30,6 +30,19 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok' });
 });
 
+// Request logging middleware
+app.use((req, _res, next) => {
+  console.log('[SERVER] Incoming request', {
+    method: req.method,
+    url: req.url,
+    path: req.path,
+    origin: req.headers.origin,
+    'content-type': req.headers['content-type'],
+    timestamp: new Date().toISOString(),
+  });
+  next();
+});
+
 // API Routes
 app.use('/', routes);
 

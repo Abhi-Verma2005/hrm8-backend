@@ -19,6 +19,27 @@ const router: RouterType = Router();
 // Company registration
 router.post(
   '/register/company',
+  (req, _res, next) => {
+    console.log('[AUTH ROUTE] POST /register/company - Request received', {
+      method: req.method,
+      path: req.path,
+      body: {
+        companyName: req.body?.companyName,
+        companyWebsite: req.body?.companyWebsite,
+        adminEmail: req.body?.adminEmail,
+        adminFirstName: req.body?.adminFirstName,
+        adminLastName: req.body?.adminLastName,
+        countryOrRegion: req.body?.countryOrRegion,
+        acceptTerms: req.body?.acceptTerms,
+        hasPassword: !!req.body?.password,
+      },
+      headers: {
+        'content-type': req.headers['content-type'],
+        origin: req.headers.origin,
+      },
+    });
+    next();
+  },
   validateCompanyRegistration,
   AuthController.registerCompany
 );

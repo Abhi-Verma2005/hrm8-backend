@@ -16,6 +16,11 @@ export function validateCompanyRegistration(
   res: Response,
   next: NextFunction
 ): void {
+  console.log('[VALIDATOR] validateCompanyRegistration - Starting validation', {
+    body: req.body,
+    hasBody: !!req.body,
+  });
+  
   const data: CompanyRegistrationRequest = req.body;
   const errors: string[] = [];
 
@@ -64,6 +69,7 @@ export function validateCompanyRegistration(
   }
 
   if (errors.length > 0) {
+    console.log('[VALIDATOR] validateCompanyRegistration - Validation failed', { errors });
     res.status(400).json({
       success: false,
       error: 'Validation failed',
@@ -72,6 +78,7 @@ export function validateCompanyRegistration(
     return;
   }
 
+  console.log('[VALIDATOR] validateCompanyRegistration - Validation passed');
   next();
 }
 
