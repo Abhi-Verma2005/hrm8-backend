@@ -122,6 +122,8 @@ export class AuthController {
       // Get company name
       const company = await CompanyService.findById(user.companyId);
       const companyName = company?.name || '';
+      const companyWebsite = company?.website || '';
+      const companyDomain = company?.domain || '';
 
       const profile = await CompanyProfileService.getProfileSummary(user.companyId);
 
@@ -135,6 +137,8 @@ export class AuthController {
             role: user.role,
             companyId: user.companyId,
             companyName,
+            companyWebsite,
+            companyDomain,
           },
           profile,
         },
@@ -268,6 +272,8 @@ export class AuthController {
       // Get company name
       const company = await CompanyService.findById(user.companyId);
       const companyName = company?.name || '';
+      const companyWebsite = company?.website || '';
+      const companyDomain = company?.domain || '';
 
       const profile = await CompanyProfileService.getProfileSummary(user.companyId);
 
@@ -281,6 +287,8 @@ export class AuthController {
             role: user.role,
             companyId: user.companyId,
             companyName,
+            companyWebsite,
+            companyDomain,
           },
           profile,
         },
@@ -355,6 +363,8 @@ export class AuthController {
           // Get company name
           const company = await CompanyService.findById(user.companyId);
           const companyName = company?.name || '';
+          const companyWebsite = company?.website || '';
+          const companyDomain = company?.domain || '';
 
           const profile = await CompanyProfileService.getProfileSummary(user.companyId);
 
@@ -370,6 +380,8 @@ export class AuthController {
                 role: user.role,
                 companyId: user.companyId,
                 companyName,
+                companyWebsite,
+                companyDomain,
               },
               profile,
             },
