@@ -166,6 +166,76 @@ export class CompanyProfileService {
   static async getProgress(companyId: string) {
     const profile = await CompanyProfileModel.getOrCreate(companyId);
 
+    // Sync invitation statuses from Invitation table
+    const invitations = await InvitationService.getCompanyInvitations(companyId);
+    const invitationStatusMap = new Map<string, 'pending' | 'accepted' | 'declined'>();
+    
+    // Group invitations by email and use the most recent status for each
+    // Prioritize ACCEPTED status if it exists
+    invitations.forEach((invitation) => {
+      const email = invitation.email.toLowerCase();
+      let status: 'pending' | 'accepted' | 'declined' = 'pending';
+      
+      if (invitation.status === 'ACCEPTED') {
+        status = 'accepted';
+      } else if (invitation.status === 'CANCELLED' || invitation.status === 'EXPIRED') {
+        status = 'declined';
+      }
+      
+      const existingStatus = invitationStatusMap.get(email);
+      
+      // Always prefer ACCEPTED status if found
+      if (status === 'accepted') {
+        invitationStatusMap.set(email, status);
+      } else if (!existingStatus) {
+        // If no status set yet, use this one
+        invitationStatusMap.set(email, status);
+      }
+      // If existing status is 'accepted', keep it (don't overwrite)
+      // Otherwise, invitations are sorted by createdAt desc, so first one wins
+    });
+
+    // Update team members invites status if profile has team members data
+    if (profile.profileData?.teamMembers?.invites) {
+      let hasChanges = false;
+      const updatedInvites = profile.profileData.teamMembers.invites.map((invite) => {
+        const email = invite.email.toLowerCase();
+        const actualStatus = invitationStatusMap.get(email);
+        
+        if (actualStatus && invite.status !== actualStatus) {
+          hasChanges = true;
+          return {
+            ...invite,
+            status: actualStatus,
+          };
+        }
+        return invite;
+      });
+
+      // If there are changes, update the profile
+      if (hasChanges) {
+        const updatedProfileData = {
+          ...profile.profileData,
+          teamMembers: {
+            ...profile.profileData.teamMembers,
+            invites: updatedInvites,
+          },
+        };
+
+        await CompanyProfileModel.updateByCompanyId(companyId, {
+          profileData: updatedProfileData as unknown as Prisma.JsonObject,
+        });
+
+        // Refetch the updated profile
+        const updatedProfile = await CompanyProfileModel.getOrCreate(companyId);
+        return {
+          profile: updatedProfile,
+          requiredSections: REQUIRED_PROFILE_SECTION_KEYS,
+          optionalSections: OPTIONAL_PROFILE_SECTION_KEYS,
+        };
+      }
+    }
+
     return {
       profile,
       requiredSections: REQUIRED_PROFILE_SECTION_KEYS,
