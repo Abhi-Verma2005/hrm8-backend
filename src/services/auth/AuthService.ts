@@ -29,9 +29,8 @@ export class AuthService {
       name: name.trim(),
       passwordHash,
       companyId,
-      role: UserRole.COMPANY_ADMIN,
+      role: UserRole.SUPER_ADMIN,
       status: activate ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION,
-      isCompanyAdmin: true,
     });
 
     return user;
@@ -54,9 +53,8 @@ export class AuthService {
       name: name.trim(),
       passwordHash,
       companyId,
-      role: UserRole.EMPLOYEE,
+      role: UserRole.USER,
       status: UserStatus.ACTIVE,
-      isCompanyAdmin: false,
     });
 
     return user;
@@ -92,9 +90,8 @@ export class AuthService {
       name: name.trim(),
       passwordHash,
       companyId: company.id,
-      role: UserRole.EMPLOYEE,
+      role: UserRole.USER,
       status: UserStatus.ACTIVE,
-      isCompanyAdmin: false,
     });
 
     return user;

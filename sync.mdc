@@ -1,0 +1,100 @@
+---
+alwaysApply: false
+---
+# Backend/Frontend Sync Rules
+
+## Structure
+```
+project-root/
+├── backend/    (we build this)
+└── frontend/   (client-built with mock data, our reference)
+```
+
+## Core Principle
+**Frontend mock data is the blueprint**: Frontend is built by client with mock data. Our job is to build a real backend that replicates the mock data structure and makes the frontend functional with live APIs.
+
+## Primary Workflow: Mock Data → Backend Implementation
+
+**The frontend mock data tells us everything we need to know:**
+
+1. **Analyze Mock Data First**
+   - Find all mock data files in frontend
+   - Study data structures, field names, types
+   - Understand relationships between entities
+   - Note data formats (dates, enums, nested objects)
+
+2. **Build Backend to Match Mocks**
+   - Create database models matching mock structure
+   - Build API endpoints where frontend expects them
+   - Return responses in exact same format as mocks
+   - Use same field names, casing, and types
+   - Maintain same nested structures
+
+3. **Replace Mock Calls with Real APIs**
+   - Identify where frontend uses mock data
+   - Keep the same function signatures
+   - Swap mock imports with API calls
+   - Ensure response structure is identical
+
+**Key Pattern:**
+```
+Frontend Mock Data → Backend Models → API Response → Frontend (no changes needed)
+```
+
+## When Building Backend
+
+**Always reference frontend for:**
+- Mock data structure (our data model blueprint)
+- Expected API endpoints (check component imports/calls)
+- Data relationships (understand the domain model)
+- Field validations (check frontend forms/validations)
+- Error states (see what frontend handles)
+
+**Backend implementation checklist:**
+- [ ] Database schema matches mock structure
+- [ ] API routes follow frontend expectations
+- [ ] Response format identical to mock data
+- [ ] Field names and types exactly match
+- [ ] Nested objects/arrays structured the same
+- [ ] Enums/constants align with frontend
+
+## When Making Changes
+
+**If backend needs modification:**
+1. Check corresponding mock data first
+2. Understand why frontend structured it that way
+3. Match or improve while keeping compatibility
+4. Update frontend only if absolutely necessary
+
+**If frontend mock changes:**
+1. Update backend models to match
+2. Adjust API responses
+3. Ensure backwards compatibility where possible
+
+## Example Flow
+
+**Frontend has:**
+```javascript
+// users.mock.js
+const mockUsers = [
+  { id: 1, name: "John", email: "john@example.com", role: "admin" }
+]
+```
+
+**Backend must create:**
+- Database: User table with id, name, email, role fields
+- API: GET /api/users returning exact same structure
+- Response: Same field names, types, format
+
+**Result:** Frontend works without code changes, just swap mock import with API call
+
+## Quick Checks
+
+- [ ] Found and analyzed relevant mock data
+- [ ] Backend models match mock structure exactly
+- [ ] API responses mirror mock data format
+- [ ] Field names identical (check casing)
+- [ ] Data types match (string, number, boolean, etc.)
+- [ ] Nested structures preserved
+
+**Remember:** Mock data is our specification. Build backend to replicate it, then frontend becomes alive with zero changes.

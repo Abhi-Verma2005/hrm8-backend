@@ -76,7 +76,7 @@ export class SignupRequestService {
     try {
       const adminUsers = await UserModel.findByCompanyIdAndRole(
         company.id,
-        UserRole.COMPANY_ADMIN
+        UserRole.SUPER_ADMIN
       );
       
       if (adminUsers.length > 0) {
@@ -159,9 +159,8 @@ export class SignupRequestService {
       name: signupRequest.name,
       passwordHash: signupRequest.passwordHash,
       companyId: signupRequest.companyId,
-      role: UserRole.EMPLOYEE,
+      role: UserRole.USER,
       status: UserStatus.ACTIVE,
-      isCompanyAdmin: false,
     });
 
     // Update signup request status

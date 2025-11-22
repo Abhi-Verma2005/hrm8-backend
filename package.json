@@ -11,7 +11,9 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "migrate:rbac": "ts-node scripts/migrate-rbac.ts",
+    "migrate:rbac:force": "ts-node scripts/force-migrate-rbac.ts"
   },
   "keywords": [],
   "author": "",
@@ -27,7 +29,8 @@
     "express": "^5.1.0",
     "express-session": "^1.18.2",
     "nodemailer": "^7.0.10",
-    "prisma": "^6.19.0"
+    "prisma": "^6.19.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

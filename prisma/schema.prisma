@@ -10,8 +10,10 @@ datasource db {
 }
 
 enum UserRole {
-  COMPANY_ADMIN
-  EMPLOYEE
+  SUPER_ADMIN
+  ADMIN
+  USER
+  VISITOR
 }
 
 enum UserStatus {
@@ -61,6 +63,34 @@ enum SignupRequestStatus {
   REJECTED
 }
 
+enum JobStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ON_HOLD
+  FILLED
+}
+
+enum HiringMode {
+  SELF_MANAGED
+  SHORTLISTING
+  FULL_SERVICE
+  EXECUTIVE_SEARCH
+}
+
+enum WorkArrangement {
+  ON_SITE
+  REMOTE
+  HYBRID
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  CASUAL
+}
+
 model Company {
   id                String                    @id @default(uuid())
   name              String
@@ -87,6 +117,7 @@ model Company {
   verificationTokens VerificationToken[]
   signupRequests    SignupRequest[]
   profile           CompanyProfile?
+  jobs              Job[]
   
   @@index([domain])
   @@index([verificationStatus])
@@ -117,7 +148,7 @@ model User {
   companyId     String      @map("company_id")
   role          UserRole
   status        UserStatus  @default(PENDING_VERIFICATION)
-  isCompanyAdmin Boolean     @default(false) @map("is_company_admin")
+  assignedBy    String?     @map("assigned_by") // User ID who assigned this role
   lastLoginAt   DateTime?   @map("last_login_at")
   
   createdAt     DateTime    @default(now()) @map("created_at")
@@ -128,10 +159,14 @@ model User {
   sentInvitations Invitation[] @relation("InvitedBy")
   sessions      Session[]
   reviewedSignupRequests SignupRequest[] @relation("ReviewedBy")
+  roleAssigner  User?       @relation("RoleAssigner", fields: [assignedBy], references: [id], onDelete: SetNull)
+  assignedUsers User[]      @relation("RoleAssigner")
+  createdJobs   Job[]       @relation("JobCreator")
   
   @@index([email])
   @@index([companyId])
   @@index([status])
+  @@index([role])
 }
 
 model Invitation {
@@ -222,4 +257,65 @@ model SignupRequest {
   @@index([companyId])
   @@index([status])
   @@index([createdAt])
+}
+
+model Job {
+  id                String          @id @default(uuid())
+  companyId         String          @map("company_id")
+  createdBy         String          @map("created_by")
+  jobCode           String?         @map("job_code")
+  title             String
+  description       String          @db.Text
+  jobSummary        String?         @map("job_summary") @db.VarChar(150)
+  status            JobStatus       @default(DRAFT)
+  hiringMode        HiringMode      @default(SELF_MANAGED) @map("hiring_mode")
+  
+  // Location & Department
+  location          String
+  department        String?
+  workArrangement   WorkArrangement @default(ON_SITE) @map("work_arrangement")
+  
+  // Employment Details
+  employmentType    EmploymentType @default(FULL_TIME) @map("employment_type")
+  numberOfVacancies Int            @default(1) @map("number_of_vacancies")
+  
+  // Salary Information
+  salaryMin         Float?          @map("salary_min")
+  salaryMax         Float?          @map("salary_max")
+  salaryCurrency    String          @default("USD") @map("salary_currency")
+  salaryDescription String?         @map("salary_description") @db.Text
+  
+  // Job Details
+  category          String?
+  promotionalTags  String[]        @default([]) @map("promotional_tags")
+  featured          Boolean         @default(false)
+  stealth           Boolean         @default(false) // Confidential/stealth mode
+  visibility        String          @default("public") // public or private
+  
+  // Requirements and Responsibilities
+  requirements      String[]        @default([])
+  responsibilities  String[]        @default([])
+  
+  // Terms Acceptance
+  termsAccepted     Boolean         @default(false) @map("terms_accepted")
+  termsAcceptedAt   DateTime?       @map("terms_accepted_at")
+  termsAcceptedBy   String?         @map("terms_accepted_by")
+  
+  // Dates
+  postingDate       DateTime?       @map("posting_date")
+  expiryDate        DateTime?       @map("expiry_date")
+  closeDate         DateTime?       @map("close_date")
+  
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  
+  // Relations
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  creator           User            @relation("JobCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
+  @@index([createdBy])
+  @@index([status])
+  @@index([hiringMode])
+  @@index([expiryDate])
 }

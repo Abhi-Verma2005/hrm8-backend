@@ -4,8 +4,10 @@
  */
 
 import { Request, Response } from 'express';
-import { AuthenticatedRequest, EmployeeInvitationRequest } from '../../types';
+import { AuthenticatedRequest, EmployeeInvitationRequest, UserRole } from '../../types';
 import { InvitationService } from '../../services/invitation/InvitationService';
+import { RoleService } from '../../services/rbac/RoleService';
+import { UserModel } from '../../models/User';
 
 export class EmployeeController {
   /**
@@ -96,6 +98,105 @@ export class EmployeeController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to cancel invitation',
+      });
+    }
+  }
+
+  /**
+   * Update user role
+   * PUT /api/employees/:id/role
+   */
+  static async updateUserRole(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { role } = req.body;
+
+      if (!role || !Object.values(UserRole).includes(role)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid role provided',
+        });
+        return;
+      }
+
+      // Assign the role using RoleService
+      await RoleService.assignRole(id, role, req.user.id);
+
+      // Get updated user
+      const updatedUser = await UserModel.findById(id);
+      if (!updatedUser) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          user: {
+            id: updatedUser.id,
+            email: updatedUser.email,
+            name: updatedUser.name,
+            role: updatedUser.role,
+            assignedBy: updatedUser.assignedBy,
+          },
+        },
+      });
+    } catch (error) {
+      const statusCode = error instanceof Error && error.message.includes('permission') ? 403 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update user role',
+      });
+    }
+  }
+
+  /**
+   * Get all users in company
+   * GET /api/employees
+   */
+  static async getCompanyUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const users = await UserModel.findByCompanyId(req.user.companyId);
+
+      // Return user data without sensitive information
+      const userData = users.map((user) => ({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        assignedBy: user.assignedBy,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+      }));
+
+      res.json({
+        success: true,
+        data: userData,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch users',
       });
     }
   }

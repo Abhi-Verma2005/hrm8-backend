@@ -24,16 +24,9 @@ export function enforceCompanyIsolation(
   }
 
   const userCompanyId = req.user.companyId;
-  const companyIdParam = req.params.id || req.params.companyId;
   
-  if (companyIdParam && companyIdParam !== userCompanyId) {
-    res.status(403).json({
-      success: false,
-      error: 'Access denied. You can only access your own company data.',
-    });
-    return;
-  }
-
+  // Only check companyId in body, not in params.id (params.id might be a resource ID like job ID)
+  // For job routes, the company check is done in the service layer
   if (req.body?.companyId && req.body.companyId !== userCompanyId) {
     res.status(403).json({
       success: false,
@@ -42,12 +35,23 @@ export function enforceCompanyIsolation(
     return;
   }
 
-  req.params.id = userCompanyId;
-  
+  // Only override params.id if it's explicitly a companyId param
+  // Don't override for resource IDs (like job IDs)
+  if (req.params.companyId && req.params.companyId !== userCompanyId) {
+    res.status(403).json({
+      success: false,
+      error: 'Access denied. You can only access your own company data.',
+    });
+    return;
+  }
+
+  // Ensure companyId is set in body for create operations
   if (!req.body) {
     req.body = {};
   }
-  req.body.companyId = userCompanyId;
+  if (req.method === 'POST' && !req.body.companyId) {
+    req.body.companyId = userCompanyId;
+  }
 
   next();
 }

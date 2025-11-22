@@ -21,7 +21,7 @@ export class UserModel {
         companyId: userData.companyId,
         role: userData.role,
         status: userData.status,
-        isCompanyAdmin: userData.isCompanyAdmin,
+        assignedBy: userData.assignedBy,
         lastLoginAt: userData.lastLoginAt,
       },
     });
@@ -155,6 +155,22 @@ export class UserModel {
   }
 
   /**
+   * Update user role
+   */
+  static async updateRole(
+    id: string,
+    role: UserRole,
+    assignedBy: string
+  ): Promise<User> {
+    const user = await prisma.user.update({
+      where: { id },
+      data: { role, assignedBy },
+    });
+
+    return this.mapPrismaToUser(user);
+  }
+
+  /**
    * Map Prisma user model to our User interface
    */
   private static mapPrismaToUser(prismaUser: {
@@ -165,7 +181,7 @@ export class UserModel {
     companyId: string;
     role: UserRole;
     status: UserStatus;
-    isCompanyAdmin: boolean;
+    assignedBy: string | null;
     lastLoginAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -178,7 +194,7 @@ export class UserModel {
       companyId: prismaUser.companyId,
       role: prismaUser.role,
       status: prismaUser.status,
-      isCompanyAdmin: prismaUser.isCompanyAdmin,
+      assignedBy: prismaUser.assignedBy || undefined,
       lastLoginAt: prismaUser.lastLoginAt || undefined,
       createdAt: prismaUser.createdAt,
       updatedAt: prismaUser.updatedAt,

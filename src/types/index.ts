@@ -14,6 +14,10 @@ import {
   VerificationMethod,
   InvitationStatus,
   SignupRequestStatus,
+  JobStatus,
+  HiringMode,
+  WorkArrangement,
+  EmploymentType,
 } from '@prisma/client';
 
 export {
@@ -25,6 +29,10 @@ export {
   VerificationMethod,
   InvitationStatus,
   SignupRequestStatus,
+  JobStatus,
+  HiringMode,
+  WorkArrangement,
+  EmploymentType,
 };
 
 // ============================================================================
@@ -168,7 +176,7 @@ export interface User {
   companyId: string;
   role: UserRole;
   status: UserStatus;
-  isCompanyAdmin: boolean;
+  assignedBy?: string; // User ID who assigned this role
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt?: Date;
@@ -315,5 +323,41 @@ export interface CompanyContext {
   companyId: string;
   userId: string;
   userRole: UserRole;
+}
+
+export interface Job {
+  id: string;
+  companyId: string;
+  createdBy: string;
+  jobCode?: string;
+  title: string;
+  description: string;
+  jobSummary?: string;
+  status: JobStatus;
+  hiringMode: HiringMode;
+  location: string;
+  department?: string;
+  workArrangement: WorkArrangement;
+  employmentType: EmploymentType;
+  numberOfVacancies: number;
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency: string;
+  salaryDescription?: string;
+  category?: string;
+  promotionalTags: string[];
+  featured: boolean;
+  stealth: boolean;
+  visibility: string;
+  requirements: string[];
+  responsibilities: string[];
+  termsAccepted: boolean;
+  termsAcceptedAt?: Date;
+  termsAcceptedBy?: string;
+  postingDate?: Date;
+  expiryDate?: Date;
+  closeDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 

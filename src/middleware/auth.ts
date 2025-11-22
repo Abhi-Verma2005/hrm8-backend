@@ -62,9 +62,9 @@ export async function authenticate(
 }
 
 /**
- * Middleware to check if user is company admin
+ * Middleware to check if user is super admin or admin
  */
-export function requireCompanyAdmin(
+export function requireAdmin(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
@@ -77,13 +77,74 @@ export function requireCompanyAdmin(
     return;
   }
 
-  if (req.user.role !== 'COMPANY_ADMIN') {
+  if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'ADMIN') {
     res.status(403).json({
       success: false,
-      error: 'Only company admins can perform this action',
+      error: 'Only administrators can perform this action',
     });
     return;
   }
 
   next();
 }
+
+/**
+ * Middleware to check if user is super admin
+ */
+export function requireSuperAdmin(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+    });
+    return;
+  }
+
+  if (req.user.role !== 'SUPER_ADMIN') {
+    res.status(403).json({
+      success: false,
+      error: 'Only super administrators can perform this action',
+    });
+    return;
+  }
+
+  next();
+}
+
+/**
+ * Middleware to check if user has job posting permission
+ * SUPER_ADMIN and ADMIN can post jobs
+ */
+export function requireJobPostingPermission(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+    });
+    return;
+  }
+
+  if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'ADMIN') {
+    res.status(403).json({
+      success: false,
+      error: 'You do not have permission to post jobs. Contact your administrator.',
+    });
+    return;
+  }
+
+  next();
+}
+
+/**
+ * Legacy middleware - kept for backward compatibility
+ * @deprecated Use requireAdmin instead
+ */
+export const requireCompanyAdmin = requireAdmin;
