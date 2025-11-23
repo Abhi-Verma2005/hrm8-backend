@@ -21,6 +21,7 @@
   "packageManager": "pnpm@10.13.1",
   "dependencies": {
     "@prisma/client": "^6.19.0",
+    "@types/multer": "^2.0.0",
     "bcrypt": "^6.0.0",
     "connect-redis": "^9.0.0",
     "cookie-parser": "^1.4.7",
@@ -28,7 +29,11 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-session": "^1.18.2",
+    "mammoth": "^1.11.0",
+    "multer": "^2.0.2",
     "nodemailer": "^7.0.10",
+    "openai": "^6.9.1",
+    "pdf-parse": "^2.4.5",
     "prisma": "^6.19.0",
     "zod": "^4.1.12"
   },

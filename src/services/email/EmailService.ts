@@ -636,6 +636,304 @@ Best regards,
 The HRM8 Team
     `.trim();
   }
+
+  /**
+   * Send hiring team invitation email
+   */
+  async sendHiringTeamInvitation(data: {
+    to: string;
+    name: string;
+    jobTitle: string;
+    role: string;
+    permissions: {
+      canViewApplications: boolean;
+      canShortlist: boolean;
+      canScheduleInterviews: boolean;
+      canMakeOffers: boolean;
+    };
+    invitationToken: string;
+    inviterName: string;
+    companyName?: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+      const invitationUrl = `${baseUrl}/accept-invitation?token=${data.invitationToken}`;
+
+      const permissionsList = [];
+      if (data.permissions.canViewApplications) permissionsList.push('View Applications');
+      if (data.permissions.canShortlist) permissionsList.push('Shortlist Candidates');
+      if (data.permissions.canScheduleInterviews) permissionsList.push('Schedule Interviews');
+      if (data.permissions.canMakeOffers) permissionsList.push('Make Offers');
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `You've been invited to join the hiring team for: ${data.jobTitle}`,
+        html: this.getHiringTeamInvitationTemplate(data, invitationUrl, permissionsList),
+        text: this.getHiringTeamInvitationText(data, invitationUrl, permissionsList),
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Hiring Team Invitation Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Invitation URL:', invitationUrl);
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send hiring team invitation email:', error);
+      throw new Error('Failed to send hiring team invitation email');
+    }
+  }
+
+  /**
+   * Send hiring team notification (for existing users)
+   */
+  async sendHiringTeamNotification(data: {
+    to: string;
+    name: string;
+    jobTitle: string;
+    role: string;
+    permissions: {
+      canViewApplications: boolean;
+      canShortlist: boolean;
+      canScheduleInterviews: boolean;
+      canMakeOffers: boolean;
+    };
+    inviterName: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+
+      const permissionsList = [];
+      if (data.permissions.canViewApplications) permissionsList.push('View Applications');
+      if (data.permissions.canShortlist) permissionsList.push('Shortlist Candidates');
+      if (data.permissions.canScheduleInterviews) permissionsList.push('Schedule Interviews');
+      if (data.permissions.canMakeOffers) permissionsList.push('Make Offers');
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `You've been added to the hiring team for: ${data.jobTitle}`,
+        html: this.getHiringTeamNotificationTemplate(data, baseUrl, permissionsList),
+        text: this.getHiringTeamNotificationText(data, baseUrl, permissionsList),
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Hiring Team Notification Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send hiring team notification email:', error);
+      throw new Error('Failed to send hiring team notification email');
+    }
+  }
+
+  /**
+   * Get HTML template for hiring team invitation email
+   */
+  private getHiringTeamInvitationTemplate(
+    data: {
+      name: string;
+      jobTitle: string;
+      role: string;
+      inviterName: string;
+      companyName?: string;
+    },
+    invitationUrl: string,
+    permissionsList: string[]
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">You've been invited to join a hiring team!</h1>
+            
+            <p>Hello ${data.name},</p>
+            
+            <p><strong>${data.inviterName}</strong> has invited you to join the hiring team for the position:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0; color: #7c3aed;">${data.jobTitle}</h2>
+              <p style="margin: 5px 0 0 0; color: #718096;">Role: ${data.role}</p>
+            </div>
+            
+            <p><strong>Your permissions:</strong></p>
+            <ul style="margin: 10px 0;">
+              ${permissionsList.map(perm => `<li>${perm}</li>`).join('')}
+            </ul>
+            
+            <p>To accept this invitation and create your account, please click the button below:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${invitationUrl}" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Accept Invitation
+              </a>
+            </div>
+            
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #7c3aed;">${invitationUrl}</p>
+            
+            <p style="color: #718096; font-size: 14px;">This invitation link will expire in 7 days.</p>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The HRM8 Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of hiring team invitation email
+   */
+  private getHiringTeamInvitationText(
+    data: {
+      name: string;
+      jobTitle: string;
+      role: string;
+      inviterName: string;
+      companyName?: string;
+    },
+    invitationUrl: string,
+    permissionsList: string[]
+  ): string {
+    return `
+You've been invited to join a hiring team!
+
+Hello ${data.name},
+
+${data.inviterName} has invited you to join the hiring team for the position: ${data.jobTitle}
+
+Role: ${data.role}
+
+Your permissions:
+${permissionsList.map(perm => `- ${perm}`).join('\n')}
+
+To accept this invitation and create your account, please visit:
+${invitationUrl}
+
+This invitation link will expire in 7 days.
+
+Best regards,
+The HRM8 Team
+    `.trim();
+  }
+
+  /**
+   * Get HTML template for hiring team notification email
+   */
+  private getHiringTeamNotificationTemplate(
+    data: {
+      name: string;
+      jobTitle: string;
+      role: string;
+      inviterName: string;
+    },
+    baseUrl: string,
+    permissionsList: string[]
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">You've been added to a hiring team!</h1>
+            
+            <p>Hello ${data.name},</p>
+            
+            <p><strong>${data.inviterName}</strong> has added you to the hiring team for the position:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0; color: #7c3aed;">${data.jobTitle}</h2>
+              <p style="margin: 5px 0 0 0; color: #718096;">Role: ${data.role}</p>
+            </div>
+            
+            <p><strong>Your permissions:</strong></p>
+            <ul style="margin: 10px 0;">
+              ${permissionsList.map(perm => `<li>${perm}</li>`).join('')}
+            </ul>
+            
+            <p>You can now access this job and manage applications in your HRM8 dashboard.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${baseUrl}/jobs" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                View Job
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The HRM8 Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of hiring team notification email
+   */
+  private getHiringTeamNotificationText(
+    data: {
+      name: string;
+      jobTitle: string;
+      role: string;
+      inviterName: string;
+    },
+    baseUrl: string,
+    permissionsList: string[]
+  ): string {
+    return `
+You've been added to a hiring team!
+
+Hello ${data.name},
+
+${data.inviterName} has added you to the hiring team for the position: ${data.jobTitle}
+
+Role: ${data.role}
+
+Your permissions:
+${permissionsList.map(perm => `- ${perm}`).join('\n')}
+
+You can now access this job and manage applications in your HRM8 dashboard.
+
+Visit: ${baseUrl}/jobs
+
+Best regards,
+The HRM8 Team
+    `.trim();
+  }
 }
 
 export const emailService = new EmailService();

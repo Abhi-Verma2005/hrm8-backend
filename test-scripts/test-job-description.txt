@@ -1,0 +1,60 @@
+SOFTWARE ENGINEER - FULL STACK DEVELOPER
+
+Position Overview:
+We are seeking a talented Full Stack Software Engineer to join our dynamic Engineering team. This role offers an exciting opportunity to work on cutting-edge web applications and contribute to innovative projects that drive our business forward.
+
+About the Role:
+As a Full Stack Software Engineer, you will be responsible for designing, developing, and maintaining scalable web applications. You'll collaborate with cross-functional teams including product managers, designers, and other engineers to deliver high-quality solutions. This position requires a strong technical background, excellent problem-solving skills, and the ability to work in a fast-paced agile environment.
+
+Key Responsibilities:
+- Design and develop robust, scalable web applications using modern technologies
+- Write clean, maintainable, and well-documented code
+- Collaborate with product managers and designers to understand requirements and translate them into technical solutions
+- Participate in code reviews and provide constructive feedback to team members
+- Debug and resolve technical issues across the application stack
+- Optimize application performance and ensure high availability
+- Contribute to technical architecture decisions and best practices
+- Mentor junior developers and share knowledge with the team
+- Stay current with emerging technologies and industry trends
+
+Requirements:
+- Bachelor's degree in Computer Science, Engineering, or related field, or equivalent experience
+- 3-5 years of professional software development experience
+- Strong proficiency in JavaScript/TypeScript, React, and Node.js
+- Experience with RESTful API design and development
+- Solid understanding of database design and SQL
+- Familiarity with cloud platforms (AWS, Azure, or GCP)
+- Experience with version control systems (Git)
+- Strong problem-solving and analytical skills
+- Excellent communication and collaboration abilities
+- Ability to work independently and as part of a team
+
+Preferred Qualifications:
+- Master's degree in Computer Science or related field
+- Experience with microservices architecture
+- Knowledge of containerization technologies (Docker, Kubernetes)
+- Experience with CI/CD pipelines
+- Familiarity with testing frameworks (Jest, Mocha)
+- Understanding of Agile/Scrum methodologies
+
+Employment Type: Full-time
+Location: San Francisco, CA (Hybrid - 3 days in office)
+Experience Level: Mid-level
+Department: Engineering
+
+Compensation:
+- Salary Range: $120,000 - $160,000 per year
+- Currency: USD
+- Period: Annual
+
+Benefits:
+- Comprehensive health, dental, and vision insurance
+- 401(k) retirement plan with company matching
+- Flexible paid time off and holidays
+- Professional development opportunities
+- Stock options
+- Remote work flexibility
+- Wellness programs and gym membership
+
+We are an equal opportunity employer and value diversity at our company. We do not discriminate on the basis of race, religion, color, national origin, gender, sexual orientation, age, marital status, veteran status, or disability status.
+

@@ -4,9 +4,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// The `url` property in datasource is deprecated and should be configured externally per Prisma 5+ requirements.
+// See: https://pris.ly/d/config-datasource and https://pris.ly/d/prisma7-client-config
+
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL") // Required for prisma generate validation, but actual connection uses prisma.config.ts
+  // Connection URL is now configured in prisma.config.ts or passed to the PrismaClient constructor.
 }
 
 enum UserRole {
@@ -305,6 +309,12 @@ model Job {
   postingDate       DateTime?       @map("posting_date")
   expiryDate        DateTime?       @map("expiry_date")
   closeDate         DateTime?       @map("close_date")
+  
+  // Hiring Team
+  hiringTeam        Json?           @map("hiring_team")
+  
+  // Application Form Configuration
+  applicationForm   Json?           @map("application_form")
   
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")

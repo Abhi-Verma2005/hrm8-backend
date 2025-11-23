@@ -3,7 +3,7 @@
  * Handles job-related business logic
  */
 
-import { Job, JobStatus, HiringMode, WorkArrangement, EmploymentType } from '../../types';
+import { Job, JobStatus, HiringMode, WorkArrangement, EmploymentType, HiringTeamMember } from '../../types';
 import { JobModel } from '../../models/Job';
 
 export interface CreateJobRequest {
@@ -31,11 +31,14 @@ export interface CreateJobRequest {
   termsAcceptedAt?: Date;
   termsAcceptedBy?: string;
   expiryDate?: Date;
+  hiringTeam?: HiringTeamMember[];
+  applicationForm?: any;
 }
 
 export interface UpdateJobRequest extends Partial<CreateJobRequest> {
   status?: JobStatus;
   closeDate?: Date;
+  applicationForm?: any;
 }
 
 export class JobService {
@@ -90,6 +93,8 @@ export class JobService {
         termsAcceptedAt: jobData.termsAcceptedAt,
         termsAcceptedBy: jobData.termsAcceptedBy,
         expiryDate: jobData.expiryDate,
+        hiringTeam: jobData.hiringTeam || [],
+        applicationForm: jobData.applicationForm,
       };
       
       console.log('📦 Calling JobModel.create with:', {

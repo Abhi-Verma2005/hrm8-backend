@@ -325,6 +325,23 @@ export interface CompanyContext {
   userRole: UserRole;
 }
 
+export interface HiringTeamMember {
+  id: string;
+  userId?: string;
+  email: string;
+  name: string;
+  role: 'hiring_manager' | 'recruiter' | 'interviewer' | 'coordinator';
+  permissions: {
+    canViewApplications: boolean;
+    canShortlist: boolean;
+    canScheduleInterviews: boolean;
+    canMakeOffers: boolean;
+  };
+  status: 'active' | 'pending_invite';
+  invitedAt?: string;
+  addedBy?: string;
+}
+
 export interface Job {
   id: string;
   companyId: string;
@@ -357,6 +374,8 @@ export interface Job {
   postingDate?: Date;
   expiryDate?: Date;
   closeDate?: Date;
+  hiringTeam?: HiringTeamMember[];
+  applicationForm?: any; // JSON field for application form configuration
   createdAt: Date;
   updatedAt: Date;
 }

@@ -17,7 +17,7 @@ export class JobModel {
     });
     
     try {
-      const prismaData = {
+      const prismaData: any = {
         companyId: jobData.companyId,
         createdBy: jobData.createdBy,
         jobCode: jobData.jobCode,
@@ -49,6 +49,14 @@ export class JobModel {
         expiryDate: jobData.expiryDate,
         closeDate: jobData.closeDate,
       };
+
+      if (jobData.hiringTeam !== undefined) {
+        prismaData.hiringTeam = jobData.hiringTeam ? JSON.stringify(jobData.hiringTeam) : null;
+      }
+
+      if (jobData.applicationForm !== undefined) {
+        prismaData.applicationForm = jobData.applicationForm ? JSON.stringify(jobData.applicationForm) : null;
+      }
       
       console.log('💾 Calling prisma.job.create with:', {
         ...prismaData,
@@ -134,9 +142,7 @@ export class JobModel {
    * Update job
    */
   static async update(id: string, jobData: Partial<Omit<Job, 'id' | 'companyId' | 'createdBy' | 'createdAt' | 'updatedAt'>>): Promise<Job> {
-    const job = await prisma.job.update({
-      where: { id },
-      data: {
+      const updateData: any = {
         jobCode: jobData.jobCode,
         title: jobData.title,
         description: jobData.description,
@@ -165,7 +171,19 @@ export class JobModel {
         postingDate: jobData.postingDate,
         expiryDate: jobData.expiryDate,
         closeDate: jobData.closeDate,
-      },
+      };
+
+      if (jobData.hiringTeam !== undefined) {
+        updateData.hiringTeam = jobData.hiringTeam ? JSON.stringify(jobData.hiringTeam) : null;
+      }
+
+      if (jobData.applicationForm !== undefined) {
+        updateData.applicationForm = jobData.applicationForm ? JSON.stringify(jobData.applicationForm) : null;
+      }
+
+      const job = await prisma.job.update({
+        where: { id },
+        data: updateData,
     });
 
     return this.mapPrismaToJob(job);
@@ -216,6 +234,8 @@ export class JobModel {
     postingDate: Date | null;
     expiryDate: Date | null;
     closeDate: Date | null;
+    hiringTeam?: any;
+    applicationForm?: any;
     createdAt: Date;
     updatedAt: Date;
   }): Job {
@@ -251,6 +271,16 @@ export class JobModel {
       postingDate: prismaJob.postingDate || undefined,
       expiryDate: prismaJob.expiryDate || undefined,
       closeDate: prismaJob.closeDate || undefined,
+      hiringTeam: prismaJob.hiringTeam
+        ? (typeof prismaJob.hiringTeam === 'string'
+            ? JSON.parse(prismaJob.hiringTeam)
+            : prismaJob.hiringTeam)
+        : undefined,
+      applicationForm: prismaJob.applicationForm
+        ? (typeof prismaJob.applicationForm === 'string'
+            ? JSON.parse(prismaJob.applicationForm)
+            : prismaJob.applicationForm)
+        : undefined,
       createdAt: prismaJob.createdAt,
       updatedAt: prismaJob.updatedAt,
     };

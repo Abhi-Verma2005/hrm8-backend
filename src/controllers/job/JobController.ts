@@ -7,6 +7,7 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../../types';
 import { JobService, CreateJobRequest, UpdateJobRequest } from '../../services/job/JobService';
 import { JobStatus } from '../../types';
+import { HiringTeamInvitationService } from '../../services/job/HiringTeamInvitationService';
 
 export class JobController {
   /**
@@ -295,6 +296,63 @@ export class JobController {
       res.status(statusCode).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to save draft',
+      });
+    }
+  }
+
+  /**
+   * Invite a member to the hiring team
+   * POST /api/jobs/:id/hiring-team/invite
+   */
+  static async inviteHiringTeamMember(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id: jobId } = req.params;
+      const invitationData = req.body;
+
+      // Validate required fields
+      if (!invitationData.email || !invitationData.name || !invitationData.role) {
+        res.status(400).json({
+          success: false,
+          error: 'Email, name, and role are required',
+        });
+        return;
+      }
+
+      // Get job to verify it exists and get title
+      const job = await JobService.getJobById(jobId, req.user.companyId);
+      if (!job) {
+        res.status(404).json({
+          success: false,
+          error: 'Job not found',
+        });
+        return;
+      }
+
+      // Send invitation
+      await HiringTeamInvitationService.inviteToHiringTeam(
+        req.user.companyId,
+        jobId,
+        job.title,
+        req.user.id,
+        invitationData
+      );
+
+      res.json({
+        success: true,
+        message: 'Invitation sent successfully',
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send invitation',
       });
     }
   }

@@ -102,6 +102,53 @@ export class InvitationService {
   }
 
   /**
+   * Create a single invitation (used by other services)
+   */
+  static async createInvitation(
+    companyId: string,
+    invitedBy: string,
+    email: string
+  ): Promise<Invitation> {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidEmail(normalizedEmail)) {
+      throw new Error('Invalid email format');
+    }
+
+    // Check if user already exists
+    const existingUser = await UserModel.findByEmail(normalizedEmail);
+    if (existingUser) {
+      throw new Error('User already exists');
+    }
+
+    // Check for existing pending invitation
+    const hasPendingInvitation = await InvitationModel.hasPendingInvitation(
+      normalizedEmail,
+      companyId
+    );
+    if (hasPendingInvitation) {
+      throw new Error('Pending invitation already exists');
+    }
+
+    // Generate invitation token
+    const token = generateInvitationToken();
+
+    // Set expiration (e.g., 7 days from now)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    // Create invitation
+    return await InvitationModel.create({
+      companyId,
+      invitedBy,
+      email: normalizedEmail,
+      token,
+      status: InvitationStatus.PENDING,
+      expiresAt,
+    });
+  }
+
+  /**
    * Find invitation by token
    */
   static async findByToken(token: string): Promise<Invitation | null> {
