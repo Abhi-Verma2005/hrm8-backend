@@ -46,6 +46,13 @@ router.delete(
   JobController.deleteJob
 );
 
+// Bulk delete jobs (requires job posting permission)
+router.post(
+  '/bulk-delete',
+  requireJobPostingPermission,
+  JobController.bulkDeleteJobs
+);
+
 // Publish job (requires job posting permission)
 // Note: enforceCompanyIsolation removed - company check is done in service layer
 router.post(
@@ -60,6 +67,14 @@ router.post(
   '/:id/save-draft',
   requireJobPostingPermission,
   JobController.saveDraft
+);
+
+// Save template (requires job posting permission)
+// Note: enforceCompanyIsolation removed - company check is done in service layer
+router.post(
+  '/:id/save-template',
+  requireJobPostingPermission,
+  JobController.saveTemplate
 );
 
 // Parse document for job description extraction (requires job posting permission)

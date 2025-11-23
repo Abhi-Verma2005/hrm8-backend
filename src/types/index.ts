@@ -376,6 +376,7 @@ export interface Job {
   closeDate?: Date;
   hiringTeam?: HiringTeamMember[];
   applicationForm?: any; // JSON field for application form configuration
+  videoInterviewingEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

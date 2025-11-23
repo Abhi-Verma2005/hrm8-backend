@@ -301,6 +301,76 @@ export class JobController {
   }
 
   /**
+   * Save job as template
+   * POST /api/jobs/:id/save-template
+   */
+  static async saveTemplate(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const jobData: UpdateJobRequest = req.body;
+
+      const job = await JobService.saveTemplate(id, req.user.companyId, jobData);
+
+      res.json({
+        success: true,
+        data: job,
+      });
+    } catch (error) {
+      const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to save template',
+      });
+    }
+  }
+
+  /**
+   * Bulk delete jobs
+   * POST /api/jobs/bulk-delete
+   */
+  static async bulkDeleteJobs(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { jobIds } = req.body;
+
+      if (!jobIds || !Array.isArray(jobIds) || jobIds.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'Job IDs array is required',
+        });
+        return;
+      }
+
+      const deletedCount = await JobService.bulkDeleteJobs(jobIds, req.user.companyId);
+
+      res.json({
+        success: true,
+        data: { deletedCount, message: `${deletedCount} job(s) deleted successfully` },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete jobs',
+      });
+    }
+  }
+
+  /**
    * Invite a member to the hiring team
    * POST /api/jobs/:id/hiring-team/invite
    */

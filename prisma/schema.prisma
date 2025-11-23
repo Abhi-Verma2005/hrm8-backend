@@ -73,6 +73,7 @@ enum JobStatus {
   CLOSED
   ON_HOLD
   FILLED
+  TEMPLATE
 }
 
 enum HiringMode {
@@ -315,6 +316,9 @@ model Job {
   
   // Application Form Configuration
   applicationForm   Json?           @map("application_form")
+  
+  // Video Interviewing
+  videoInterviewingEnabled Boolean  @default(false) @map("video_interviewing_enabled")
   
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")

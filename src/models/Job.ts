@@ -51,11 +51,26 @@ export class JobModel {
       };
 
       if (jobData.hiringTeam !== undefined) {
-        prismaData.hiringTeam = jobData.hiringTeam ? JSON.stringify(jobData.hiringTeam) : null;
+        // Prisma JSON fields accept objects/arrays directly, not strings
+        // Handle both array and stringified JSON cases
+        if (Array.isArray(jobData.hiringTeam)) {
+          prismaData.hiringTeam = jobData.hiringTeam.length > 0 ? jobData.hiringTeam : null;
+        } else if (typeof jobData.hiringTeam === 'string') {
+          // If it's a string, try to parse it
+          try {
+            const parsed = JSON.parse(jobData.hiringTeam);
+            prismaData.hiringTeam = Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+          } catch {
+            prismaData.hiringTeam = null;
+          }
+        } else {
+          prismaData.hiringTeam = null;
+        }
       }
 
       if (jobData.applicationForm !== undefined) {
-        prismaData.applicationForm = jobData.applicationForm ? JSON.stringify(jobData.applicationForm) : null;
+        // Prisma JSON fields accept objects directly, not strings
+        prismaData.applicationForm = jobData.applicationForm ? jobData.applicationForm : null;
       }
       
       console.log('💾 Calling prisma.job.create with:', {
@@ -171,14 +186,40 @@ export class JobModel {
         postingDate: jobData.postingDate,
         expiryDate: jobData.expiryDate,
         closeDate: jobData.closeDate,
+        videoInterviewingEnabled: jobData.videoInterviewingEnabled,
       };
 
       if (jobData.hiringTeam !== undefined) {
-        updateData.hiringTeam = jobData.hiringTeam ? JSON.stringify(jobData.hiringTeam) : null;
+        // Prisma JSON fields accept objects/arrays directly, not strings
+        // Handle both array and stringified JSON cases
+        if (Array.isArray(jobData.hiringTeam)) {
+          // Only include if array has items, otherwise omit (don't set to null)
+          if (jobData.hiringTeam.length > 0) {
+            updateData.hiringTeam = jobData.hiringTeam;
+          }
+          // If empty array, omit the field to leave it unchanged
+        } else if (typeof jobData.hiringTeam === 'string') {
+          // If it's a string, try to parse it
+          try {
+            const parsed = JSON.parse(jobData.hiringTeam);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              updateData.hiringTeam = parsed;
+            }
+            // If empty, omit the field
+          } catch {
+            // Invalid JSON, omit the field
+          }
+        }
+        // If undefined or other type, omit the field
       }
 
       if (jobData.applicationForm !== undefined) {
-        updateData.applicationForm = jobData.applicationForm ? JSON.stringify(jobData.applicationForm) : null;
+        // Prisma JSON fields accept objects directly, not strings
+        // Only include if it has a value, otherwise omit
+        if (jobData.applicationForm) {
+          updateData.applicationForm = jobData.applicationForm;
+        }
+        // If null/undefined, omit the field to leave it unchanged
       }
 
       const job = await prisma.job.update({
@@ -197,6 +238,20 @@ export class JobModel {
       where: { id },
       data: { status: JobStatus.CLOSED },
     });
+  }
+
+  /**
+   * Bulk delete jobs (soft delete by setting status to CLOSED)
+   */
+  static async bulkDelete(ids: string[], companyId: string): Promise<number> {
+    const result = await prisma.job.updateMany({
+      where: {
+        id: { in: ids },
+        companyId: companyId, // Ensure jobs belong to the company
+      },
+      data: { status: JobStatus.CLOSED },
+    });
+    return result.count;
   }
 
   /**
@@ -236,6 +291,7 @@ export class JobModel {
     closeDate: Date | null;
     hiringTeam?: any;
     applicationForm?: any;
+    videoInterviewingEnabled: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): Job {
@@ -281,6 +337,7 @@ export class JobModel {
             ? JSON.parse(prismaJob.applicationForm)
             : prismaJob.applicationForm)
         : undefined,
+      videoInterviewingEnabled: prismaJob.videoInterviewingEnabled,
       createdAt: prismaJob.createdAt,
       updatedAt: prismaJob.updatedAt,
     };

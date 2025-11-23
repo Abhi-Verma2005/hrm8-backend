@@ -33,6 +33,7 @@ export interface CreateJobRequest {
   expiryDate?: Date;
   hiringTeam?: HiringTeamMember[];
   applicationForm?: any;
+  videoInterviewingEnabled?: boolean;
 }
 
 export interface UpdateJobRequest extends Partial<CreateJobRequest> {
@@ -95,6 +96,7 @@ export class JobService {
         expiryDate: jobData.expiryDate,
         hiringTeam: jobData.hiringTeam || [],
         applicationForm: jobData.applicationForm,
+        videoInterviewingEnabled: jobData.videoInterviewingEnabled || false,
       };
       
       console.log('📦 Calling JobModel.create with:', {
@@ -195,6 +197,26 @@ export class JobService {
   }
 
   /**
+   * Bulk delete jobs (soft delete)
+   */
+  static async bulkDeleteJobs(jobIds: string[], companyId: string): Promise<number> {
+    if (!jobIds || jobIds.length === 0) {
+      throw new Error('No job IDs provided');
+    }
+
+    // Verify all jobs belong to company
+    const jobs = await JobModel.findByCompanyId(companyId);
+    const validJobIds = jobs.filter(job => jobIds.includes(job.id)).map(job => job.id);
+    
+    if (validJobIds.length === 0) {
+      throw new Error('No valid jobs found for deletion');
+    }
+
+    const deletedCount = await JobModel.bulkDelete(validJobIds, companyId);
+    return deletedCount;
+  }
+
+  /**
    * Publish a job (change status from DRAFT to OPEN)
    */
   static async publishJob(jobId: string, companyId: string): Promise<Job> {
@@ -227,6 +249,25 @@ export class JobService {
     const updatedJob = await JobModel.update(jobId, {
       ...jobData,
       status: JobStatus.DRAFT,
+    });
+
+    return updatedJob;
+  }
+
+  /**
+   * Save job as template
+   */
+  static async saveTemplate(
+    jobId: string,
+    companyId: string,
+    jobData: UpdateJobRequest
+  ): Promise<Job> {
+    // Verify job exists and belongs to company (throws error if not)
+    await this.getJobById(jobId, companyId);
+
+    const updatedJob = await JobModel.update(jobId, {
+      ...jobData,
+      status: JobStatus.TEMPLATE,
     });
 
     return updatedJob;
