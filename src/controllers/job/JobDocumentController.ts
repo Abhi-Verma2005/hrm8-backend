@@ -3,7 +3,7 @@
  * Handles document upload and parsing for job descriptions
  */
 
-import { Response } from 'express';
+import { Response, RequestHandler } from 'express';
 import { AuthenticatedRequest } from '../../types';
 import { DocumentParserService } from '../../services/document/DocumentParserService';
 import { JobDescriptionExtractorService } from '../../services/ai/JobDescriptionExtractorService';
@@ -39,7 +39,7 @@ const upload = multer({
 
 export class JobDocumentController {
   // Middleware for file upload
-  static uploadMiddleware = upload.single('document');
+  static uploadMiddleware: RequestHandler = upload.single('document');
 
   /**
    * Parse and extract job details from uploaded document
