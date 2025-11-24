@@ -320,6 +320,21 @@ model Job {
   // Video Interviewing
   videoInterviewingEnabled Boolean  @default(false) @map("video_interviewing_enabled")
   
+  // Post-Launch Configuration
+  alertsEnabled     Json?           @map("alerts_enabled") // { newApplicants: boolean, inactivity: boolean, deadlines: boolean, inactivityDays?: number }
+  shareLink         String?         @map("share_link")
+  referralLink      String?         @map("referral_link")
+  savedAsTemplate   Boolean         @default(false) @map("saved_as_template")
+  templateId        String?         @map("template_id")
+  
+  // JobTarget Promotion
+  jobTargetPromotionId   String?    @map("jobtarget_promotion_id")
+  jobTargetChannels      String[]   @default([]) @map("jobtarget_channels")
+  jobTargetBudget        Float?     @map("jobtarget_budget")
+  jobTargetBudgetSpent   Float?     @default(0) @map("jobtarget_budget_spent")
+  jobTargetStatus        String?    @map("jobtarget_status") // 'pending', 'active', 'paused', 'completed'
+  jobTargetApproved      Boolean    @default(false) @map("jobtarget_approved")
+  
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
   

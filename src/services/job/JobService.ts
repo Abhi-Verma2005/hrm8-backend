@@ -236,6 +236,84 @@ export class JobService {
   }
 
   /**
+   * Submit and activate a job (after review step)
+   * This activates the job and makes it live on internal job board and careers page
+   */
+  static async submitAndActivate(
+    jobId: string,
+    companyId: string,
+    _paymentId?: string // TODO: Verify payment for PAYG users before activating
+  ): Promise<Job> {
+    const job = await this.getJobById(jobId, companyId);
+
+    if (job.status !== JobStatus.DRAFT) {
+      throw new Error('Only draft jobs can be submitted');
+    }
+
+    // Generate share link and referral link
+    const shareLink = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/jobs/${jobId}`;
+    const referralLink = `${shareLink}?ref=${jobId.substring(0, 8)}`;
+
+    // Activate job - set status to OPEN and set posting date
+    const updatedJob = await JobModel.update(jobId, {
+      status: JobStatus.OPEN,
+      postingDate: job.postingDate || new Date(),
+      shareLink,
+      referralLink,
+    });
+
+    return updatedJob;
+  }
+
+  /**
+   * Update job alerts configuration
+   */
+  static async updateAlerts(
+    jobId: string,
+    companyId: string,
+    alertsConfig: {
+      newApplicants?: boolean;
+      inactivity?: boolean;
+      deadlines?: boolean;
+      inactivityDays?: number;
+    }
+  ): Promise<Job> {
+    await this.getJobById(jobId, companyId);
+
+    const updatedJob = await JobModel.update(jobId, {
+      alertsEnabled: alertsConfig,
+    });
+
+    return updatedJob;
+  }
+
+  /**
+   * Save job as template
+   */
+  static async saveJobAsTemplate(
+    jobId: string,
+    companyId: string,
+    _templateName: string, // TODO: Store template name in a separate templates table
+    _templateDescription?: string // TODO: Store template description in a separate templates table
+  ): Promise<{ job: Job; templateId: string }> {
+    // Verify job exists and belongs to company
+    await this.getJobById(jobId, companyId);
+
+    // Create a new job with template status
+    const templateId = `template-${Date.now()}`;
+    const templateJob = await JobModel.update(jobId, {
+      savedAsTemplate: true,
+      templateId,
+      status: JobStatus.TEMPLATE,
+    });
+
+    return {
+      job: templateJob,
+      templateId,
+    };
+  }
+
+  /**
    * Save job as draft
    */
   static async saveDraft(

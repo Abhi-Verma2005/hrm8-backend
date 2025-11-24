@@ -72,6 +72,43 @@ export class JobModel {
         // Prisma JSON fields accept objects directly, not strings
         prismaData.applicationForm = jobData.applicationForm ? jobData.applicationForm : null;
       }
+
+      // Post-launch fields
+      if ((jobData as any).alertsEnabled !== undefined) {
+        prismaData.alertsEnabled = (jobData as any).alertsEnabled ? (jobData as any).alertsEnabled : null;
+      }
+      if ((jobData as any).shareLink !== undefined) {
+        prismaData.shareLink = (jobData as any).shareLink || null;
+      }
+      if ((jobData as any).referralLink !== undefined) {
+        prismaData.referralLink = (jobData as any).referralLink || null;
+      }
+      if ((jobData as any).savedAsTemplate !== undefined) {
+        prismaData.savedAsTemplate = (jobData as any).savedAsTemplate || false;
+      }
+      if ((jobData as any).templateId !== undefined) {
+        prismaData.templateId = (jobData as any).templateId || null;
+      }
+
+      // JobTarget fields
+      if ((jobData as any).jobTargetPromotionId !== undefined) {
+        prismaData.jobTargetPromotionId = (jobData as any).jobTargetPromotionId || null;
+      }
+      if ((jobData as any).jobTargetChannels !== undefined) {
+        prismaData.jobTargetChannels = (jobData as any).jobTargetChannels || [];
+      }
+      if ((jobData as any).jobTargetBudget !== undefined) {
+        prismaData.jobTargetBudget = (jobData as any).jobTargetBudget || null;
+      }
+      if ((jobData as any).jobTargetBudgetSpent !== undefined) {
+        prismaData.jobTargetBudgetSpent = (jobData as any).jobTargetBudgetSpent || 0;
+      }
+      if ((jobData as any).jobTargetStatus !== undefined) {
+        prismaData.jobTargetStatus = (jobData as any).jobTargetStatus || null;
+      }
+      if ((jobData as any).jobTargetApproved !== undefined) {
+        prismaData.jobTargetApproved = (jobData as any).jobTargetApproved || false;
+      }
       
       console.log('💾 Calling prisma.job.create with:', {
         ...prismaData,
@@ -222,6 +259,43 @@ export class JobModel {
         // If null/undefined, omit the field to leave it unchanged
       }
 
+      // Post-launch fields
+      if ((jobData as any).alertsEnabled !== undefined) {
+        updateData.alertsEnabled = (jobData as any).alertsEnabled ? (jobData as any).alertsEnabled : null;
+      }
+      if ((jobData as any).shareLink !== undefined) {
+        updateData.shareLink = (jobData as any).shareLink || null;
+      }
+      if ((jobData as any).referralLink !== undefined) {
+        updateData.referralLink = (jobData as any).referralLink || null;
+      }
+      if ((jobData as any).savedAsTemplate !== undefined) {
+        updateData.savedAsTemplate = (jobData as any).savedAsTemplate;
+      }
+      if ((jobData as any).templateId !== undefined) {
+        updateData.templateId = (jobData as any).templateId || null;
+      }
+
+      // JobTarget fields
+      if ((jobData as any).jobTargetPromotionId !== undefined) {
+        updateData.jobTargetPromotionId = (jobData as any).jobTargetPromotionId || null;
+      }
+      if ((jobData as any).jobTargetChannels !== undefined) {
+        updateData.jobTargetChannels = (jobData as any).jobTargetChannels || [];
+      }
+      if ((jobData as any).jobTargetBudget !== undefined) {
+        updateData.jobTargetBudget = (jobData as any).jobTargetBudget || null;
+      }
+      if ((jobData as any).jobTargetBudgetSpent !== undefined) {
+        updateData.jobTargetBudgetSpent = (jobData as any).jobTargetBudgetSpent;
+      }
+      if ((jobData as any).jobTargetStatus !== undefined) {
+        updateData.jobTargetStatus = (jobData as any).jobTargetStatus || null;
+      }
+      if ((jobData as any).jobTargetApproved !== undefined) {
+        updateData.jobTargetApproved = (jobData as any).jobTargetApproved;
+      }
+
       const job = await prisma.job.update({
         where: { id },
         data: updateData,
@@ -292,6 +366,17 @@ export class JobModel {
     hiringTeam?: any;
     applicationForm?: any;
     videoInterviewingEnabled: boolean;
+    alertsEnabled?: any;
+    shareLink?: string | null;
+    referralLink?: string | null;
+    savedAsTemplate?: boolean;
+    templateId?: string | null;
+    jobTargetPromotionId?: string | null;
+    jobTargetChannels?: string[];
+    jobTargetBudget?: number | null;
+    jobTargetBudgetSpent?: number | null;
+    jobTargetStatus?: string | null;
+    jobTargetApproved?: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): Job {
@@ -338,6 +423,21 @@ export class JobModel {
             : prismaJob.applicationForm)
         : undefined,
       videoInterviewingEnabled: prismaJob.videoInterviewingEnabled,
+      alertsEnabled: prismaJob.alertsEnabled
+        ? (typeof prismaJob.alertsEnabled === 'string'
+            ? JSON.parse(prismaJob.alertsEnabled)
+            : prismaJob.alertsEnabled)
+        : undefined,
+      shareLink: prismaJob.shareLink || undefined,
+      referralLink: prismaJob.referralLink || undefined,
+      savedAsTemplate: prismaJob.savedAsTemplate || false,
+      templateId: prismaJob.templateId || undefined,
+      jobTargetPromotionId: prismaJob.jobTargetPromotionId || undefined,
+      jobTargetChannels: prismaJob.jobTargetChannels || [],
+      jobTargetBudget: prismaJob.jobTargetBudget || undefined,
+      jobTargetBudgetSpent: prismaJob.jobTargetBudgetSpent || undefined,
+      jobTargetStatus: prismaJob.jobTargetStatus || undefined,
+      jobTargetApproved: prismaJob.jobTargetApproved || false,
       createdAt: prismaJob.createdAt,
       updatedAt: prismaJob.updatedAt,
     };

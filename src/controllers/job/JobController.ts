@@ -269,6 +269,117 @@ export class JobController {
   }
 
   /**
+   * Submit and activate job (after review step)
+   * POST /api/jobs/:id/submit
+   */
+  static async submitAndActivate(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { paymentId } = req.body; // Optional payment ID for PAYG users
+
+      // TODO: For PAYG users, verify payment before activating
+      // For now, we'll just activate the job
+      const job = await JobService.submitAndActivate(id, req.user.companyId, paymentId);
+
+      res.json({
+        success: true,
+        data: job,
+      });
+    } catch (error) {
+      const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to submit and activate job',
+      });
+    }
+  }
+
+  /**
+   * Update job alerts configuration
+   * PUT /api/jobs/:id/alerts
+   */
+  static async updateAlerts(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const alertsConfig = req.body;
+
+      const job = await JobService.updateAlerts(id, req.user.companyId, alertsConfig);
+
+      res.json({
+        success: true,
+        data: job,
+      });
+    } catch (error) {
+      const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update alerts',
+      });
+    }
+  }
+
+  /**
+   * Save job as template
+   * POST /api/jobs/:id/save-template
+   */
+  static async saveAsTemplate(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { templateName, templateDescription } = req.body;
+
+      if (!templateName) {
+        res.status(400).json({
+          success: false,
+          error: 'Template name is required',
+        });
+        return;
+      }
+
+      const result = await JobService.saveJobAsTemplate(
+        id,
+        req.user.companyId,
+        templateName,
+        templateDescription
+      );
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to save as template',
+      });
+    }
+  }
+
+  /**
    * Save job as draft
    * POST /api/jobs/:id/save-draft
    */
@@ -423,6 +534,94 @@ export class JobController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to send invitation',
+      });
+    }
+  }
+
+  /**
+   * Generate job description using AI from ALL available form fields
+   * POST /api/jobs/generate-description
+   */
+  static async generateDescription(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      const {
+        // Step 1 fields
+        title,
+        numberOfVacancies,
+        department,
+        location,
+        employmentType,
+        experienceLevel,
+        workArrangement,
+        tags,
+        serviceType,
+        
+        // Step 2 fields (if partially filled)
+        existingDescription,
+        existingRequirements,
+        existingResponsibilities,
+        
+        // Step 3 fields (if available)
+        salaryMin,
+        salaryMax,
+        salaryCurrency,
+        salaryPeriod,
+        salaryDescription,
+        hideSalary,
+        closeDate,
+        visibility,
+        stealth,
+        
+        // Additional context
+        additionalContext,
+      } = req.body;
+
+      if (!title) {
+        res.status(400).json({ success: false, error: 'Job title is required' });
+        return;
+      }
+
+      const { JobDescriptionGeneratorService } = await import('../../services/ai/JobDescriptionGeneratorService');
+      
+      const generated = await JobDescriptionGeneratorService.generateWithAI({
+        title,
+        numberOfVacancies,
+        department,
+        location,
+        employmentType,
+        experienceLevel,
+        workArrangement,
+        tags,
+        serviceType,
+        existingDescription,
+        existingRequirements,
+        existingResponsibilities,
+        salaryMin,
+        salaryMax,
+        salaryCurrency,
+        salaryPeriod,
+        salaryDescription,
+        hideSalary,
+        closeDate,
+        visibility,
+        stealth,
+        additionalContext,
+      });
+
+      res.json({
+        success: true,
+        data: generated,
+      });
+    } catch (error) {
+      console.error('Error generating job description:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to generate job description',
       });
     }
   }

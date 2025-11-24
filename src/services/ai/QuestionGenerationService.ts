@@ -15,7 +15,7 @@ export interface QuestionGenerationRequest {
 }
 
 export interface GeneratedQuestion {
-  type: 'short_text' | 'long_text' | 'multiple_choice' | 'checkbox' | 'dropdown' | 'yes_no' | 'file_upload' | 'date' | 'number' | 'email' | 'phone' | 'url';
+  type: 'short_text' | 'long_text' | 'multiple_choice' | 'checkbox' | 'dropdown' | 'file_upload';
   label: string;
   description?: string;
   required: boolean;
@@ -106,7 +106,7 @@ Return a JSON object with this structure:
 {
   "questions": [
     {
-      "type": "short_text" | "long_text" | "multiple_choice" | "checkbox" | "dropdown" | "yes_no" | "file_upload" | "date" | "number" | "email" | "phone" | "url",
+      "type": "short_text" | "long_text" | "multiple_choice" | "checkbox" | "dropdown" | "file_upload",
       "label": "Question text",
       "description": "Optional helpful context",
       "required": true | false,
@@ -117,7 +117,8 @@ Return a JSON object with this structure:
 }
 
 Important:
-- Use appropriate question types (use multiple_choice/dropdown for questions with specific answer options)
+- Use appropriate question types: short_text (short answer), long_text (long answer), multiple_choice (single select), checkbox (multi-select), dropdown (dropdown selection), or file_upload (for certifications/licenses)
+- Use multiple_choice/dropdown for questions with specific answer options
 - Include 2-5 options for multiple_choice, checkbox, and dropdown types
 - Make questions specific to this role
 - Vary question types for better data collection
@@ -131,8 +132,7 @@ Important:
    */
   private static validateAndFormatQuestions(questions: any[], maxCount: number): GeneratedQuestion[] {
     const validTypes = [
-      'short_text', 'long_text', 'multiple_choice', 'checkbox', 'dropdown',
-      'yes_no', 'file_upload', 'date', 'number', 'email', 'phone', 'url'
+      'short_text', 'long_text', 'multiple_choice', 'checkbox', 'dropdown', 'file_upload'
     ];
 
     const needsOptions = ['multiple_choice', 'checkbox', 'dropdown'];
@@ -231,7 +231,7 @@ Important:
     const experienceMatch = jobDescription.match(/(\d+)\+?\s*years?\s*(?:of\s*)?experience/i);
     if (experienceMatch) {
       questions.push({
-        type: 'number',
+        type: 'short_text',
         label: 'How many years of relevant experience do you have?',
         required: true,
         category: 'experience',
@@ -240,7 +240,7 @@ Important:
 
     // 7. Availability/Start date
     questions.push({
-      type: 'date',
+      type: 'short_text',
       label: 'What is your earliest available start date?',
       required: false,
       category: 'logistics',
@@ -260,17 +260,21 @@ Important:
     // 9. Location/Remote work preference
     if (jobDescription.toLowerCase().includes('remote') || jobDescription.toLowerCase().includes('hybrid')) {
       questions.push({
-        type: 'yes_no',
+        type: 'multiple_choice',
         label: 'Are you comfortable with the work arrangement (remote/hybrid/on-site) for this role?',
         required: true,
         category: 'logistics',
+        options: [
+          { id: 'yes', label: 'Yes', value: 'yes' },
+          { id: 'no', label: 'No', value: 'no' },
+        ],
       });
     }
 
     // 10. Portfolio/Work samples (for technical roles)
     if (jobDescription.toLowerCase().match(/(portfolio|github|code|project|sample)/i)) {
       questions.push({
-        type: 'url',
+        type: 'short_text',
         label: 'Please share a link to your portfolio, GitHub profile, or relevant work samples.',
         required: false,
         category: 'skills',

@@ -377,6 +377,27 @@ export interface Job {
   hiringTeam?: HiringTeamMember[];
   applicationForm?: any; // JSON field for application form configuration
   videoInterviewingEnabled?: boolean;
+  
+  // Post-Launch Configuration
+  alertsEnabled?: {
+    newApplicants?: boolean;
+    inactivity?: boolean;
+    deadlines?: boolean;
+    inactivityDays?: number;
+  };
+  shareLink?: string;
+  referralLink?: string;
+  savedAsTemplate?: boolean;
+  templateId?: string;
+  
+  // JobTarget Promotion
+  jobTargetPromotionId?: string;
+  jobTargetChannels?: string[];
+  jobTargetBudget?: number;
+  jobTargetBudgetSpent?: number;
+  jobTargetStatus?: string; // 'pending', 'active', 'paused', 'completed'
+  jobTargetApproved?: boolean;
+  
   createdAt: Date;
   updatedAt: Date;
 }

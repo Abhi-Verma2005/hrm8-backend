@@ -77,12 +77,40 @@ router.post(
   JobController.saveTemplate
 );
 
+// Submit and activate job (requires job posting permission)
+router.post(
+  '/:id/submit',
+  requireJobPostingPermission,
+  JobController.submitAndActivate
+);
+
+// Update job alerts configuration (requires job posting permission)
+router.put(
+  '/:id/alerts',
+  requireJobPostingPermission,
+  JobController.updateAlerts
+);
+
+// Save job as template (requires job posting permission)
+router.post(
+  '/:id/save-as-template',
+  requireJobPostingPermission,
+  JobController.saveAsTemplate
+);
+
 // Parse document for job description extraction (requires job posting permission)
 router.post(
   '/parse-document',
   requireJobPostingPermission,
   JobDocumentController.uploadMiddleware,
   JobDocumentController.parseDocument
+);
+
+// Generate job description using AI (requires job posting permission)
+router.post(
+  '/generate-description',
+  requireJobPostingPermission,
+  JobController.generateDescription
 );
 
 // Invite hiring team member (requires job posting permission)
