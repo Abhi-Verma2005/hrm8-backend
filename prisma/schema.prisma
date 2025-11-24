@@ -73,6 +73,7 @@ enum JobStatus {
   CLOSED
   ON_HOLD
   FILLED
+  CANCELLED
   TEMPLATE
 }
 
@@ -326,6 +327,11 @@ model Job {
   referralLink      String?         @map("referral_link")
   savedAsTemplate   Boolean         @default(false) @map("saved_as_template")
   templateId        String?         @map("template_id")
+  
+  // Archive
+  archived          Boolean         @default(false) @map("archived")
+  archivedAt        DateTime?       @map("archived_at")
+  archivedBy        String?         @map("archived_by")
   
   // JobTarget Promotion
   jobTargetPromotionId   String?    @map("jobtarget_promotion_id")

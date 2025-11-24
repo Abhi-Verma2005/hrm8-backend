@@ -44,33 +44,65 @@ backend/
 │   │   ├── index.ts           # Main router (combines all routes)
 │   │   ├── auth.ts
 │   │   ├── company.ts
-│   │   └── employee.ts
+│   │   ├── employee.ts
+│   │   ├── job.ts
+│   │   └── signupRequest.ts
 │   ├── controllers/           # HTTP request handlers
 │   │   ├── auth/
 │   │   │   └── AuthController.ts
 │   │   ├── company/
 │   │   │   └── CompanyController.ts
-│   │   └── employee/
-│   │       └── EmployeeController.ts
+│   │   ├── employee/
+│   │   │   └── EmployeeController.ts
+│   │   ├── job/
+│   │   │   ├── JobController.ts
+│   │   │   ├── ApplicationFormController.ts
+│   │   │   └── JobDocumentController.ts
+│   │   └── signupRequest/
+│   │       └── SignupRequestController.ts
 │   ├── services/              # Business logic
 │   │   ├── auth/
 │   │   │   └── AuthService.ts
 │   │   ├── company/
-│   │   │   └── CompanyService.ts
+│   │   │   ├── CompanyService.ts
+│   │   │   └── CompanyProfileService.ts
 │   │   ├── invitation/
 │   │   │   └── InvitationService.ts
-│   │   └── verification/
-│   │       └── VerificationService.ts
+│   │   ├── verification/
+│   │   │   └── VerificationService.ts
+│   │   ├── job/
+│   │   │   ├── JobService.ts
+│   │   │   └── HiringTeamInvitationService.ts
+│   │   ├── signupRequest/
+│   │   │   └── SignupRequestService.ts
+│   │   ├── ai/
+│   │   │   ├── JobDescriptionExtractorService.ts
+│   │   │   ├── JobDescriptionGeneratorService.ts
+│   │   │   └── QuestionGenerationService.ts
+│   │   ├── document/
+│   │   │   └── DocumentParserService.ts
+│   │   ├── email/
+│   │   │   └── EmailService.ts
+│   │   └── rbac/
+│   │       ├── PermissionService.ts
+│   │       └── RoleService.ts
 │   ├── models/                # Data access layer
 │   │   ├── User.ts
 │   │   ├── Company.ts
+│   │   ├── CompanyProfile.ts
 │   │   ├── Session.ts
-│   │   └── Invitation.ts
+│   │   ├── Invitation.ts
+│   │   ├── Job.ts
+│   │   ├── SignupRequest.ts
+│   │   └── VerificationToken.ts
 │   ├── middleware/            # Express middleware
 │   │   ├── auth.ts            # Authentication middleware
 │   │   └── companyIsolation.ts # Company data isolation
 │   ├── validators/            # Request validation middleware
-│   │   └── auth.ts
+│   │   ├── auth.ts
+│   │   └── companyProfile.ts
+│   ├── constants/             # Application constants
+│   │   └── companyProfile.ts
 │   ├── utils/                 # Pure utility functions
 │   │   ├── email.ts
 │   │   ├── password.ts
@@ -244,6 +276,91 @@ All company-scoped operations must:
 5. **Type Safety**: Use TypeScript strictly, avoid `any`
 6. **Error Objects**: Return error objects from services instead of throwing
 
+## Job Management
+
+The job management system includes:
+
+### Controllers
+- **JobController**: Handles CRUD operations for job postings, publishing, templates
+- **ApplicationFormController**: Manages application form configuration and question generation
+- **JobDocumentController**: Handles document parsing for job description extraction
+
+### Services
+- **JobService**: Core business logic for job management
+- **HiringTeamInvitationService**: Manages hiring team member invitations
+- **JobDescriptionExtractorService**: AI-powered extraction from documents
+- **JobDescriptionGeneratorService**: AI-powered job description generation
+- **QuestionGenerationService**: AI-powered application form question generation
+
+### Models
+- **Job**: Represents job postings with status, hiring mode, work arrangement, etc.
+
+### Job Status Enum
+- `DRAFT`: Job is being created/edited
+- `OPEN`: Job is published and accepting applications
+- `CLOSED`: Job is no longer accepting applications
+- `ON_HOLD`: Job posting is temporarily paused
+- `FILLED`: Position has been filled
+- `CANCELLED`: Job posting was cancelled
+- `TEMPLATE`: Saved as a template for reuse
+
+## AI Services
+
+AI-powered services for job management:
+
+- **JobDescriptionExtractorService**: Extracts job details from uploaded documents (PDF, DOCX, TXT)
+- **JobDescriptionGeneratorService**: Generates job descriptions using AI based on form fields
+- **QuestionGenerationService**: Generates application form questions using AI
+
+All AI services fall back to pattern matching if OpenAI API is unavailable.
+
+## RBAC (Role-Based Access Control)
+
+### Services
+- **RoleService**: Manages user role assignments
+- **PermissionService**: Handles permission checks
+
+### User Roles
+- `SUPER_ADMIN`: Full system access
+- `ADMIN`: Company-level admin access
+- `USER`: Standard employee access
+- `VISITOR`: Limited read-only access
+
+### Middleware
+- `requireAdmin`: Requires SUPER_ADMIN or ADMIN role
+- `requireSuperAdmin`: Requires SUPER_ADMIN role
+- `requireJobPostingPermission`: Requires SUPER_ADMIN or ADMIN role (for job operations)
+
+## Company Profile & Onboarding
+
+### Services
+- **CompanyProfileService**: Manages company onboarding profile lifecycle
+
+### Models
+- **CompanyProfile**: Stores onboarding profile data with sections (basic details, location, personal profile, team members, billing, branding)
+
+### Profile Sections
+- `BASIC_DETAILS`: Company name, size, industry, contact info
+- `PRIMARY_LOCATION`: Main office location
+- `PERSONAL_PROFILE`: Company description, values, culture
+- `TEAM_MEMBERS`: Team member invitations
+- `BILLING`: Payment preferences and accounts email
+- `BRANDING`: Logo, colors, subdomain
+
+## Document Processing
+
+### Services
+- **DocumentParserService**: Parses PDF, DOCX, and TXT files
+  - Extracts text content
+  - Provides metadata (pages, word count, etc.)
+  - Used for job description extraction
+
 ## Notes
 
 _Add your own notes and observations here as you work with the codebase._
+
+### Known Issues (2025-01-27)
+- Services are throwing errors instead of returning error objects (pattern violation)
+- Controllers have redundant authentication checks (duplication)
+- Validation logic duplicated in controllers instead of validators
+- Error response formatting not centralized
