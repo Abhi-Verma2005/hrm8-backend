@@ -6,6 +6,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../types';
 import { SessionModel } from '../models/Session';
+import { getSessionCookieOptions } from '../utils/session';
 
 /**
  * Middleware to verify session cookie and authenticate user
@@ -29,12 +30,7 @@ export async function authenticate(
     const session = await SessionModel.findBySessionId(sessionId);
 
     if (!session) {
-      res.clearCookie('sessionId', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        path: '/',
-      });
+      res.clearCookie('sessionId', getSessionCookieOptions());
 
       res.status(401).json({
         success: false,

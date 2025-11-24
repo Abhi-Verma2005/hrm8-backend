@@ -12,7 +12,7 @@ import { InvitationService } from '../../services/invitation/InvitationService';
 import { VerificationService } from '../../services/verification/VerificationService';
 import { SessionModel } from '../../models/Session';
 import { UserModel } from '../../models/User';
-import { generateSessionId, getSessionExpiration } from '../../utils/session';
+import { generateSessionId, getSessionExpiration, getSessionCookieOptions } from '../../utils/session';
 import { CompanyAlreadyExistsError } from '../../models/Company';
 
 export class AuthController {
@@ -110,14 +110,7 @@ export class AuthController {
       );
 
       // Set session cookie
-      res.cookie('sessionId', sessionId, {
-        httpOnly: true, // Prevent XSS attacks
-        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Lax for local development, strict for production
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        path: '/', // Available on all routes
-        domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Don't set domain for localhost
-      });
+      res.cookie('sessionId', sessionId, getSessionCookieOptions());
 
       // Get company name
       const company = await CompanyService.findById(user.companyId);
@@ -454,13 +447,8 @@ export class AuthController {
         await SessionModel.deleteBySessionId(sessionId);
       }
 
-      // Clear session cookie
-      res.clearCookie('sessionId', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        path: '/',
-      });
+      // Clear session cookie (use same options as when setting)
+      res.clearCookie('sessionId', getSessionCookieOptions());
 
       res.json({
         success: true,

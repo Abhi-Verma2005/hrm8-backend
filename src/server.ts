@@ -8,10 +8,19 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // CORS configuration
+const getCorsOrigin = (): string | string[] | boolean => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+  // Support multiple origins if comma-separated
+  if (frontendUrl.includes(',')) {
+    return frontendUrl.split(',').map(url => url.trim());
+  }
+  return frontendUrl;
+};
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+  origin: getCorsOrigin(),
   credentials: true, // Allow cookies to be sent
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
