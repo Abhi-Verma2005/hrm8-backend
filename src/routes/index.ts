@@ -9,6 +9,7 @@ import companyRoutes from './company';
 import employeeRoutes from './employee';
 import signupRequestRoutes from './signupRequest';
 import jobRoutes from './job';
+import jobTemplateRoutes from './jobTemplate';
 
 const router: RouterType = Router();
 
@@ -18,6 +19,7 @@ router.use('/api/companies', companyRoutes);
 router.use('/api/employees', employeeRoutes);
 router.use('/api/signup-requests', signupRequestRoutes);
 router.use('/api/jobs', jobRoutes);
+router.use('/api/job-templates', jobTemplateRoutes);
 
 export default router;
 

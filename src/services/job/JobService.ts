@@ -288,29 +288,18 @@ export class JobService {
   }
 
   /**
-   * Save job as template
+   * @deprecated Use JobTemplateService.createFromJob() instead
+   * Save job as template - DEPRECATED
+   * This method is kept for backward compatibility but should not be used.
+   * Use JobTemplateService.createFromJob() to create templates in the new system.
    */
   static async saveJobAsTemplate(
-    jobId: string,
-    companyId: string,
-    _templateName: string, // TODO: Store template name in a separate templates table
-    _templateDescription?: string // TODO: Store template description in a separate templates table
+    _jobId: string,
+    _companyId: string,
+    _templateName: string,
+    _templateDescription?: string
   ): Promise<{ job: Job; templateId: string }> {
-    // Verify job exists and belongs to company
-    await this.getJobById(jobId, companyId);
-
-    // Create a new job with template status
-    const templateId = `template-${Date.now()}`;
-    const templateJob = await JobModel.update(jobId, {
-      savedAsTemplate: true,
-      templateId,
-      status: JobStatus.TEMPLATE,
-    });
-
-    return {
-      job: templateJob,
-      templateId,
-    };
+    throw new Error('This method is deprecated. Use JobTemplateService.createFromJob() instead.');
   }
 
   /**
@@ -333,22 +322,17 @@ export class JobService {
   }
 
   /**
-   * Save job as template
+   * @deprecated Use JobTemplateService.createFromJob() or JobTemplateService.createTemplate() instead
+   * Save job as template - DEPRECATED
+   * This method is kept for backward compatibility but should not be used.
+   * Use JobTemplateService to create templates in the new system.
    */
   static async saveTemplate(
-    jobId: string,
-    companyId: string,
-    jobData: UpdateJobRequest
+    _jobId: string,
+    _companyId: string,
+    _jobData: UpdateJobRequest
   ): Promise<Job> {
-    // Verify job exists and belongs to company (throws error if not)
-    await this.getJobById(jobId, companyId);
-
-    const updatedJob = await JobModel.update(jobId, {
-      ...jobData,
-      status: JobStatus.TEMPLATE,
-    });
-
-    return updatedJob;
+    throw new Error('This method is deprecated. Use JobTemplateService.createFromJob() or JobTemplateService.createTemplate() instead.');
   }
 
   /**
