@@ -191,6 +191,105 @@ export class JobModel {
   }
 
   /**
+   * Find public jobs with filters (for public job search)
+   * Returns jobs with company information
+   */
+  static async findPublicJobs(filters: {
+    location?: string;
+    employmentType?: string;
+    workArrangement?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ jobs: Array<Job & { company: { id: string; name: string; website: string } | null }>; total: number }> {
+    const where: any = {
+      status: JobStatus.OPEN,
+      visibility: 'public',
+      archived: false,
+    };
+
+    // Filter by location
+    if (filters.location) {
+      where.location = {
+        contains: filters.location,
+        mode: 'insensitive',
+      };
+    }
+
+    // Filter by employment type
+    if (filters.employmentType) {
+      where.employmentType = filters.employmentType.toUpperCase();
+    }
+
+    // Filter by work arrangement
+    if (filters.workArrangement) {
+      where.workArrangement = filters.workArrangement.toUpperCase().replace('-', '_');
+    }
+
+    // Search in title, description
+    if (filters.search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { title: { contains: filters.search, mode: 'insensitive' } },
+            { description: { contains: filters.search, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+
+    // Check expiry date
+    const now = new Date();
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { expiryDate: null },
+          { expiryDate: { gte: now } },
+        ],
+      },
+    ];
+
+    const limitNum = filters.limit || 50;
+    const offsetNum = filters.offset || 0;
+
+    const [jobs, total] = await Promise.all([
+      prisma.job.findMany({
+        where,
+        include: {
+          company: {
+            select: {
+              id: true,
+              name: true,
+              website: true,
+            },
+          },
+        },
+        orderBy: [
+          { featured: 'desc' },
+          { postingDate: 'desc' },
+        ],
+        take: limitNum,
+        skip: offsetNum,
+      }),
+      prisma.job.count({ where }),
+    ]);
+
+    return {
+      jobs: jobs.map((job) => ({
+        ...this.mapPrismaToJob(job),
+        company: job.company ? {
+          id: job.company.id,
+          name: job.company.name,
+          website: job.company.website,
+        } : null,
+      })),
+      total,
+    };
+  }
+
+  /**
    * Update job
    */
   static async update(id: string, jobData: Partial<Omit<Job, 'id' | 'companyId' | 'createdBy' | 'createdAt' | 'updatedAt'>>): Promise<Job> {
