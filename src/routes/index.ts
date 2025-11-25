@@ -12,6 +12,7 @@ import jobRoutes from './job';
 import candidateRoutes from './candidate';
 import applicationRoutes from './application';
 import publicRoutes from './public';
+import jobTemplateRoutes from './jobTemplate';
 
 const router: RouterType = Router();
 
@@ -24,6 +25,7 @@ router.use('/api/jobs', jobRoutes);
 router.use('/api/candidate', candidateRoutes);
 router.use('/api/applications', applicationRoutes);
 router.use('/api/public', publicRoutes);
+router.use('/api/job-templates', jobTemplateRoutes);
 
 export default router;
 

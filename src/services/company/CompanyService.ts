@@ -46,6 +46,7 @@ export class CompanyService {
     // Initialize onboarding profile for company
     await CompanyProfileService.initializeProfile(company.id);
 
+
     // Always require verification email even after domain match
     await VerificationService.initiateEmailVerification(company, registrationData.adminEmail);
 
