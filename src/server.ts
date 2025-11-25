@@ -54,7 +54,7 @@ if (isProduction) {
   
   // SPA fallback: serve index.html for all non-API routes
   // This must be after API routes and static files
-  app.get('*', (req: Request, res: Response) => {
+  app.get('/*', (req: Request, res: Response) => {
     // Don't serve index.html for API routes or health check
     if (req.path.startsWith('/api') || req.path === '/health' || req.path === '/') {
       res.status(404).json({
