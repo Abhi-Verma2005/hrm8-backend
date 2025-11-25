@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import path from 'path';
 import routes from './routes';
 
 const app = express();
@@ -43,13 +44,39 @@ app.get('/health', (_req: Request, res: Response) => {
 // API Routes
 app.use('/', routes);
 
-// 404 handler
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    error: 'Route not found',
+// Serve static files from frontend dist directory in production
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction) {
+  // Resolve path relative to the project root (not dist folder)
+  // __dirname in compiled JS will be backend/dist, so we go up to backend, then to frontend/dist
+  const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendDistPath));
+  
+  // SPA fallback: serve index.html for all non-API routes
+  // This must be after API routes and static files
+  app.get('*', (req: Request, res: Response) => {
+    // Don't serve index.html for API routes or health check
+    if (req.path.startsWith('/api') || req.path === '/health' || req.path === '/') {
+      res.status(404).json({
+        success: false,
+        error: 'Route not found',
+      });
+      return;
+    }
+    
+    // Serve index.html for all other routes (SPA routing)
+    const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
+    res.sendFile(indexPath);
   });
-});
+} else {
+  // 404 handler for development (when frontend is served separately)
+  app.use((_req: Request, res: Response) => {
+    res.status(404).json({
+      success: false,
+      error: 'Route not found',
+    });
+  });
+}
 
 // Error handler
 app.use((err: Error, _req: Request, res: Response, _next: express.NextFunction) => {
