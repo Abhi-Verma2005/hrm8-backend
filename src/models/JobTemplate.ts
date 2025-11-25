@@ -68,8 +68,8 @@ export class JobTemplateModel {
     jobData: CreateJobRequest;
   }): Promise<JobTemplate> {
     const prismaData: any = {
-      companyId: templateData.companyId,
-      createdBy: templateData.createdBy,
+      company_id: templateData.companyId,
+      created_by: templateData.createdBy,
       name: templateData.name,
       description: templateData.description || null,
       category: this.mapCategoryToEnum(templateData.category),
@@ -101,8 +101,8 @@ export class JobTemplateModel {
    */
   static async findByCompanyId(companyId: string): Promise<JobTemplate[]> {
     const templates = await prisma.jobTemplate.findMany({
-      where: { companyId },
-      orderBy: { updatedAt: 'desc' },
+      where: { company_id: companyId },
+      orderBy: { updated_at: 'desc' },
     });
 
     return templates.map((template) => this.mapPrismaToTemplate(template));
@@ -118,7 +118,7 @@ export class JobTemplateModel {
       search?: string;
     }
   ): Promise<JobTemplate[]> {
-    const where: any = { companyId };
+    const where: any = { company_id: companyId };
 
     if (filters.category) {
       where.category = this.mapCategoryToEnum(filters.category);
@@ -133,7 +133,7 @@ export class JobTemplateModel {
 
     const templates = await prisma.jobTemplate.findMany({
       where,
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { updated_at: 'desc' },
     });
 
     return templates.map((template) => this.mapPrismaToTemplate(template));
@@ -184,8 +184,8 @@ export class JobTemplateModel {
     const template = await prisma.jobTemplate.update({
       where: { id },
       data: {
-        usageCount: { increment: 1 },
-        lastUsedAt: new Date(),
+        usage_count: { increment: 1 },
+        last_used_at: new Date(),
       },
     });
 
@@ -198,8 +198,8 @@ export class JobTemplateModel {
   private static mapPrismaToTemplate(prismaTemplate: any): JobTemplate {
     return {
       id: prismaTemplate.id,
-      companyId: prismaTemplate.companyId,
-      createdBy: prismaTemplate.createdBy,
+      companyId: prismaTemplate.company_id,
+      createdBy: prismaTemplate.created_by,
       name: prismaTemplate.name,
       description: prismaTemplate.description || undefined,
       category: prismaTemplate.category || 'OTHER',
@@ -210,10 +210,10 @@ export class JobTemplateModel {
             ? JSON.parse(prismaTemplate.job_data)
             : prismaTemplate.job_data)
         : {} as CreateJobRequest,
-      usageCount: prismaTemplate.usageCount || 0,
-      lastUsedAt: prismaTemplate.lastUsedAt || undefined,
-      createdAt: prismaTemplate.createdAt,
-      updatedAt: prismaTemplate.updatedAt,
+      usageCount: prismaTemplate.usage_count || 0,
+      lastUsedAt: prismaTemplate.last_used_at || undefined,
+      createdAt: prismaTemplate.created_at,
+      updatedAt: prismaTemplate.updated_at,
     };
   }
 }

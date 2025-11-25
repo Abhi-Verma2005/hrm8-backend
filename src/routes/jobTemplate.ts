@@ -2,11 +2,12 @@
  * Job Template Routes
  */
 
-import { Router } from 'express';
+import { Router as createRouter } from 'express';
+import type { Router } from 'express';
 import { JobTemplateController } from '../controllers/job/JobTemplateController';
 import { authenticate, requireJobPostingPermission } from '../middleware/auth';
 
-const router: Router = Router();
+const router: Router = createRouter();
 
 // All template routes require authentication
 router.use(authenticate);

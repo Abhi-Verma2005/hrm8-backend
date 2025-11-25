@@ -26,7 +26,7 @@ model Company {
   profile            CompanyProfile?
   invitations        Invitation[]
   jobs               Job[]
-  jobTemplates       JobTemplate[]
+  JobTemplate        JobTemplate[]
   signupRequests     SignupRequest[]
   users              User[]
   verificationTokens VerificationToken[]
@@ -65,7 +65,7 @@ model User {
   assignedBy             String?         @map("assigned_by")
   sentInvitations        Invitation[]    @relation("InvitedBy")
   createdJobs            Job[]           @relation("JobCreator")
-  createdTemplates       JobTemplate[]   @relation("TemplateCreator")
+  JobTemplate            JobTemplate[]
   sessions               Session[]
   reviewedSignupRequests SignupRequest[] @relation("ReviewedBy")
   roleAssigner           User?           @relation("RoleAssigner", fields: [assignedBy], references: [id])
@@ -207,6 +207,7 @@ model Job {
   archived                 Boolean         @default(false) @map("archived")
   archivedAt               DateTime?       @map("archived_at")
   archivedBy               String?         @map("archived_by")
+  applications             Application[]
   company                  Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   creator                  User            @relation("JobCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   JobTemplate              JobTemplate[]
@@ -218,27 +219,102 @@ model Job {
   @@index([expiryDate])
 }
 
+model Candidate {
+  id                String             @id @default(uuid())
+  email             String             @unique
+  passwordHash      String             @map("password_hash")
+  firstName         String             @map("first_name")
+  lastName          String             @map("last_name")
+  phone             String?
+  photo             String?
+  linkedInUrl       String?            @map("linked_in_url")
+  city              String?
+  state             String?
+  country           String?            @default("United States")
+  visaStatus        String?            @map("visa_status")
+  workEligibility   String?            @map("work_eligibility")
+  jobTypePreference String[]           @default([]) @map("job_type_preference")
+  salaryPreference  Json?              @map("salary_preference")
+  relocationWilling Boolean?           @default(false) @map("relocation_willing")
+  remotePreference  String?            @map("remote_preference")
+  emailVerified     Boolean            @default(false) @map("email_verified")
+  status            CandidateStatus    @default(ACTIVE)
+  lastLoginAt       DateTime?          @map("last_login_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  applications      Application[]
+  sessions          CandidateSession[]
+
+  @@index([email])
+  @@index([status])
+}
+
+model CandidateSession {
+  id           String    @id @default(uuid())
+  sessionId    String    @unique @map("session_id")
+  candidateId  String    @map("candidate_id")
+  email        String
+  expiresAt    DateTime  @map("expires_at")
+  lastActivity DateTime  @default(now()) @map("last_activity")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  candidate    Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([candidateId])
+  @@index([expiresAt])
+}
+
+model Application {
+  id                String            @id @default(uuid())
+  candidateId       String            @map("candidate_id")
+  jobId             String            @map("job_id")
+  status            ApplicationStatus @default(NEW)
+  stage             ApplicationStage  @default(NEW_APPLICATION)
+  appliedDate       DateTime          @default(now()) @map("applied_date")
+  resumeUrl         String?           @map("resume_url")
+  coverLetterUrl    String?           @map("cover_letter_url")
+  portfolioUrl      String?           @map("portfolio_url")
+  linkedInUrl       String?           @map("linked_in_url")
+  websiteUrl        String?           @map("website_url")
+  customAnswers     Json?             @map("custom_answers")
+  questionnaireData Json?             @map("questionnaire_data")
+  isRead            Boolean           @default(false) @map("is_read")
+  isNew             Boolean           @default(true) @map("is_new")
+  tags              String[]          @default([])
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  candidate         Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job               Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobId])
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([status])
+  @@index([stage])
+  @@index([appliedDate])
+}
+
 model JobTemplate {
   id            String           @id @default(dbgenerated("gen_random_uuid()"))
-  companyId     String           @map("company_id")
-  createdBy     String           @map("created_by")
+  company_id    String
+  created_by    String
   name          String
   description   String?
   category      TemplateCategory @default(OTHER)
   is_shared     Boolean          @default(false)
   source_job_id String?
   job_data      Json
-  usageCount    Int              @default(0) @map("usage_count")
-  lastUsedAt    DateTime?        @map("last_used_at")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at")
-  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  creator       User             @relation("TemplateCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  usage_count   Int              @default(0)
+  last_used_at  DateTime?
+  created_at    DateTime         @default(now())
+  updated_at    DateTime         @default(now())
+  Company       Company          @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  User          User             @relation(fields: [created_by], references: [id], onDelete: Cascade)
   Job           Job?             @relation(fields: [source_job_id], references: [id])
 
-  @@index([companyId])
-  @@index([createdBy])
   @@index([category])
+  @@index([company_id])
+  @@index([created_by])
   @@index([is_shared])
   @@index([source_job_id])
 }
@@ -338,4 +414,31 @@ enum TemplateCategory {
   FINANCE
   EXECUTIVE
   OTHER
+}
+
+enum CandidateStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_VERIFICATION
+}
+
+enum ApplicationStatus {
+  NEW
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ApplicationStage {
+  NEW_APPLICATION
+  RESUME_REVIEW
+  PHONE_SCREEN
+  TECHNICAL_INTERVIEW
+  ONSITE_INTERVIEW
+  OFFER_EXTENDED
+  OFFER_ACCEPTED
+  REJECTED
 }
