@@ -14,6 +14,7 @@ router.post('/', authenticateCandidate, ApplicationController.submitApplication)
 router.get('/', authenticateCandidate, ApplicationController.getCandidateApplications);
 
 // Recruiter routes (require company authentication)
+router.get('/admin/:id', authenticate, ApplicationController.getApplicationForAdmin);
 // Get applications for a job (must come before /:id to avoid route conflicts)
 router.get('/job/:jobId', authenticate, ApplicationController.getJobApplications);
 

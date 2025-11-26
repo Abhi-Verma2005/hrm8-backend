@@ -82,6 +82,11 @@ export class ApplicationController {
       const candidate = req.candidate;
       const { id } = req.params;
 
+      console.log('[ApplicationController.getApplication] candidate view', {
+        candidateId: candidate?.id,
+        applicationId: id,
+      });
+
       if (!candidate) {
         res.status(401).json({
           success: false,
@@ -91,6 +96,10 @@ export class ApplicationController {
       }
 
       const application = await ApplicationService.getApplication(id);
+
+      console.log('[ApplicationController.getApplication] loaded application', {
+        found: !!application,
+      });
 
       if (!application) {
         res.status(404).json({
@@ -114,6 +123,49 @@ export class ApplicationController {
         data: { application },
       });
     } catch (error) {
+      console.error('[ApplicationController.getApplication] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get application',
+      });
+    }
+  }
+
+  /**
+   * Get application by ID for recruiters/admins
+   * GET /api/applications/admin/:id
+   */
+  static async getApplicationForAdmin(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      console.log('[ApplicationController.getApplicationForAdmin] recruiter view', {
+        applicationId: id,
+      });
+
+      const application = await ApplicationService.getApplication(id);
+
+      if (!application) {
+        console.log('[ApplicationController.getApplicationForAdmin] not found', { applicationId: id });
+        res.status(404).json({
+          success: false,
+          error: 'Application not found',
+        });
+        return;
+      }
+
+      console.log('[ApplicationController.getApplicationForAdmin] loaded application', {
+        id: application.id,
+        jobId: application.jobId,
+        candidateId: application.candidateId,
+      });
+
+      res.json({
+        success: true,
+        data: { application },
+      });
+    } catch (error) {
+      console.error('[ApplicationController.getApplicationForAdmin] error', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get application',
@@ -161,13 +213,21 @@ export class ApplicationController {
       // For now, we'll allow it but in production should check company permissions
       const { jobId } = req.params;
 
+      console.log('[ApplicationController.getJobApplications] recruiter view', { jobId });
+
       const applications = await ApplicationService.getJobApplications(jobId);
+
+      console.log('[ApplicationController.getJobApplications] loaded applications', {
+        jobId,
+        count: applications.length,
+      });
 
       res.json({
         success: true,
         data: { applications },
       });
     } catch (error) {
+      console.error('[ApplicationController.getJobApplications] error', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get applications',

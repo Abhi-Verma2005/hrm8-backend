@@ -101,20 +101,23 @@ Actively search for:
 - ❌ Never expose Prisma types to upper layers
 
 #### Service Layer Rules
-- ✅ All methods must be `static`
+- ✅ **Core business services** (auth, company, job, signupRequest, candidate, rbac, application) are implemented as `static` methods on a class
 - ✅ Use Model classes for database access (never Prisma directly)
 - ✅ Use `utils/` for pure operations
-- ✅ Return success data OR error objects (never throw)
-- ✅ No HTTP concerns (no req/res parameters)
-- ❌ Never import Express types
-- ❌ Never throw errors (return error objects instead)
+- ✅ Prefer returning success data OR typed error objects (see `ServiceError` pattern) instead of throwing
+- ✅ No HTTP concerns (no req/res parameters) in core business services
+- ❌ Core business services should not import Express types
+- ℹ️ **Infrastructure / integration services** (e.g. `EmailService`, some AI/document services) may:
+  - Be instance-based instead of static
+  - Throw errors that must be caught and mapped at the calling service/controller layer
+  - Encapsulate transport-specific concerns (SMTP, OpenAI, file system, etc.)
 
 #### Controller Layer Rules
 - ✅ Methods must return `Promise<void>`
 - ✅ Use `res.json()` instead of returning values
 - ✅ Always wrap in try-catch
-- ✅ Standard response format: `{ success: boolean, data?: any, error?: string, errors?: string[] }`
-- ✅ Check service responses for error objects
+- ✅ Standard response format: `{ success: boolean, data?: any, error?: string, errors?: string[], details?: any }`
+- ✅ Check service responses for error objects (including `status` / `details` when provided, e.g. `AuthService.login`, `CandidateAuthService.register`)
 - ✅ Map error types to appropriate HTTP status codes
 - ❌ No business logic in controllers
 - ❌ Never call database directly
@@ -145,6 +148,8 @@ Actively search for:
 - ✅ Well-documented with JSDoc
 - ❌ No database access
 - ❌ No HTTP concerns
+
+> **Current state note**: Most utils follow the pure-function rule and avoid cross-layer dependencies; JSDoc coverage is still being improved and should be added when you touch a util.
 
 ### 4. Documentation Maintenance
 
@@ -202,6 +207,8 @@ Before approving any code, verify:
 - ✅ Consistent naming conventions
 - ✅ No commented-out code
 - ✅ Proper indentation and formatting
+
+> **Current state note**: Newer files generally follow these rules, but there are legacy sections without full JSDoc/file headers. When modifying a file, bring it up to this standard incrementally rather than trying to fix everything at once.
 
 ## Review Workflow
 
@@ -340,6 +347,15 @@ You should automatically fix:
 - Validation logic not in validators (extract to validators)
 - Business logic in controllers (move to services)
 - Direct database access in services (move to models)
+
+> **Current state vs target**
+>
+> When reviewing existing code, be aware of these **known gaps** (see `CODE_REVIEW_REPORT.md` for details):
+>
+> - **Services throwing errors**: Many services (e.g. `JobService`, `CompanyProfileService`, several AI/document/email services) still `throw` instead of returning typed error objects. Treat this as tech debt and refactor towards the documented pattern when you are already working in those files.
+> - **Redundant auth checks in controllers**: Controllers frequently re-check `if (!req.user)` even when routes are already protected by `authenticate` middleware. Prefer relying on middleware and remove redundant checks as you touch those handlers.
+> - **Inline validation in controllers**: Several controllers (notably `JobController`) perform request validation inline. New validation should live in `src/validators/**`; when editing such controllers, move validation into dedicated validator middleware.
+> - **Duplicated error-response patterns**: Error responses are often built manually in each controller. Prefer shared helpers (e.g. a `utils/response` style pattern) where available, and consider introducing them if you see repeated response shapes.
 
 ## Do NOT Change
 
