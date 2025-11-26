@@ -198,6 +198,11 @@ export class JobModel {
     location?: string;
     employmentType?: string;
     workArrangement?: string;
+    category?: string;
+    department?: string;
+    salaryMin?: number;
+    salaryMax?: number;
+    featured?: boolean;
     search?: string;
     limit?: number;
     offset?: number;
@@ -226,6 +231,76 @@ export class JobModel {
       where.workArrangement = filters.workArrangement.toUpperCase().replace('-', '_');
     }
 
+    // Filter by category
+    if (filters.category) {
+      where.category = {
+        contains: filters.category,
+        mode: 'insensitive',
+      };
+    }
+
+    // Filter by department
+    if (filters.department) {
+      where.department = {
+        contains: filters.department,
+        mode: 'insensitive',
+      };
+    }
+
+    // Filter by salary range
+    // A job matches if its salary range overlaps with the requested range
+    if (filters.salaryMin !== undefined || filters.salaryMax !== undefined) {
+      const salaryConditions: any[] = [];
+      
+      if (filters.salaryMin !== undefined && filters.salaryMax !== undefined) {
+        // Both min and max specified: job range must overlap
+        salaryConditions.push({
+          AND: [
+            {
+              OR: [
+                { salaryMax: { gte: filters.salaryMin } },
+                { salaryMax: null },
+              ],
+            },
+            {
+              OR: [
+                { salaryMin: { lte: filters.salaryMax } },
+                { salaryMin: null },
+              ],
+            },
+          ],
+        });
+      } else if (filters.salaryMin !== undefined) {
+        // Only min specified: job's max should be >= min (or no max)
+        salaryConditions.push({
+          OR: [
+            { salaryMax: { gte: filters.salaryMin } },
+            { salaryMax: null },
+          ],
+        });
+      } else if (filters.salaryMax !== undefined) {
+        // Only max specified: job's min should be <= max (or no min)
+        salaryConditions.push({
+          OR: [
+            { salaryMin: { lte: filters.salaryMax } },
+            { salaryMin: null },
+          ],
+        });
+      }
+
+      if (salaryConditions.length > 0) {
+        where.AND = [
+          ...(where.AND || []),
+          ...salaryConditions,
+        ];
+      }
+    }
+
+    // Filter by featured
+    if (filters.featured !== undefined) {
+      where.featured = filters.featured;
+    }
+
     // Search in title, description
     if (filters.search) {
       where.AND = [
@@ -234,6 +309,7 @@ export class JobModel {
           OR: [
             { title: { contains: filters.search, mode: 'insensitive' } },
             { description: { contains: filters.search, mode: 'insensitive' } },
+            { jobSummary: { contains: filters.search, mode: 'insensitive' } },
           ],
         },
       ];
@@ -286,6 +362,60 @@ export class JobModel {
         } : null,
       })),
       total,
+    };
+  }
+
+  /**
+   * Get filter options for public job search
+   * Returns unique values for categories, departments, and locations
+   */
+  static async getPublicJobFilterOptions(): Promise<{
+    categories: string[];
+    departments: string[];
+    locations: string[];
+  }> {
+    const now = new Date();
+    const where = {
+      status: JobStatus.OPEN,
+      visibility: 'public',
+      archived: false,
+      OR: [
+        { expiryDate: null },
+        { expiryDate: { gte: now } },
+      ],
+    };
+
+    const [categories, departments, locations] = await Promise.all([
+      prisma.job.findMany({
+        where,
+        select: { category: true },
+        distinct: ['category'],
+      }),
+      prisma.job.findMany({
+        where,
+        select: { department: true },
+        distinct: ['department'],
+      }),
+      prisma.job.findMany({
+        where,
+        select: { location: true },
+        distinct: ['location'],
+      }),
+    ]);
+
+    return {
+      categories: categories
+        .map((j) => j.category)
+        .filter((c): c is string => c !== null && c !== undefined)
+        .sort(),
+      departments: departments
+        .map((j) => j.department)
+        .filter((d): d is string => d !== null && d !== undefined)
+        .sort(),
+      locations: locations
+        .map((j) => j.location)
+        .filter((l): l is string => l !== null && l !== undefined)
+        .sort(),
     };
   }
 

@@ -19,6 +19,11 @@ export class PublicJobController {
         location,
         employmentType,
         workArrangement,
+        category,
+        department,
+        salaryMin,
+        salaryMax,
+        featured,
         search,
         limit = '50',
         offset = '0',
@@ -31,6 +36,11 @@ export class PublicJobController {
         location: location as string | undefined,
         employmentType: employmentType as string | undefined,
         workArrangement: workArrangement as string | undefined,
+        category: category as string | undefined,
+        department: department as string | undefined,
+        salaryMin: salaryMin ? parseFloat(salaryMin as string) : undefined,
+        salaryMax: salaryMax ? parseFloat(salaryMax as string) : undefined,
+        featured: featured === 'true' ? true : featured === 'false' ? false : undefined,
         search: search as string | undefined,
         limit: limitNum,
         offset: offsetNum,
@@ -155,6 +165,25 @@ export class PublicJobController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch job',
+      });
+    }
+  }
+
+  /**
+   * Get filter options for job search
+   * GET /api/public/jobs/filters
+   */
+  static async getFilterOptions(_req: Request, res: Response): Promise<void> {
+    try {
+      const options = await JobModel.getPublicJobFilterOptions();
+      res.json({
+        success: true,
+        data: options,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch filter options',
       });
     }
   }

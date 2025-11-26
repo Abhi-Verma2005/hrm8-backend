@@ -10,6 +10,7 @@ const router: RouterType = Router();
 
 // Public job search routes (no authentication required)
 router.get('/jobs', PublicJobController.getPublicJobs);
+router.get('/jobs/filters', PublicJobController.getFilterOptions);
 router.get('/jobs/:id', PublicJobController.getPublicJobById);
 
 export default router;
