@@ -377,28 +377,45 @@ export interface Job {
   hiringTeam?: HiringTeamMember[];
   applicationForm?: any; // JSON field for application form configuration
   videoInterviewingEnabled?: boolean;
-  
-  // Post-Launch Configuration
+  shareLink?: string;
+  referralLink?: string;
   alertsEnabled?: {
     newApplicants?: boolean;
     inactivity?: boolean;
     deadlines?: boolean;
     inactivityDays?: number;
   };
-  shareLink?: string;
-  referralLink?: string;
   savedAsTemplate?: boolean;
   templateId?: string;
-  
-  // JobTarget Promotion
   jobTargetPromotionId?: string;
   jobTargetChannels?: string[];
   jobTargetBudget?: number;
   jobTargetBudgetSpent?: number;
-  jobTargetStatus?: string; // 'pending', 'active', 'paused', 'completed'
+  jobTargetStatus?: string;
   jobTargetApproved?: boolean;
-  
   createdAt: Date;
   updatedAt: Date;
+}
+
+// ============================================================================
+// WebSocket Types
+// ============================================================================
+
+import { WebSocket } from 'ws';
+
+export interface ClientConnection {
+  ws: WebSocket;
+  userEmail: string;
+  userName: string;
+  userId: string;
+  userType: 'USER' | 'CANDIDATE';
+  connectionKey: string;
+  authenticated: boolean;
+  conversationId?: string;
+}
+
+export interface WSMessage {
+  type: string;
+  payload?: any;
 }
 

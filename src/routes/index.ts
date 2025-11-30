@@ -13,6 +13,8 @@ import candidateRoutes from './candidate';
 import applicationRoutes from './application';
 import publicRoutes from './public';
 import jobTemplateRoutes from './jobTemplate';
+import hrm8Routes from './hrm8';
+import consultantRoutes from './consultant';
 
 const router: RouterType = Router();
 
@@ -26,6 +28,8 @@ router.use('/api/candidate', candidateRoutes);
 router.use('/api/applications', applicationRoutes);
 router.use('/api/public', publicRoutes);
 router.use('/api/job-templates', jobTemplateRoutes);
+router.use('/api/hrm8', hrm8Routes);
+router.use('/api/consultant', consultantRoutes);
 
 export default router;
 

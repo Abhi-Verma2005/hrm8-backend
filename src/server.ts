@@ -1,9 +1,23 @@
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
+import { createServer } from 'http';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import path from 'path';
 import routes from './routes';
+import { wss } from './websocket';
+
+// Handle unhandled promise rejections to prevent server crashes
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process, just log the error
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // Don't exit the process, just log the error
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -89,9 +103,23 @@ app.use((err: Error, _req: Request, res: Response, _next: express.NextFunction) 
   });
 });
 
+// Create HTTP server
+const server = createServer(app);
+
+// Attach WebSocket server to HTTP server
+server.on('upgrade', (request, socket, head) => {
+  console.log('🔄 WebSocket upgrade request received');
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    console.log('✅ WebSocket connection upgraded');
+    wss.emit('connection', ws, request);
+  });
+});
+
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   console.log(`API endpoints available at http://localhost:${PORT}/api`);
+  console.log(`🌐 WebSocket endpoint: ws://localhost:${PORT}`);
+  console.log(`✅ WebSocket server attached and ready`);
 });
 

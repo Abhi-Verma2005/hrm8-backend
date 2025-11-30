@@ -75,13 +75,7 @@ export class ApplicationService {
    * Get application by ID
    */
   static async getApplication(applicationId: string): Promise<ApplicationData | null> {
-    console.log('[ApplicationService.getApplication] loading application', { applicationId });
-    const application = await ApplicationModel.findById(applicationId);
-    console.log('[ApplicationService.getApplication] result', {
-      found: !!application,
-      applicationId,
-    });
-    return application;
+    return await ApplicationModel.findById(applicationId);
   }
 
   /**
