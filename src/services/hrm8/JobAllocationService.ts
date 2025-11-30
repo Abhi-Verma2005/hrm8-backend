@@ -4,9 +4,11 @@
  * Note: Since it's 1:1 consultant:region, jobs in a region automatically belong to that region's consultant
  */
 
+import { prisma } from '../../lib/prisma';
 import { ConsultantModel } from '../../models/Consultant';
 import { ConsultantJobAssignmentModel } from '../../models/ConsultantJobAssignment';
-import prisma from '../../lib/prisma';
+import { JobModel } from '../../models/Job';
+import { JobStatus } from '../../types';
 
 export class JobAllocationService {
   /**
@@ -145,6 +147,42 @@ export class JobAllocationService {
   static async getConsultantJobs(consultantId: string): Promise<string[]> {
     const assignments = await ConsultantJobAssignmentModel.findByConsultantId(consultantId, true);
     return assignments.map(a => a.jobId);
+  }
+
+  /**
+   * Get all jobs for HRM8 admin
+   * Returns all jobs across all companies (for Global Admin) or filtered by region (for Regional Licensee)
+   */
+  static async getAllJobs(
+    userRole: string,
+    filters?: {
+      regionId?: string;
+      status?: string;
+    }
+  ): Promise<any[]> {
+    try {
+      const jobFilters: {
+        regionId?: string;
+        status?: JobStatus;
+      } = {};
+
+      // For regional licensees, filter by their assigned regions
+      // For global admin, show all jobs
+      if (userRole !== 'GLOBAL_ADMIN' && filters?.regionId) {
+        jobFilters.regionId = filters.regionId;
+      }
+
+      // Filter by status if provided
+      if (filters?.status) {
+        jobFilters.status = filters.status as JobStatus;
+      }
+
+      // Use JobModel's public method to get jobs
+      return await JobModel.findAllWithFilters(jobFilters);
+    } catch (error: any) {
+      console.error('Get all jobs error:', error);
+      throw new Error(error.message || 'Failed to fetch jobs');
+    }
   }
 }
 

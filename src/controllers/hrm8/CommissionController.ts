@@ -161,7 +161,7 @@ export class CommissionController {
 
       const filterOptions: { status?: CommissionStatus } = {};
       if (statusStr) {
-        filterOptions.status = statusStr as CommissionStatus;
+          filterOptions.status = statusStr as CommissionStatus;
       }
 
       const commissions = await CommissionService.getRegionalCommissions(regionId, filterOptions);

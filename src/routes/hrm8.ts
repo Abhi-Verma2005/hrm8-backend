@@ -58,6 +58,7 @@ router.post('/consultants/:id/suspend', ConsultantManagementController.suspend);
 router.post('/consultants/:id/reactivate', ConsultantManagementController.reactivate);
 
 // Job Allocation routes
+router.get('/jobs', JobAllocationController.getAll);
 router.post('/jobs/:id/assign-consultant', JobAllocationController.assignConsultant);
 router.post('/jobs/:id/assign-region', JobAllocationController.assignRegion);
 router.post('/jobs/:id/unassign', JobAllocationController.unassign);
