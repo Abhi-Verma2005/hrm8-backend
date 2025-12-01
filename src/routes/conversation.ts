@@ -3,7 +3,7 @@
  * Handles HTTP endpoints for conversations and messages
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, type Request, Response, NextFunction } from 'express';
 import {
   getConversations,
   getConversation,
@@ -14,7 +14,7 @@ import { authenticateCandidate } from '../middleware/candidateAuth';
 import { AuthenticatedRequest } from '../types';
 import { CandidateAuthenticatedRequest } from '../middleware/candidateAuth';
 
-const router = Router();
+const router: Router = Router();
 
 // Middleware to handle both user and candidate authentication
 // Simply checks which cookie exists and calls the appropriate middleware

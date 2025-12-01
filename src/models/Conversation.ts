@@ -82,7 +82,15 @@ export class ConversationModel {
       },
     });
 
-    return conversations.map((conv) => this.mapPrismaToConversation(conv));
+    return conversations.map((conv: {
+      id: string;
+      jobId: string;
+      candidateId: string;
+      participants: string[];
+      lastMessageId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }) => this.mapPrismaToConversation(conv));
   }
 
   /**

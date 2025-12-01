@@ -3,7 +3,7 @@
  * Ensures users can only access data from their assigned regions
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { Hrm8AuthenticatedRequest } from './hrm8Auth';
 import { HRM8UserModel } from '../models/HRM8User';
 import { RegionModel } from '../models/Region';

@@ -63,7 +63,19 @@ export class MessageModel {
       },
     });
 
-    return messages.map((msg) => this.mapPrismaToMessage(msg));
+    return messages.map((msg: {
+      id: string;
+      conversationId: string;
+      senderEmail: string;
+      senderType: MessageSenderType;
+      senderId: string | null;
+      content: string;
+      type: MessageType;
+      isRead: boolean;
+      readAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }) => this.mapPrismaToMessage(msg));
   }
 
   /**
@@ -136,6 +148,7 @@ export class MessageModel {
     };
   }
 }
+
 
 
 
