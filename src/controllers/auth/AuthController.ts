@@ -4,7 +4,7 @@
  */
 
 import { Request, Response } from 'express';
-import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest, AuthenticatedRequest, UserStatus } from '../../types';
+import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest, AuthenticatedRequest, UserStatus, ForgotPasswordRequest, ResetPasswordRequest } from '../../types';
 import { CompanyService } from '../../services/company/CompanyService';
 import { CompanyProfileService } from '../../services/company/CompanyProfileService';
 import { AuthService } from '../../services/auth/AuthService';
@@ -14,6 +14,7 @@ import { SessionModel } from '../../models/Session';
 import { UserModel } from '../../models/User';
 import { generateSessionId, getSessionExpiration, getSessionCookieOptions } from '../../utils/session';
 import { CompanyAlreadyExistsError } from '../../models/Company';
+import { PasswordResetService } from '../../services/auth/PasswordResetService';
 
 export class AuthController {
   /**
@@ -430,6 +431,57 @@ export class AuthController {
       res.status(status).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to resend verification email',
+      });
+    }
+  }
+
+  /**
+   * Request password reset email
+   * POST /api/auth/forgot-password
+   */
+  static async requestPasswordReset(req: Request, res: Response): Promise<void> {
+    try {
+      const { email } = req.body as ForgotPasswordRequest;
+
+      await PasswordResetService.requestPasswordReset(email, {
+        ip: req.ip,
+        userAgent: req.get('user-agent') || undefined,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          message: 'If an account exists for that email, we sent a password reset link.',
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send reset link',
+      });
+    }
+  }
+
+  /**
+   * Reset password with token
+   * POST /api/auth/reset-password
+   */
+  static async resetPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const { token, password } = req.body as ResetPasswordRequest;
+
+      await PasswordResetService.resetPassword(token, password);
+
+      res.json({
+        success: true,
+        data: {
+          message: 'Password updated successfully. You can now log in.',
+        },
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to reset password',
       });
     }
   }

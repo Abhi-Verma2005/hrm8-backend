@@ -3,8 +3,13 @@
  * Handles parsing of PDF, DOCX, and TXT files
  */
 
-const pdfParse = require('pdf-parse');
 import mammoth from 'mammoth';
+
+// Use require for CommonJS module pdf-parse
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pdfParseModule = require('pdf-parse');
+// pdf-parse v2.x exports a PDFParse class
+const PDFParse = pdfParseModule.PDFParse || pdfParseModule;
 
 export interface ParsedDocument {
   text: string;
@@ -22,14 +27,18 @@ export class DocumentParserService {
    */
   static async parsePDF(buffer: Buffer): Promise<ParsedDocument> {
     try {
-      const data = await pdfParse(buffer);
+      // pdf-parse v2.x uses PDFParse class
+      const parser = new PDFParse({ data: buffer });
+      const textResult = await parser.getText();
+      const infoResult = await parser.getInfo();
+      
       return {
-        text: data.text,
+        text: textResult.text || '',
         metadata: {
-          title: data.info?.Title,
-          author: data.info?.Author,
-          pages: data.numpages,
-          wordCount: data.text.split(/\s+/).length,
+          title: infoResult.info?.Title,
+          author: infoResult.info?.Author,
+          pages: infoResult.total || 0,
+          wordCount: (textResult.text || '').split(/\s+/).length,
         },
       };
     } catch (error) {

@@ -3,7 +3,7 @@
  * Represents job applications submitted by candidates
  */
 
-import { ApplicationStatus, ApplicationStage } from '@prisma/client';
+import { ApplicationStatus, ApplicationStage, ManualScreeningStatus } from '@prisma/client';
 import prisma from '../lib/prisma';
 
 export interface ApplicationData {
@@ -26,8 +26,42 @@ export interface ApplicationData {
   isRead: boolean;
   isNew: boolean;
   tags: string[];
+  score?: number;
+  rank?: number;
+  aiAnalysis?: any; // Full AI analysis result
+  shortlisted: boolean;
+  shortlistedAt?: Date;
+  shortlistedBy?: string;
+  manuallyAdded: boolean;
+  addedBy?: string;
+  addedAt?: Date;
+  recruiterNotes?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Candidate information (included when fetched with relations)
+  candidate?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    photo?: string;
+    linkedInUrl?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    emailVerified: boolean;
+    status: string;
+  };
+  // Job information (included when fetched with relations)
+  job?: {
+    id: string;
+    title: string;
+    company?: {
+      id: string;
+      name: string;
+    };
+  };
 }
 
 export class ApplicationModel {
@@ -47,6 +81,8 @@ export class ApplicationModel {
     customAnswers?: any;
     questionnaireData?: any;
     tags?: string[];
+    manuallyAdded?: boolean;
+    addedBy?: string;
   }): Promise<ApplicationData> {
     // Check if application already exists
     const existing = await prisma.application.findUnique({
@@ -76,6 +112,9 @@ export class ApplicationModel {
         customAnswers: applicationData.customAnswers as any,
         questionnaireData: applicationData.questionnaireData as any,
         tags: applicationData.tags || [],
+        manuallyAdded: applicationData.manuallyAdded || false,
+        addedBy: applicationData.addedBy,
+        addedAt: applicationData.manuallyAdded ? new Date() : undefined,
         isNew: true,
         isRead: false,
       },
@@ -127,6 +166,21 @@ export class ApplicationModel {
   }
 
   /**
+   * Check if candidate has already applied to a job
+   */
+  static async hasApplication(candidateId: string, jobId: string): Promise<boolean> {
+    const application = await prisma.application.findUnique({
+      where: {
+        candidateId_jobId: {
+          candidateId,
+          jobId,
+        },
+      },
+    });
+    return !!application;
+  }
+
+  /**
    * Find applications by job ID
    */
   static async findByJobId(jobId: string): Promise<ApplicationData[]> {
@@ -146,14 +200,17 @@ export class ApplicationModel {
    */
   static async update(
     id: string,
-    updateData: Partial<Omit<ApplicationData, 'id' | 'createdAt' | 'updatedAt' | 'candidateId' | 'jobId' | 'appliedDate'>>
+    updateData: Partial<Omit<ApplicationData, 'id' | 'createdAt' | 'updatedAt' | 'candidateId' | 'jobId' | 'appliedDate' | 'candidate' | 'job'>>
   ): Promise<ApplicationData> {
+    // Exclude relation fields (candidate, job) from update data
+    const { candidate, job, ...updateFields } = updateData as any;
+    
     const application = await prisma.application.update({
       where: { id },
       data: {
-        ...updateData,
-        customAnswers: updateData.customAnswers as any,
-        questionnaireData: updateData.questionnaireData as any,
+        ...updateFields,
+        customAnswers: updateFields.customAnswers as any,
+        questionnaireData: updateFields.questionnaireData as any,
       },
     });
 
@@ -193,6 +250,182 @@ export class ApplicationModel {
   }
 
   /**
+   * Update application stage
+   */
+  static async updateStage(
+    id: string,
+    stage: ApplicationStage
+  ): Promise<ApplicationData> {
+    // Map stage to status
+    const statusMap: Record<ApplicationStage, ApplicationStatus> = {
+      NEW_APPLICATION: 'NEW',
+      RESUME_REVIEW: 'SCREENING',
+      PHONE_SCREEN: 'SCREENING',
+      TECHNICAL_INTERVIEW: 'INTERVIEW',
+      ONSITE_INTERVIEW: 'INTERVIEW',
+      OFFER_EXTENDED: 'OFFER',
+      OFFER_ACCEPTED: 'HIRED',
+      REJECTED: 'REJECTED',
+    };
+
+    const status = statusMap[stage] || 'NEW';
+
+    const application = await prisma.application.update({
+      where: { id },
+      data: {
+        stage,
+        status,
+      },
+    });
+
+    return this.mapPrismaToApplication(application);
+  }
+
+  /**
+   * Update application score
+   */
+  static async updateScore(id: string, score: number): Promise<ApplicationData> {
+    const application = await prisma.application.update({
+      where: { id },
+      data: { score },
+    });
+
+    return this.mapPrismaToApplication(application);
+  }
+
+  /**
+   * Update application score and AI analysis
+   */
+  static async updateScoreAndAnalysis(
+    id: string,
+    score: number,
+    aiAnalysis: any
+  ): Promise<ApplicationData> {
+    const application = await prisma.application.update({
+      where: { id },
+      data: {
+        score,
+        aiAnalysis: aiAnalysis || null,
+      },
+    });
+
+    return this.mapPrismaToApplication(application);
+  }
+
+  /**
+   * Update application rank
+   */
+  static async updateRank(id: string, rank: number): Promise<ApplicationData> {
+    const application = await prisma.application.update({
+      where: { id },
+      data: { rank },
+    });
+
+    return this.mapPrismaToApplication(application);
+  }
+
+  /**
+   * Shortlist candidate
+   */
+  static async shortlist(
+    id: string,
+    shortlistedBy: string
+  ): Promise<ApplicationData> {
+    const application = await prisma.application.update({
+      where: { id },
+      data: {
+        shortlisted: true,
+        shortlistedAt: new Date(),
+        shortlistedBy,
+      },
+    });
+
+    return this.mapPrismaToApplication(application);
+  }
+
+  /**
+   * Unshortlist candidate
+   */
+  static async unshortlist(id: string): Promise<ApplicationData> {
+    const application = await prisma.application.update({
+      where: { id },
+      data: {
+        shortlisted: false,
+        shortlistedAt: null,
+        shortlistedBy: null,
+      },
+    });
+
+    return this.mapPrismaToApplication(application);
+  }
+
+  /**
+   * Update recruiter notes
+   */
+  static async updateNotes(
+    id: string,
+    recruiterNotes: string
+  ): Promise<ApplicationData> {
+    const application = await prisma.application.update({
+      where: { id },
+      data: { recruiterNotes },
+    });
+
+    return this.mapPrismaToApplication(application);
+  }
+
+  /**
+   * Update manual screening results
+   */
+  static async updateManualScreening(
+    id: string,
+    data: {
+      score?: number;
+      status?: ManualScreeningStatus;
+      notes?: string;
+      completed?: boolean;
+    }
+  ): Promise<ApplicationData> {
+    const updateData: any = {};
+
+    if (data.score !== undefined) {
+      updateData.manual_screening_score = data.score;
+      // Also update the main score field
+      updateData.score = data.score;
+    }
+
+    if (data.status !== undefined && data.status !== null) {
+      // Ensure status is a valid ManualScreeningStatus enum value
+      const validStatuses = ['PENDING', 'PASSED', 'FAILED'];
+      if (validStatuses.includes(data.status)) {
+        updateData.manual_screening_status = data.status;
+      }
+    }
+
+    if (data.notes !== undefined) {
+      updateData.screening_notes = data.notes;
+      // Also update recruiter notes if not already set
+      if (!updateData.recruiterNotes) {
+        updateData.recruiterNotes = data.notes;
+      }
+    }
+
+    if (data.completed !== undefined) {
+      updateData.manual_screening_completed = data.completed;
+      if (data.completed) {
+        updateData.manual_screening_date = new Date();
+      }
+    }
+
+    const application = await prisma.application.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return this.mapPrismaToApplication(application);
+  }
+
+  /**
    * Delete application
    */
   static async delete(id: string): Promise<void> {
@@ -205,7 +438,7 @@ export class ApplicationModel {
    * Map Prisma application to ApplicationData interface
    */
   private static mapPrismaToApplication(prismaApplication: any): ApplicationData {
-    return {
+    const application: ApplicationData = {
       id: prismaApplication.id,
       candidateId: prismaApplication.candidateId,
       jobId: prismaApplication.jobId,
@@ -222,9 +455,57 @@ export class ApplicationModel {
       isRead: prismaApplication.isRead,
       isNew: prismaApplication.isNew,
       tags: prismaApplication.tags || [],
+      score: prismaApplication.score ?? undefined,
+      rank: prismaApplication.rank ?? undefined,
+      aiAnalysis: prismaApplication.aiAnalysis || undefined,
+      shortlisted: prismaApplication.shortlisted ?? false,
+      // Manual screening fields (if needed in ApplicationData interface)
+      // manualScreeningStatus: prismaApplication.manual_screening_status,
+      // manualScreeningScore: prismaApplication.manual_screening_score,
+      // manualScreeningCompleted: prismaApplication.manual_screening_completed,
+      // manualScreeningDate: prismaApplication.manual_screening_date,
+      // screeningNotes: prismaApplication.screening_notes,
+      shortlistedAt: prismaApplication.shortlistedAt ?? undefined,
+      shortlistedBy: prismaApplication.shortlistedBy ?? undefined,
+      manuallyAdded: prismaApplication.manuallyAdded ?? false,
+      addedBy: prismaApplication.addedBy ?? undefined,
+      addedAt: prismaApplication.addedAt ?? undefined,
+      recruiterNotes: prismaApplication.recruiterNotes ?? undefined,
       createdAt: prismaApplication.createdAt,
       updatedAt: prismaApplication.updatedAt,
     };
+
+    // Include candidate data if available
+    if (prismaApplication.candidate) {
+      application.candidate = {
+        id: prismaApplication.candidate.id,
+        email: prismaApplication.candidate.email,
+        firstName: prismaApplication.candidate.firstName,
+        lastName: prismaApplication.candidate.lastName,
+        phone: prismaApplication.candidate.phone ?? undefined,
+        photo: prismaApplication.candidate.photo ?? undefined,
+        linkedInUrl: prismaApplication.candidate.linkedInUrl ?? undefined,
+        city: prismaApplication.candidate.city ?? undefined,
+        state: prismaApplication.candidate.state ?? undefined,
+        country: prismaApplication.candidate.country ?? undefined,
+        emailVerified: prismaApplication.candidate.emailVerified,
+        status: prismaApplication.candidate.status,
+      };
+    }
+
+    // Include job data if available
+    if (prismaApplication.job) {
+      application.job = {
+        id: prismaApplication.job.id,
+        title: prismaApplication.job.title,
+        company: prismaApplication.job.company ? {
+          id: prismaApplication.job.company.id,
+          name: prismaApplication.job.company.name,
+        } : undefined,
+      };
+    }
+
+    return application;
   }
 }
 

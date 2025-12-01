@@ -11,8 +11,10 @@ import signupRequestRoutes from './signupRequest';
 import jobRoutes from './job';
 import candidateRoutes from './candidate';
 import applicationRoutes from './application';
+import talentPoolRoutes from './talentPool';
 import publicRoutes from './public';
 import jobTemplateRoutes from './jobTemplate';
+import videoInterviewRoutes from './videoInterview';
 
 const router: RouterType = Router();
 
@@ -24,8 +26,10 @@ router.use('/api/signup-requests', signupRequestRoutes);
 router.use('/api/jobs', jobRoutes);
 router.use('/api/candidate', candidateRoutes);
 router.use('/api/applications', applicationRoutes);
+router.use('/api/talent-pool', talentPoolRoutes);
 router.use('/api/public', publicRoutes);
 router.use('/api/job-templates', jobTemplateRoutes);
+router.use('/api/video-interviews', videoInterviewRoutes);
 
 export default router;
 

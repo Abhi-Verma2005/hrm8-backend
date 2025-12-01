@@ -141,6 +141,61 @@ export class CandidateModel {
   }
 
   /**
+   * Search candidates in talent pool (for recruiters)
+   */
+  static async searchTalentPool(filters: {
+    search?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    status?: CandidateStatus;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ candidates: CandidateData[]; total: number }> {
+    const { search, city, state, country, status, limit = 50, offset = 0 } = filters;
+
+    const where: any = {
+      status: status || 'ACTIVE',
+    };
+
+    // Search by name or email
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (city) {
+      where.city = { contains: city, mode: 'insensitive' };
+    }
+
+    if (state) {
+      where.state = { contains: state, mode: 'insensitive' };
+    }
+
+    if (country) {
+      where.country = { contains: country, mode: 'insensitive' };
+    }
+
+    const [candidates, total] = await Promise.all([
+      prisma.candidate.findMany({
+        where,
+        take: limit,
+        skip: offset,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.candidate.count({ where }),
+    ]);
+
+    return {
+      candidates: candidates.map(c => this.mapPrismaToCandidate(c)),
+      total,
+    };
+  }
+
+  /**
    * Map Prisma candidate to CandidateData interface
    */
   private static mapPrismaToCandidate(prismaCandidate: any): CandidateData {
