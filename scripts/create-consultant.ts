@@ -77,42 +77,17 @@ async function createConsultant({
     console.log('🔒 Hashing password...');
     const passwordHash = await hashPassword(password);
 
-    // Try to find or create Global region to assign consultant
-    let globalRegion = await prisma.region.findFirst({
-      where: { code: 'GLOBAL' },
-    });
-    
-    if (!globalRegion) {
-      console.log('🌍 Global region not found, creating it...');
-      const { RegionOwnerType } = await import('@prisma/client');
-      globalRegion = await prisma.region.create({
-        data: {
-          name: 'Global',
-          code: 'GLOBAL',
-          country: 'All',
-          ownerType: RegionOwnerType.HRM8,
-          isActive: true,
-        },
-      });
-      console.log(`✅ Created Global region: ${globalRegion.id}`);
-    } else {
-      console.log(`🌍 Found Global region: ${globalRegion.id}`);
-    }
-
     // Create consultant
     console.log('📝 Creating consultant in database...');
-    const consultantData = {
-      email: email.toLowerCase().trim(),
-      firstName,
-      lastName,
-      passwordHash,
-      role,
-      status: ConsultantStatus.ACTIVE,
-      regionId: globalRegion.id, // Always assign to Global region
-    };
-
     const consultant = await prisma.consultant.create({
-      data: consultantData,
+      data: {
+        email: email.toLowerCase().trim(),
+        firstName,
+        lastName,
+        passwordHash,
+        role,
+        status: ConsultantStatus.ACTIVE,
+      },
     });
 
     console.log('\n✅ Consultant created successfully!');
@@ -122,9 +97,6 @@ async function createConsultant({
     console.log(`   Name: ${consultant.firstName} ${consultant.lastName}`);
     console.log(`   Role: ${consultant.role}`);
     console.log(`   Status: ${consultant.status}`);
-    if (consultant.regionId) {
-      console.log(`   Region ID: ${consultant.regionId}`);
-    }
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('\n🎉 You can now login at /consultant/login');
   } catch (error: any) {

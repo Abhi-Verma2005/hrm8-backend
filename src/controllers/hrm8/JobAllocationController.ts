@@ -143,50 +143,6 @@ export class JobAllocationController {
       });
     }
   }
-
-  /**
-   * Get all jobs for HRM8 admin
-   * GET /api/hrm8/jobs
-   * Returns all jobs across all companies (for Global Admin) or filtered by region (for Regional Licensee)
-   */
-  static async getAll(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
-    try {
-      const hrm8User = req.hrm8User;
-      if (!hrm8User) {
-        res.status(401).json({
-          success: false,
-          error: 'Unauthorized',
-        });
-        return;
-      }
-
-      // Get filters from query params
-      const filters: {
-        regionId?: string;
-        status?: string;
-      } = {};
-
-      if (req.query.regionId) {
-        filters.regionId = req.query.regionId as string;
-      }
-      if (req.query.status) {
-        filters.status = req.query.status as string;
-      }
-
-      const jobs = await JobAllocationService.getAllJobs(hrm8User.role, filters);
-
-      res.json({
-        success: true,
-        data: { jobs },
-      });
-    } catch (error) {
-      console.error('Get all jobs error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch jobs',
-      });
-    }
-  }
 }
 
 

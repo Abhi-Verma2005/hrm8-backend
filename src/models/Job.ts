@@ -192,19 +192,19 @@ export class JobModel {
 
   /**
    * Find all jobs with filters (for HRM8 admin)
-   * Returns all jobs across companies, optionally filtered by region and status
+   * Returns jobs across all companies with optional filters
    */
-  static async findAllWithFilters(filters?: {
+  static async findAllWithFilters(filters: {
     regionId?: string;
     status?: JobStatus;
   }): Promise<Job[]> {
     const where: any = {};
 
-    if (filters?.regionId) {
+    if (filters.regionId) {
       where.regionId = filters.regionId;
     }
 
-    if (filters?.status) {
+    if (filters.status) {
       where.status = filters.status;
     }
 

@@ -12,12 +12,6 @@ import { JobAllocationController } from '../controllers/hrm8/JobAllocationContro
 import { CommissionController } from '../controllers/hrm8/CommissionController';
 import { RegionalRevenueController } from '../controllers/hrm8/RegionalRevenueController';
 import { authenticateHrm8User } from '../middleware/hrm8Auth';
-import {
-  validateCreateCommission,
-  validateCommissionFilters,
-  validateRegionalCommissionsQuery,
-  validateMarkAsPaid,
-} from '../validators/commission';
 
 const router: RouterType = Router();
 
@@ -58,19 +52,18 @@ router.post('/consultants/:id/suspend', ConsultantManagementController.suspend);
 router.post('/consultants/:id/reactivate', ConsultantManagementController.reactivate);
 
 // Job Allocation routes
-router.get('/jobs', JobAllocationController.getAll);
 router.post('/jobs/:id/assign-consultant', JobAllocationController.assignConsultant);
 router.post('/jobs/:id/assign-region', JobAllocationController.assignRegion);
 router.post('/jobs/:id/unassign', JobAllocationController.unassign);
 router.get('/jobs/:id/consultants', JobAllocationController.getJobConsultants);
 
 // Commission routes
-router.get('/commissions', validateCommissionFilters, CommissionController.getAll);
-router.post('/commissions', validateCreateCommission, CommissionController.create);
+router.get('/commissions', CommissionController.getAll);
+router.post('/commissions', CommissionController.create);
 router.get('/commissions/:id', CommissionController.getById);
 router.put('/commissions/:id/confirm', CommissionController.confirm);
-router.put('/commissions/:id/pay', validateMarkAsPaid, CommissionController.markAsPaid);
-router.get('/commissions/regional', validateRegionalCommissionsQuery, CommissionController.getRegional);
+router.put('/commissions/:id/pay', CommissionController.markAsPaid);
+router.get('/commissions/regional', CommissionController.getRegional);
 
 // Revenue routes
 router.get('/revenue', RegionalRevenueController.getAll);
