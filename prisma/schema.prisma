@@ -264,9 +264,39 @@ model Candidate {
   applications      Application[]
   sessions          CandidateSession[]
   JobInvitation     JobInvitation[]
+  workExperience    CandidateWorkExperience[]
+  skills            CandidateSkill[]
 
   @@index([email])
   @@index([status])
+}
+
+model CandidateWorkExperience {
+  id          String    @id @default(uuid())
+  candidateId String    @map("candidate_id")
+  company     String
+  role        String
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime? @map("end_date")
+  current     Boolean   @default(false)
+  description String?   @db.Text
+  location    String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
+model CandidateSkill {
+  id          String    @id @default(uuid())
+  candidateId String    @map("candidate_id")
+  name        String
+  level       String?   // beginner, intermediate, expert
+  createdAt   DateTime  @default(now()) @map("created_at")
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
 }
 
 model CandidateSession {
