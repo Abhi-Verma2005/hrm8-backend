@@ -69,9 +69,9 @@ model User {
   Assessment             Assessment[]
   sentInvitations        Invitation[]         @relation("InvitedBy")
   createdJobs            Job[]                @relation("JobCreator")
-  JobInvitation          JobInvitation[]
+  sentJobInvitations     JobInvitation[]      @relation("JobInviter")
   JobTemplate            JobTemplate[]
-  PasswordResetToken     PasswordResetToken[]
+  passwordResetTokens    PasswordResetToken[]
   ScreeningResult        ScreeningResult[]
   sessions               Session[]
   reviewedSignupRequests SignupRequest[]      @relation("ReviewedBy")
@@ -121,6 +121,22 @@ model Session {
   @@index([userId])
   @@index([companyId])
   @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id                 String    @id @default(uuid())
+  userId             String    @map("user_id")
+  tokenHash          String    @unique @map("token_hash")
+  expiresAt          DateTime  @map("expires_at")
+  usedAt             DateTime? @map("used_at")
+  requestedIp        String?   @map("requested_ip")
+  requestedUserAgent String?   @map("requested_user_agent")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([tokenHash])
 }
 
 model VerificationToken {
@@ -225,7 +241,7 @@ model Job {
   company                             Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   creator                             User                        @relation("JobCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   region                              Region?                     @relation(fields: [regionId], references: [id])
-  JobInvitation                       JobInvitation[]
+  jobInvitations                      JobInvitation[]
   JobTemplate                         JobTemplate[]
   PreInterviewQuestionnaire           PreInterviewQuestionnaire[]
   ScreeningCriteria                   ScreeningCriteria[]
@@ -315,50 +331,50 @@ model CandidateSession {
 }
 
 model Application {
-  id                         String                  @id @default(uuid())
-  candidateId                String                  @map("candidate_id")
-  jobId                      String                  @map("job_id")
-  status                     ApplicationStatus       @default(NEW)
-  stage                      ApplicationStage        @default(NEW_APPLICATION)
-  appliedDate                DateTime                @default(now()) @map("applied_date")
-  resumeUrl                  String?                 @map("resume_url")
-  coverLetterUrl             String?                 @map("cover_letter_url")
-  portfolioUrl               String?                 @map("portfolio_url")
-  linkedInUrl                String?                 @map("linked_in_url")
-  websiteUrl                 String?                 @map("website_url")
-  customAnswers              Json?                   @map("custom_answers")
-  questionnaireData          Json?                   @map("questionnaire_data")
-  isRead                     Boolean                 @default(false) @map("is_read")
-  isNew                      Boolean                 @default(true) @map("is_new")
-  tags                       String[]                @default([])
-  createdAt                  DateTime                @default(now()) @map("created_at")
-  updatedAt                  DateTime                @updatedAt @map("updated_at")
-  added_at                   DateTime?
-  added_by                   String?
-  manually_added             Boolean                 @default(false)
-  rank                       Int?
-  recruiter_notes            String?
-  score                      Float?
-  shortlisted                Boolean                 @default(false)
-  shortlisted_at             DateTime?
-  shortlisted_by             String?
-  assessment_results         Json?
-  automated_screening_score  Float?
-  manual_screening_status    ManualScreeningStatus?
-  screening_notes            String?
-  screening_status           ScreeningStatus         @default(PENDING)
-  video_interview_status     VideoInterviewStatus    @default(NOT_SCHEDULED)
-  manual_screening_completed Boolean                 @default(false)
-  manual_screening_date      DateTime?
-  manual_screening_score     Float?
-  ai_analysis                Json?
-  candidate                  Candidate               @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  job                        Job                     @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  Assessment                 Assessment[]
-  JobInvitation              JobInvitation?
-  QuestionnaireResponse      QuestionnaireResponse[]
-  ScreeningResult            ScreeningResult[]
-  VideoInterview             VideoInterview[]
+  id                       String                  @id @default(uuid())
+  candidateId              String                  @map("candidate_id")
+  jobId                    String                  @map("job_id")
+  status                   ApplicationStatus       @default(NEW)
+  stage                    ApplicationStage        @default(NEW_APPLICATION)
+  appliedDate              DateTime                @default(now()) @map("applied_date")
+  resumeUrl                String?                 @map("resume_url")
+  coverLetterUrl           String?                 @map("cover_letter_url")
+  portfolioUrl             String?                 @map("portfolio_url")
+  linkedInUrl              String?                 @map("linked_in_url")
+  websiteUrl               String?                 @map("website_url")
+  customAnswers            Json?                   @map("custom_answers")
+  questionnaireData        Json?                   @map("questionnaire_data")
+  isRead                   Boolean                 @default(false) @map("is_read")
+  isNew                    Boolean                 @default(true) @map("is_new")
+  tags                     String[]                @default([])
+  createdAt                DateTime                @default(now()) @map("created_at")
+  updatedAt                DateTime                @updatedAt @map("updated_at")
+  addedAt                  DateTime?               @map("added_at")
+  addedBy                  String?                 @map("added_by")
+  manuallyAdded            Boolean                 @default(false) @map("manually_added")
+  rank                     Int?
+  recruiterNotes           String?                 @map("recruiter_notes")
+  score                    Float?
+  shortlisted              Boolean                 @default(false)
+  shortlistedAt            DateTime?               @map("shortlisted_at")
+  shortlistedBy            String?                 @map("shortlisted_by")
+  assessmentResults        Json?                   @map("assessment_results")
+  automatedScreeningScore  Float?                  @map("automated_screening_score")
+  manualScreeningStatus    ManualScreeningStatus?  @map("manual_screening_status")
+  screeningNotes           String?                 @map("screening_notes")
+  screeningStatus          ScreeningStatus         @default(PENDING) @map("screening_status")
+  videoInterviewStatus     VideoInterviewStatus    @default(NOT_SCHEDULED) @map("video_interview_status")
+  manualScreeningCompleted Boolean                 @default(false) @map("manual_screening_completed")
+  manualScreeningDate      DateTime?               @map("manual_screening_date")
+  manualScreeningScore     Float?                  @map("manual_screening_score")
+  aiAnalysis               Json?                   @map("ai_analysis")
+  candidate                Candidate               @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job                      Job                     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  Assessment               Assessment[]
+  jobInvitation            JobInvitation?
+  QuestionnaireResponse    QuestionnaireResponse[]
+  ScreeningResult          ScreeningResult[]
+  VideoInterview           VideoInterview[]
 
   @@unique([candidateId, jobId])
   @@index([candidateId])
@@ -368,7 +384,34 @@ model Application {
   @@index([appliedDate])
   @@index([score])
   @@index([shortlisted])
-  @@index([screening_status])
+  @@index([screeningStatus])
+}
+
+model JobInvitation {
+  id            String              @id @default(uuid())
+  jobId         String              @map("job_id")
+  candidateId   String?             @map("candidate_id")
+  email         String
+  token         String              @unique
+  status        JobInvitationStatus @default(PENDING)
+  invitedBy     String              @map("invited_by")
+  expiresAt     DateTime            @map("expires_at")
+  acceptedAt    DateTime?           @map("accepted_at")
+  applicationId String?             @unique @map("application_id")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  application   Application?        @relation(fields: [applicationId], references: [id])
+  candidate     Candidate?          @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  inviter       User                @relation("JobInviter", fields: [invitedBy], references: [id], onDelete: Cascade)
+  job           Job                 @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, email])
+  @@index([email])
+  @@index([jobId])
+  @@index([candidateId])
+  @@index([token])
+  @@index([status])
+  @@index([expiresAt])
 }
 
 model JobTemplate {
@@ -394,49 +437,6 @@ model JobTemplate {
   @@index([created_by])
   @@index([is_shared])
   @@index([source_job_id])
-}
-
-model PasswordResetToken {
-  id                   String    @id
-  user_id              String
-  token_hash           String    @unique
-  expires_at           DateTime
-  used_at              DateTime?
-  requested_ip         String?
-  requested_user_agent String?
-  created_at           DateTime  @default(now())
-  User                 User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@index([expires_at])
-  @@index([token_hash])
-  @@index([user_id])
-}
-
-model JobInvitation {
-  id             String              @id
-  job_id         String
-  candidate_id   String?
-  email          String
-  token          String              @unique
-  status         JobInvitationStatus @default(PENDING)
-  invited_by     String
-  expires_at     DateTime
-  accepted_at    DateTime?
-  application_id String?             @unique
-  created_at     DateTime            @default(now())
-  updated_at     DateTime
-  Application    Application?        @relation(fields: [application_id], references: [id])
-  Candidate      Candidate?          @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
-  User           User                @relation(fields: [invited_by], references: [id], onDelete: Cascade)
-  Job            Job                 @relation(fields: [job_id], references: [id], onDelete: Cascade)
-
-  @@unique([job_id, email])
-  @@index([candidate_id])
-  @@index([email])
-  @@index([expires_at])
-  @@index([job_id])
-  @@index([status])
-  @@index([token])
 }
 
 model Assessment {
@@ -503,199 +503,31 @@ model AssessmentResponse {
   @@index([question_id])
 }
 
-model PreInterviewQuestionnaire {
-  id                    String                  @id
-  job_id                String
-  questions             Json
-  auto_generated        Boolean                 @default(false)
-  generated_by          String?
-  enabled               Boolean                 @default(true)
-  created_at            DateTime                @default(now())
-  updated_at            DateTime
-  Job                   Job                     @relation(fields: [job_id], references: [id], onDelete: Cascade)
-  QuestionnaireResponse QuestionnaireResponse[]
+model Commission {
+  id               String           @id @default(uuid())
+  consultantId     String           @map("consultant_id")
+  regionId         String           @map("region_id")
+  jobId            String?          @map("job_id")
+  type             CommissionType
+  amount           Float
+  rate             Float?
+  description      String?
+  status           CommissionStatus @default(PENDING)
+  confirmedAt      DateTime?        @map("confirmed_at")
+  paidAt           DateTime?        @map("paid_at")
+  paymentReference String?          @map("payment_reference")
+  notes            String?
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  consultant       Consultant       @relation(fields: [consultantId], references: [id])
+  job              Job?             @relation(fields: [jobId], references: [id])
+  region           Region           @relation(fields: [regionId], references: [id])
 
-  @@index([job_id])
-}
-
-model QuestionnaireResponse {
-  id                        String                    @id
-  questionnaire_id          String
-  application_id            String
-  candidate_id              String
-  responses                 Json
-  submitted_at              DateTime                  @default(now())
-  score                     Float?
-  Application               Application               @relation(fields: [application_id], references: [id], onDelete: Cascade)
-  PreInterviewQuestionnaire PreInterviewQuestionnaire @relation(fields: [questionnaire_id], references: [id], onDelete: Cascade)
-
-  @@index([application_id])
-  @@index([candidate_id])
-  @@index([questionnaire_id])
-}
-
-model ScreeningCriteria {
-  id              String            @id
-  job_id          String
-  criteria_type   String
-  criteria_config Json?
-  enabled         Boolean           @default(true)
-  created_at      DateTime          @default(now())
-  updated_at      DateTime
-  category        String?
-  description     String?
-  min_score       Int?
-  name            String
-  required        Boolean           @default(false)
-  weight          Float?
-  Job             Job               @relation(fields: [job_id], references: [id], onDelete: Cascade)
-  ScreeningResult ScreeningResult[]
-
-  @@index([criteria_type])
-  @@index([job_id])
-  @@index([category])
-}
-
-model ScreeningResult {
-  id                String                @id
-  application_id    String
-  screening_type    ScreeningType
-  status            ScreeningResultStatus @default(PENDING)
-  score             Float?
-  criteria_matched  Json?
-  reviewed_by       String?
-  reviewed_at       DateTime?
-  notes             String?
-  created_at        DateTime              @default(now())
-  updated_at        DateTime
-  criteria_id       String?
-  passed            Boolean?
-  Application       Application           @relation(fields: [application_id], references: [id], onDelete: Cascade)
-  ScreeningCriteria ScreeningCriteria?    @relation(fields: [criteria_id], references: [id], onDelete: Cascade)
-  User              User?                 @relation(fields: [reviewed_by], references: [id])
-
-  @@unique([application_id, criteria_id])
-  @@index([application_id])
-  @@index([screening_type])
+  @@index([consultantId])
+  @@index([jobId])
+  @@index([regionId])
   @@index([status])
-  @@index([criteria_id])
-}
-
-model VideoInterview {
-  id              String             @id
-  application_id  String
-  candidate_id    String
-  job_id          String
-  scheduled_date  DateTime
-  duration        Int                @default(60)
-  meeting_link    String?
-  status          InterviewStatus    @default(SCHEDULED)
-  type            VideoInterviewType @default(VIDEO)
-  interviewer_ids Json
-  recording_url   String?
-  transcript      Json?
-  feedback        Json?
-  notes           String?
-  created_at      DateTime           @default(now())
-  updated_at      DateTime
-  Application     Application        @relation(fields: [application_id], references: [id], onDelete: Cascade)
-
-  @@index([application_id])
-  @@index([candidate_id])
-  @@index([job_id])
-  @@index([scheduled_date])
-  @@index([status])
-}
-
-model HRM8User {
-  id           String         @id @default(uuid())
-  email        String         @unique
-  passwordHash String         @map("password_hash")
-  firstName    String         @map("first_name")
-  lastName     String         @map("last_name")
-  phone        String?
-  photo        String?
-  role         HRM8UserRole
-  status       HRM8UserStatus @default(ACTIVE)
-  licensee_id  String?
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
-  lastLoginAt  DateTime?      @map("last_login_at")
-  sessions     HRM8Session[]
-
-  @@index([email])
-  @@index([role])
-  @@index([status])
-  @@index([licensee_id])
-}
-
-model HRM8Session {
-  id           String   @id @default(uuid())
-  sessionId    String   @unique @map("session_id")
-  hrm8UserId   String   @map("hrm8_user_id")
-  email        String
-  expiresAt    DateTime @map("expires_at")
-  lastActivity DateTime @default(now()) @map("last_activity")
-  createdAt    DateTime @default(now()) @map("created_at")
-  hrm8User     HRM8User @relation(fields: [hrm8UserId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-  @@index([hrm8UserId])
-  @@index([expiresAt])
-}
-
-model Region {
-  id            String            @id @default(uuid())
-  name          String
-  code          String            @unique
-  country       String
-  stateProvince String?           @map("state_province")
-  city          String?
-  boundaries    Json?
-  ownerType     RegionOwnerType   @default(HRM8) @map("owner_type")
-  licenseeId    String?           @map("licensee_id")
-  isActive      Boolean           @default(true) @map("is_active")
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
-  commissions   Commission[]
-  companies     Company[]
-  consultants   Consultant[]
-  jobs          Job[]
-  licensee      RegionalLicensee? @relation(fields: [licenseeId], references: [id])
-  revenue       RegionalRevenue[]
-
-  @@index([licenseeId])
-  @@index([ownerType])
-  @@index([isActive])
-}
-
-model RegionalLicensee {
-  id                  String            @id @default(uuid())
-  name                String
-  legalEntityName     String            @map("legal_entity_name")
-  email               String
-  phone               String?
-  address             String?
-  city                String?
-  state               String?
-  country             String?
-  taxId               String?           @map("tax_id")
-  agreementStartDate  DateTime          @map("agreement_start_date")
-  agreementEndDate    DateTime?         @map("agreement_end_date")
-  revenueSharePercent Float             @map("revenue_share_percent")
-  exclusivity         Boolean           @default(false)
-  contractFileUrl     String?           @map("contract_file_url")
-  managerContact      String            @map("manager_contact")
-  financeContact      String?           @map("finance_contact")
-  complianceContact   String?           @map("compliance_contact")
-  status              LicenseeStatus    @default(ACTIVE)
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
-  regions             Region[]
-  revenueShares       RegionalRevenue[]
-
-  @@index([status])
-  @@index([email])
+  @@index([type])
 }
 
 model Consultant {
@@ -740,9 +572,9 @@ model Consultant {
   sessions              ConsultantSession[]
 
   @@index([email])
+  @@index([regionId])
   @@index([role])
   @@index([status])
-  @@index([regionId])
 }
 
 model ConsultantJobAssignment {
@@ -762,31 +594,141 @@ model ConsultantJobAssignment {
   @@index([status])
 }
 
-model Commission {
-  id               String           @id @default(uuid())
-  consultantId     String           @map("consultant_id")
-  regionId         String           @map("region_id")
-  jobId            String?          @map("job_id")
-  type             CommissionType
-  amount           Float
-  rate             Float?
-  description      String?
-  status           CommissionStatus @default(PENDING)
-  confirmedAt      DateTime?        @map("confirmed_at")
-  paidAt           DateTime?        @map("paid_at")
-  paymentReference String?          @map("payment_reference")
-  notes            String?
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-  consultant       Consultant       @relation(fields: [consultantId], references: [id])
-  job              Job?             @relation(fields: [jobId], references: [id])
-  region           Region           @relation(fields: [regionId], references: [id])
+model ConsultantSession {
+  id           String     @id @default(uuid())
+  sessionId    String     @unique @map("session_id")
+  consultantId String     @map("consultant_id")
+  email        String
+  expiresAt    DateTime   @map("expires_at")
+  lastActivity DateTime   @default(now()) @map("last_activity")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  consultant   Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
 
   @@index([consultantId])
-  @@index([regionId])
-  @@index([jobId])
+  @@index([expiresAt])
+  @@index([sessionId])
+}
+
+model HRM8Session {
+  id           String   @id @default(uuid())
+  sessionId    String   @unique @map("session_id")
+  hrm8UserId   String   @map("hrm8_user_id")
+  email        String
+  expiresAt    DateTime @map("expires_at")
+  lastActivity DateTime @default(now()) @map("last_activity")
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         HRM8User @relation(fields: [hrm8UserId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([hrm8UserId])
+  @@index([sessionId])
+}
+
+model HRM8User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  passwordHash String         @map("password_hash")
+  firstName    String         @map("first_name")
+  lastName     String         @map("last_name")
+  phone        String?
+  photo        String?
+  role         HRM8UserRole
+  status       HRM8UserStatus @default(ACTIVE)
+  licenseeId   String?        @map("licensee_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  lastLoginAt  DateTime?      @map("last_login_at")
+  sessions     HRM8Session[]
+
+  @@index([email])
+  @@index([licenseeId])
+  @@index([role])
   @@index([status])
-  @@index([type])
+}
+
+model PreInterviewQuestionnaire {
+  id                    String                  @id
+  job_id                String
+  questions             Json
+  auto_generated        Boolean                 @default(false)
+  generated_by          String?
+  enabled               Boolean                 @default(true)
+  created_at            DateTime                @default(now())
+  updated_at            DateTime
+  Job                   Job                     @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  QuestionnaireResponse QuestionnaireResponse[]
+
+  @@index([job_id])
+}
+
+model QuestionnaireResponse {
+  id                        String                    @id
+  questionnaire_id          String
+  application_id            String
+  candidate_id              String
+  responses                 Json
+  submitted_at              DateTime                  @default(now())
+  score                     Float?
+  Application               Application               @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  PreInterviewQuestionnaire PreInterviewQuestionnaire @relation(fields: [questionnaire_id], references: [id], onDelete: Cascade)
+
+  @@index([application_id])
+  @@index([candidate_id])
+  @@index([questionnaire_id])
+}
+
+model Region {
+  id            String            @id @default(uuid())
+  name          String
+  code          String            @unique
+  country       String
+  stateProvince String?           @map("state_province")
+  city          String?
+  boundaries    Json?
+  ownerType     RegionOwnerType   @default(HRM8) @map("owner_type")
+  licenseeId    String?           @map("licensee_id")
+  isActive      Boolean           @default(true) @map("is_active")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  commissions   Commission[]
+  companies     Company[]
+  consultants   Consultant[]
+  jobs          Job[]
+  licensee      RegionalLicensee? @relation(fields: [licenseeId], references: [id])
+  revenue       RegionalRevenue[]
+
+  @@index([isActive])
+  @@index([licenseeId])
+  @@index([ownerType])
+}
+
+model RegionalLicensee {
+  id                  String            @id @default(uuid())
+  name                String
+  legalEntityName     String            @map("legal_entity_name")
+  email               String
+  phone               String?
+  address             String?
+  city                String?
+  state               String?
+  country             String?
+  taxId               String?           @map("tax_id")
+  agreementStartDate  DateTime          @map("agreement_start_date")
+  agreementEndDate    DateTime?         @map("agreement_end_date")
+  revenueSharePercent Float             @map("revenue_share_percent")
+  exclusivity         Boolean           @default(false)
+  contractFileUrl     String?           @map("contract_file_url")
+  managerContact      String            @map("manager_contact")
+  financeContact      String?           @map("finance_contact")
+  complianceContact   String?           @map("compliance_contact")
+  status              LicenseeStatus    @default(ACTIVE)
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+  regions             Region[]
+  revenueShares       RegionalRevenue[]
+
+  @@index([email])
+  @@index([status])
 }
 
 model RegionalRevenue {
@@ -805,24 +747,82 @@ model RegionalRevenue {
   licensee      RegionalLicensee? @relation(fields: [licenseeId], references: [id])
   region        Region            @relation(fields: [regionId], references: [id])
 
-  @@index([regionId])
   @@index([licenseeId])
+  @@index([regionId])
   @@index([status])
 }
 
-model ConsultantSession {
-  id           String     @id @default(uuid())
-  sessionId    String     @unique @map("session_id")
-  consultantId String     @map("consultant_id")
-  email        String
-  expiresAt    DateTime   @map("expires_at")
-  lastActivity DateTime   @default(now()) @map("last_activity")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  consultant   Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+model ScreeningCriteria {
+  id              String            @id
+  job_id          String
+  criteria_type   String
+  criteria_config Json?
+  enabled         Boolean           @default(true)
+  created_at      DateTime          @default(now())
+  updated_at      DateTime
+  category        String?
+  description     String?
+  min_score       Int?
+  name            String
+  required        Boolean           @default(false)
+  weight          Float?
+  Job             Job               @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  ScreeningResult ScreeningResult[]
 
-  @@index([sessionId])
-  @@index([consultantId])
-  @@index([expiresAt])
+  @@index([category])
+  @@index([criteria_type])
+  @@index([job_id])
+}
+
+model ScreeningResult {
+  id                String                @id
+  application_id    String
+  screening_type    ScreeningType
+  status            ScreeningResultStatus @default(PENDING)
+  score             Float?
+  criteria_matched  Json?
+  reviewed_by       String?
+  reviewed_at       DateTime?
+  notes             String?
+  created_at        DateTime              @default(now())
+  updated_at        DateTime
+  criteria_id       String?
+  passed            Boolean?
+  Application       Application           @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  ScreeningCriteria ScreeningCriteria?    @relation(fields: [criteria_id], references: [id], onDelete: Cascade)
+  User              User?                 @relation(fields: [reviewed_by], references: [id])
+
+  @@unique([application_id, criteria_id])
+  @@index([application_id])
+  @@index([criteria_id])
+  @@index([screening_type])
+  @@index([status])
+}
+
+model VideoInterview {
+  id             String             @id @default(uuid())
+  applicationId  String             @map("application_id")
+  candidateId    String             @map("candidate_id")
+  jobId          String             @map("job_id")
+  scheduledDate  DateTime           @map("scheduled_date")
+  duration       Int                @default(60)
+  meetingLink    String?            @map("meeting_link")
+  status         InterviewStatus    @default(SCHEDULED)
+  type           VideoInterviewType @default(VIDEO)
+  interviewerIds Json               @map("interviewer_ids")
+  recordingUrl   String?            @map("recording_url")
+  transcript     Json?
+  feedback       Json?
+  notes          String?
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  Application    Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([scheduledDate])
+  @@index([status])
 }
 
 enum UserRole {
@@ -867,6 +867,13 @@ enum VerificationMethod {
 }
 
 enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+enum JobInvitationStatus {
   PENDING
   ACCEPTED
   EXPIRED
@@ -949,13 +956,6 @@ enum ApplicationStage {
   REJECTED
 }
 
-enum JobInvitationStatus {
-  PENDING
-  ACCEPTED
-  EXPIRED
-  CANCELLED
-}
-
 enum AssessmentStatus {
   PENDING_INVITATION
   INVITED
@@ -973,6 +973,50 @@ enum AssessmentType {
   BEHAVIORAL
 }
 
+enum AvailabilityStatus {
+  AVAILABLE
+  AT_CAPACITY
+  UNAVAILABLE
+}
+
+enum CommissionStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  CANCELLED
+}
+
+enum CommissionType {
+  PLACEMENT
+  SUBSCRIPTION_SALE
+  RECRUITMENT_SERVICE
+  CUSTOM
+}
+
+enum ConsultantRole {
+  RECRUITER
+  SALES_AGENT
+  CONSULTANT_360
+}
+
+enum ConsultantStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum HRM8UserRole {
+  GLOBAL_ADMIN
+  REGIONAL_LICENSEE
+}
+
+enum HRM8UserStatus {
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
 enum InterviewStatus {
   SCHEDULED
   IN_PROGRESS
@@ -982,10 +1026,27 @@ enum InterviewStatus {
   NO_SHOW
 }
 
+enum LicenseeStatus {
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
 enum ManualScreeningStatus {
   PENDING
   PASSED
   FAILED
+}
+
+enum RegionOwnerType {
+  HRM8
+  LICENSEE
+}
+
+enum RevenueStatus {
+  PENDING
+  CONFIRMED
+  PAID
 }
 
 enum ScreeningResultStatus {
@@ -1021,65 +1082,4 @@ enum VideoInterviewType {
   IN_PERSON
   TECHNICAL
   PANEL
-}
-
-enum HRM8UserRole {
-  GLOBAL_ADMIN
-  REGIONAL_LICENSEE
-}
-
-enum HRM8UserStatus {
-  ACTIVE
-  SUSPENDED
-  TERMINATED
-}
-
-enum ConsultantRole {
-  RECRUITER
-  SALES_AGENT
-  CONSULTANT_360
-}
-
-enum ConsultantStatus {
-  ACTIVE
-  ON_LEAVE
-  INACTIVE
-  SUSPENDED
-}
-
-enum RegionOwnerType {
-  HRM8
-  LICENSEE
-}
-
-enum LicenseeStatus {
-  ACTIVE
-  SUSPENDED
-  TERMINATED
-}
-
-enum CommissionStatus {
-  PENDING
-  CONFIRMED
-  PAID
-  CANCELLED
-}
-
-enum CommissionType {
-  PLACEMENT
-  SUBSCRIPTION_SALE
-  RECRUITMENT_SERVICE
-  CUSTOM
-}
-
-enum AvailabilityStatus {
-  AVAILABLE
-  AT_CAPACITY
-  UNAVAILABLE
-}
-
-enum RevenueStatus {
-  PENDING
-  CONFIRMED
-  PAID
 }

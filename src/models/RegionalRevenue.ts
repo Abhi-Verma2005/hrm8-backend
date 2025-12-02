@@ -186,20 +186,7 @@ export class RegionalRevenueModel {
   /**
    * Map Prisma revenue to RegionalRevenueData interface
    */
-  private static mapPrismaToRevenue(prismaRevenue: {
-    id: string;
-    regionId: string;
-    licenseeId: string | null;
-    periodStart: Date;
-    periodEnd: Date;
-    totalRevenue: number;
-    licenseeShare: number;
-    hrm8Share: number;
-    status: RevenueStatus;
-    paidAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): RegionalRevenueData {
+  private static mapPrismaToRevenue(prismaRevenue: any): RegionalRevenueData {
     return {
       id: prismaRevenue.id,
       regionId: prismaRevenue.regionId,

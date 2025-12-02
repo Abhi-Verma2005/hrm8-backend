@@ -18,6 +18,9 @@ import {
   HiringMode,
   WorkArrangement,
   EmploymentType,
+  JobInvitationStatus,
+  HRM8UserRole,
+  HRM8UserStatus,
 } from '@prisma/client';
 
 export {
@@ -33,6 +36,9 @@ export {
   HiringMode,
   WorkArrangement,
   EmploymentType,
+  JobInvitationStatus,
+  HRM8UserRole,
+  HRM8UserStatus,
 };
 
 // ============================================================================
@@ -182,6 +188,22 @@ export interface User {
   lastLoginAt?: Date;
 }
 
+export interface HRM8User {
+  id: string;
+  email: string;
+  passwordHash: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  photo?: string;
+  role: HRM8UserRole;
+  status: HRM8UserStatus;
+  licenseeId?: string;
+  lastLoginAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Invitation {
   id: string;
   companyId: string;
@@ -263,6 +285,15 @@ export interface AcceptInvitationRequest {
 
 export interface LoginRequest {
   email: string;
+  password: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
   password: string;
 }
 

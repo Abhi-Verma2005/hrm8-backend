@@ -105,6 +105,7 @@ export class JobController {
         status?: JobStatus;
         department?: string;
         location?: string;
+        hiringMode?: any;
       } = {};
 
       if (req.query.status) {
@@ -115,6 +116,9 @@ export class JobController {
       }
       if (req.query.location) {
         filters.location = req.query.location as string;
+      }
+      if (req.query.hiringMode) {
+        filters.hiringMode = req.query.hiringMode as any;
       }
 
       const jobs = await JobService.getCompanyJobs(req.user.companyId, filters);
@@ -181,14 +185,31 @@ export class JobController {
 
       // Check if user can edit this job
       const existingJob = await JobService.getJobById(id, req.user.companyId);
-      
-      // Only allow editing if job is DRAFT or user is the creator
-      if (existingJob.status !== JobStatus.DRAFT && existingJob.createdBy !== req.user.id) {
-        res.status(403).json({
-          success: false,
-          error: 'You can only edit draft jobs or jobs you created',
-        });
-        return;
+
+      // Determine if this update only touches lifecycle fields (status / dates / hiringMode / distribution)
+      const LIFECYCLE_FIELDS = new Set([
+        'status',
+        'closeDate',
+        'expiryDate',
+        'postingDate',
+        'hiringMode',
+        'jobBoardDistribution',
+      ]);
+
+      const payloadKeys = Object.keys(jobData || {});
+      const isLifecycleOnlyUpdate =
+        payloadKeys.length > 0 &&
+        payloadKeys.every((key) => LIFECYCLE_FIELDS.has(key));
+
+      // For full content edits, keep stricter rule: only DRAFT or job creator
+      if (!isLifecycleOnlyUpdate) {
+        if (existingJob.status !== JobStatus.DRAFT && existingJob.createdBy !== req.user.id) {
+          res.status(403).json({
+            success: false,
+            error: 'You can only edit draft jobs or jobs you created',
+          });
+          return;
+        }
       }
 
       const job = await JobService.updateJob(id, req.user.companyId, jobData);

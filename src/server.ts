@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import { createServer } from 'http';
+import type { IncomingMessage } from 'http';
+import type { Duplex } from 'stream';
+import { WebSocket } from 'ws';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import path from 'path';
@@ -107,9 +110,9 @@ app.use((err: Error, _req: Request, res: Response, _next: express.NextFunction) 
 const server = createServer(app);
 
 // Attach WebSocket server to HTTP server
-server.on('upgrade', (request, socket, head) => {
+server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
   console.log('🔄 WebSocket upgrade request received');
-  wss.handleUpgrade(request, socket, head, (ws) => {
+  wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
     console.log('✅ WebSocket connection upgraded');
     wss.emit('connection', ws, request);
   });
