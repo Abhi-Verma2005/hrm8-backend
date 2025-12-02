@@ -22,9 +22,10 @@
   "license": "ISC",
   "packageManager": "pnpm@10.13.1",
   "dependencies": {
-    "@prisma/client": "^6.19.0",
+    "@prisma/client": "6.19.0",
     "@types/multer": "^2.0.0",
     "bcrypt": "^6.0.0",
+    "cloudinary": "^2.8.0",
     "connect-redis": "^9.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

@@ -179,29 +179,7 @@ export class RegionalLicenseeModel {
   /**
    * Map Prisma licensee to RegionalLicenseeData interface
    */
-  private static mapPrismaToLicensee(prismaLicensee: {
-    id: string;
-    name: string;
-    legalEntityName: string;
-    email: string;
-    phone: string | null;
-    address: string | null;
-    city: string | null;
-    state: string | null;
-    country: string | null;
-    taxId: string | null;
-    agreementStartDate: Date;
-    agreementEndDate: Date | null;
-    revenueSharePercent: number;
-    exclusivity: boolean;
-    contractFileUrl: string | null;
-    managerContact: string;
-    financeContact: string | null;
-    complianceContact: string | null;
-    status: LicenseeStatus;
-    createdAt: Date;
-    updatedAt: Date;
-  }): RegionalLicenseeData {
+  private static mapPrismaToLicensee(prismaLicensee: any): RegionalLicenseeData {
     return {
       id: prismaLicensee.id,
       name: prismaLicensee.name,

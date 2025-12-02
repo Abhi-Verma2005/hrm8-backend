@@ -66,6 +66,11 @@ SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
 EMAIL_FROM=noreply@hrm8.com
 EMAIL_FROM_NAME=HRM8
+
+# Cloudinary Configuration (for file uploads)
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
 ```
 
 ## Key Features

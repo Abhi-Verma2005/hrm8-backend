@@ -12,6 +12,8 @@ import {
   validateAcceptInvitation,
   validateEmployeeSignup,
   validateResendVerification,
+  validateForgotPasswordRequest,
+  validatePasswordResetRequest,
 } from '../validators/auth';
 
 const router: RouterType = Router();
@@ -62,6 +64,20 @@ router.post(
   '/resend-verification',
   validateResendVerification,
   AuthController.resendVerification
+);
+
+// Forgot password
+router.post(
+  '/forgot-password',
+  validateForgotPasswordRequest,
+  AuthController.requestPasswordReset
+);
+
+// Reset password
+router.post(
+  '/reset-password',
+  validatePasswordResetRequest,
+  AuthController.resetPassword
 );
 
 // Get current user (requires authentication)

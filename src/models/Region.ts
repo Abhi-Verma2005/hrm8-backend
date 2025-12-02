@@ -169,20 +169,7 @@ export class RegionModel {
   /**
    * Map Prisma region to RegionData interface
    */
-  private static mapPrismaToRegion(prismaRegion: {
-    id: string;
-    name: string;
-    code: string;
-    country: string;
-    stateProvince: string | null;
-    city: string | null;
-    boundaries: unknown;
-    ownerType: RegionOwnerType;
-    licenseeId: string | null;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-  }): RegionData {
+  private static mapPrismaToRegion(prismaRegion: any): RegionData {
     return {
       id: prismaRegion.id,
       name: prismaRegion.name,

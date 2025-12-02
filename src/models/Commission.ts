@@ -188,23 +188,7 @@ export class CommissionModel {
   /**
    * Map Prisma commission to CommissionData interface
    */
-  private static mapPrismaToCommission(prismaCommission: {
-    id: string;
-    consultantId: string;
-    regionId: string;
-    jobId: string | null;
-    type: CommissionType;
-    amount: number;
-    rate: number | null;
-    description: string | null;
-    status: CommissionStatus;
-    confirmedAt: Date | null;
-    paidAt: Date | null;
-    paymentReference: string | null;
-    notes: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): CommissionData {
+  private static mapPrismaToCommission(prismaCommission: any): CommissionData {
     return {
       id: prismaCommission.id,
       consultantId: prismaCommission.consultantId,

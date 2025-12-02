@@ -285,43 +285,7 @@ export class ConsultantModel {
   /**
    * Map Prisma consultant to ConsultantData interface
    */
-  private static mapPrismaToConsultant(prismaConsultant: {
-    id: string;
-    email: string;
-    passwordHash: string;
-    firstName: string;
-    lastName: string;
-    phone: string | null;
-    photo: string | null;
-    role: ConsultantRole;
-    status: ConsultantStatus;
-    regionId: string | null;
-    address: string | null;
-    city: string | null;
-    stateProvince: string | null;
-    country: string | null;
-    languages: unknown;
-    industryExpertise: string[];
-    resumeUrl: string | null;
-    paymentMethod: unknown;
-    taxInformation: unknown;
-    availability: AvailabilityStatus;
-    maxEmployers: number;
-    currentEmployers: number;
-    maxJobs: number;
-    currentJobs: number;
-    commissionStructure: string | null;
-    defaultCommissionRate: number | null;
-    totalCommissionsPaid: number;
-    pendingCommissions: number;
-    totalPlacements: number;
-    totalRevenue: number;
-    successRate: number;
-    averageDaysToFill: number | null;
-    lastLoginAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): ConsultantData {
+  private static mapPrismaToConsultant(prismaConsultant: any): ConsultantData {
     return {
       id: prismaConsultant.id,
       email: prismaConsultant.email,

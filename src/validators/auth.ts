@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { CompanyRegistrationRequest, LoginRequest, AcceptInvitationRequest, EmployeeSignupRequest } from '../types';
 import { isValidEmail } from '../utils/email';
 import { isValidDomain, extractDomain } from '../utils/domain';
+import { isPasswordStrong } from '../utils/password';
 
 /**
  * Validate company registration request
@@ -214,6 +215,66 @@ export function validateResendVerification(
 
   if (!email || !isValidEmail(email)) {
     errors.push('Valid email is required');
+  }
+
+  if (errors.length > 0) {
+    res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      errors,
+    });
+    return;
+  }
+
+  next();
+}
+
+/**
+ * Validate forgot password request
+ */
+export function validateForgotPasswordRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const { email } = req.body as { email?: string };
+  const errors: string[] = [];
+
+  if (!email || !isValidEmail(email)) {
+    errors.push('Valid email is required');
+  }
+
+  if (errors.length > 0) {
+    res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      errors,
+    });
+    return;
+  }
+
+  next();
+}
+
+/**
+ * Validate password reset request
+ */
+export function validatePasswordResetRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const { token, password } = req.body as { token?: string; password?: string };
+  const errors: string[] = [];
+
+  if (!token || token.trim().length === 0) {
+    errors.push('Reset token is required');
+  }
+
+  if (!password || password.length < 8) {
+    errors.push('Password is required and must be at least 8 characters');
+  } else if (!isPasswordStrong(password)) {
+    errors.push('Password must include uppercase, lowercase, and numeric characters');
   }
 
   if (errors.length > 0) {
