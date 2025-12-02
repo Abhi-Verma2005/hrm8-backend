@@ -3,10 +3,10 @@
  * Handles HRM8 Global Admin and Regional Licensee authentication
  */
 
-import { HRM8UserModel, HRM8UserData } from '../../models/HRM8User';
+import { HRM8UserModel } from '../../models/HRM8User';
 import { normalizeEmail } from '../../utils/email';
 import { comparePassword } from '../../utils/password';
-import { HRM8UserStatus } from '@prisma/client';
+import { HRM8User, HRM8UserStatus } from '../../types';
 
 export interface Hrm8LoginRequest {
   email: string;
@@ -20,7 +20,7 @@ export class Hrm8AuthService {
   static async login(
     loginData: Hrm8LoginRequest
   ): Promise<
-    { hrm8User: HRM8UserData } | { error: string; status: number; details?: Record<string, unknown> }
+    { hrm8User: HRM8User } | { error: string; status: number; details?: Record<string, unknown> }
   > {
     // Find HRM8 user by email
     const hrm8User = await HRM8UserModel.findByEmail(normalizeEmail(loginData.email));
@@ -61,14 +61,14 @@ export class Hrm8AuthService {
   /**
    * Find HRM8 user by email
    */
-  static async findByEmail(email: string): Promise<HRM8UserData | null> {
+  static async findByEmail(email: string): Promise<HRM8User | null> {
     return await HRM8UserModel.findByEmail(normalizeEmail(email));
   }
 
   /**
    * Find HRM8 user by ID
    */
-  static async findById(id: string): Promise<HRM8UserData | null> {
+  static async findById(id: string): Promise<HRM8User | null> {
     return await HRM8UserModel.findById(id);
   }
 }
