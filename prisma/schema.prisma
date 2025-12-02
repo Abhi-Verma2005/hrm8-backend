@@ -23,19 +23,19 @@ model Company {
   linkedInUrl        String?
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
-  region_id          String?
-  Region             Region?                   @relation(fields: [region_id], references: [id])
-  profile            CompanyProfile?
-  invitations        Invitation[]
-  jobs               Job[]
-  JobTemplate        JobTemplate[]
-  signupRequests     SignupRequest[]
-  users              User[]
-  verificationTokens VerificationToken[]
+  regionId            String?                   @map("region_id")
+  region              Region?                   @relation(fields: [regionId], references: [id])
+  profile             CompanyProfile?
+  invitations         Invitation[]
+  jobs                Job[]
+  JobTemplate         JobTemplate[]
+  signupRequests      SignupRequest[]
+  users               User[]
+  verificationTokens  VerificationToken[]
 
   @@index([domain])
   @@index([verificationStatus])
-  @@index([region_id])
+  @@index([regionId])
 }
 
 model CompanyProfile {
@@ -234,13 +234,13 @@ model Job {
   pre_interview_questionnaire_enabled Boolean                     @default(false)
   screening_criteria                  Json?
   screening_enabled                   Boolean                     @default(false)
-  region_id                           String?
+  regionId                            String?                     @map("region_id")
   applications                        Application[]
-  Commission                          Commission[]
-  ConsultantJobAssignment             ConsultantJobAssignment[]
+  commissions                         Commission[]
+  consultantAssignments               ConsultantJobAssignment[]
   company                             Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   creator                             User                        @relation("JobCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  Region                              Region?                     @relation(fields: [region_id], references: [id])
+  region                              Region?                     @relation(fields: [regionId], references: [id])
   jobInvitations                      JobInvitation[]
   JobTemplate                         JobTemplate[]
   PreInterviewQuestionnaire           PreInterviewQuestionnaire[]
@@ -251,7 +251,7 @@ model Job {
   @@index([status])
   @@index([hiringMode])
   @@index([expiryDate])
-  @@index([region_id])
+  @@index([regionId])
 }
 
 model Candidate {
@@ -324,20 +324,20 @@ model Application {
   manuallyAdded              Boolean                 @default(false) @map("manually_added")
   rank                       Int?
   recruiterNotes             String?                 @map("recruiter_notes")
-   score                      Float?
-   aiAnalysis                 Json?                   @map("ai_analysis") // Full AI analysis result
-   shortlisted                Boolean                 @default(false)
-   shortlistedAt              DateTime?               @map("shortlisted_at")
-   shortlistedBy              String?                 @map("shortlisted_by")
-   assessment_results         Json?
-  automated_screening_score  Float?
-  manual_screening_status    ManualScreeningStatus?
-  screening_notes            String?
-  screening_status           ScreeningStatus         @default(PENDING)
-  video_interview_status     VideoInterviewStatus    @default(NOT_SCHEDULED)
-  manual_screening_completed Boolean                 @default(false)
-  manual_screening_date      DateTime?
-  manual_screening_score     Float?
+  score                      Float?
+  shortlisted                Boolean                 @default(false)
+  shortlistedAt              DateTime?               @map("shortlisted_at")
+  shortlistedBy              String?                 @map("shortlisted_by")
+  assessmentResults          Json?                   @map("assessment_results")
+  automatedScreeningScore    Float?                 @map("automated_screening_score")
+  manualScreeningStatus      ManualScreeningStatus? @map("manual_screening_status")
+  screeningNotes              String?                 @map("screening_notes")
+  screeningStatus            ScreeningStatus         @default(PENDING) @map("screening_status")
+  videoInterviewStatus        VideoInterviewStatus   @default(NOT_SCHEDULED) @map("video_interview_status")
+  manualScreeningCompleted   Boolean                 @default(false) @map("manual_screening_completed")
+  manualScreeningDate        DateTime?               @map("manual_screening_date")
+  manualScreeningScore       Float?                 @map("manual_screening_score")
+  aiAnalysis                 Json?                  @map("ai_analysis")
   candidate                  Candidate               @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   job                        Job                     @relation(fields: [jobId], references: [id], onDelete: Cascade)
   Assessment                 Assessment[]
@@ -354,7 +354,7 @@ model Application {
   @@index([appliedDate])
   @@index([score])
   @@index([shortlisted])
-  @@index([screening_status])
+  @@index([screeningStatus])
 }
 
 model JobInvitation {
@@ -474,144 +474,144 @@ model AssessmentResponse {
 }
 
 model Commission {
-  id                String           @id
-  consultant_id     String
-  region_id         String
-  job_id            String?
+  id                String           @id @default(uuid())
+  consultantId      String           @map("consultant_id")
+  regionId          String           @map("region_id")
+  jobId             String?          @map("job_id")
   type              CommissionType
   amount            Float
   rate              Float?
   description       String?
   status            CommissionStatus @default(PENDING)
-  confirmed_at      DateTime?
-  paid_at           DateTime?
-  payment_reference String?
+  confirmedAt       DateTime?        @map("confirmed_at")
+  paidAt            DateTime?        @map("paid_at")
+  paymentReference  String?          @map("payment_reference")
   notes             String?
-  created_at        DateTime         @default(now())
-  updated_at        DateTime
-  Consultant        Consultant       @relation(fields: [consultant_id], references: [id])
-  Job               Job?             @relation(fields: [job_id], references: [id])
-  Region            Region           @relation(fields: [region_id], references: [id])
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  consultant        Consultant       @relation(fields: [consultantId], references: [id])
+  job               Job?             @relation(fields: [jobId], references: [id])
+  region            Region           @relation(fields: [regionId], references: [id])
 
-  @@index([consultant_id])
-  @@index([job_id])
-  @@index([region_id])
+  @@index([consultantId])
+  @@index([jobId])
+  @@index([regionId])
   @@index([status])
   @@index([type])
 }
 
 model Consultant {
-  id                      String                    @id
+  id                      String                    @id @default(uuid())
   email                   String                    @unique
-  password_hash           String
-  first_name              String
-  last_name               String
+  passwordHash            String                    @map("password_hash")
+  firstName               String                    @map("first_name")
+  lastName                String                    @map("last_name")
   phone                   String?
   photo                   String?
   role                    ConsultantRole
   status                  ConsultantStatus          @default(ACTIVE)
-  created_at              DateTime                  @default(now())
-  updated_at              DateTime
-  last_login_at           DateTime?
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
+  lastLoginAt             DateTime?                 @map("last_login_at")
   address                 String?
   availability            AvailabilityStatus        @default(AVAILABLE)
-  average_days_to_fill    Float?
+  averageDaysToFill       Float?                    @map("average_days_to_fill")
   city                    String?
-  commission_structure    String?
+  commissionStructure     String?                   @map("commission_structure")
   country                 String?
-  current_employers       Int                       @default(0)
-  current_jobs            Int                       @default(0)
-  default_commission_rate Float?
-  industry_expertise      String[]                  @default([])
+  currentEmployers        Int                       @default(0) @map("current_employers")
+  currentJobs             Int                       @default(0) @map("current_jobs")
+  defaultCommissionRate   Float?                    @map("default_commission_rate")
+  industryExpertise       String[]                  @default([]) @map("industry_expertise")
   languages               Json?
-  max_employers           Int                       @default(10)
-  max_jobs                Int                       @default(20)
-  payment_method          Json?
-  pending_commissions     Float                     @default(0)
-  region_id               String
-  resume_url              String?
-  state_province          String?
-  success_rate            Float                     @default(0)
-  tax_information         Json?
-  total_commissions_paid  Float                     @default(0)
-  total_placements        Int                       @default(0)
-  total_revenue           Float                     @default(0)
-  Commission              Commission[]
-  Region                  Region                    @relation(fields: [region_id], references: [id])
-  ConsultantJobAssignment ConsultantJobAssignment[]
-  ConsultantSession       ConsultantSession[]
+  maxEmployers            Int                       @default(10) @map("max_employers")
+  maxJobs                 Int                       @default(20) @map("max_jobs")
+  paymentMethod           Json?                     @map("payment_method")
+  pendingCommissions      Float                     @default(0) @map("pending_commissions")
+  regionId                String                    @map("region_id")
+  resumeUrl               String?                   @map("resume_url")
+  stateProvince           String?                   @map("state_province")
+  successRate             Float                     @default(0) @map("success_rate")
+  taxInformation          Json?                     @map("tax_information")
+  totalCommissionsPaid    Float                     @default(0) @map("total_commissions_paid")
+  totalPlacements         Int                       @default(0) @map("total_placements")
+  totalRevenue            Float                     @default(0) @map("total_revenue")
+  commissions             Commission[]
+  region                  Region                    @relation(fields: [regionId], references: [id])
+  jobAssignments          ConsultantJobAssignment[]
+  sessions                ConsultantSession[]
 
   @@index([email])
-  @@index([region_id])
+  @@index([regionId])
   @@index([role])
   @@index([status])
 }
 
 model ConsultantJobAssignment {
-  id            String     @id
-  consultant_id String
-  job_id        String
-  assigned_at   DateTime   @default(now())
-  assigned_by   String?
+  id            String     @id @default(uuid())
+  consultantId String     @map("consultant_id")
+  jobId        String     @map("job_id")
+  assignedAt   DateTime   @default(now()) @map("assigned_at")
+  assignedBy   String?    @map("assigned_by")
   status        String     @default("ACTIVE")
   notes         String?
-  Consultant    Consultant @relation(fields: [consultant_id], references: [id], onDelete: Cascade)
-  Job           Job        @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  consultant    Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  job           Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  @@unique([consultant_id, job_id])
-  @@index([consultant_id])
-  @@index([job_id])
+  @@unique([consultantId, jobId])
+  @@index([consultantId])
+  @@index([jobId])
   @@index([status])
 }
 
 model ConsultantSession {
-  id            String     @id
-  session_id    String     @unique
-  consultant_id String
-  email         String
-  expires_at    DateTime
-  last_activity DateTime   @default(now())
-  created_at    DateTime   @default(now())
-  Consultant    Consultant @relation(fields: [consultant_id], references: [id], onDelete: Cascade)
+  id           String     @id @default(uuid())
+  sessionId    String     @unique @map("session_id")
+  consultantId String     @map("consultant_id")
+  email        String
+  expiresAt    DateTime   @map("expires_at")
+  lastActivity DateTime   @default(now()) @map("last_activity")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  consultant   Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
 
-  @@index([consultant_id])
-  @@index([expires_at])
-  @@index([session_id])
+  @@index([consultantId])
+  @@index([expiresAt])
+  @@index([sessionId])
 }
 
 model HRM8Session {
-  id            String   @id
-  session_id    String   @unique
-  hrm8_user_id  String
-  email         String
-  expires_at    DateTime
-  last_activity DateTime @default(now())
-  created_at    DateTime @default(now())
-  HRM8User      HRM8User @relation(fields: [hrm8_user_id], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  sessionId    String   @unique @map("session_id")
+  hrm8UserId   String   @map("hrm8_user_id")
+  email        String
+  expiresAt    DateTime @map("expires_at")
+  lastActivity DateTime @default(now()) @map("last_activity")
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         HRM8User @relation(fields: [hrm8UserId], references: [id], onDelete: Cascade)
 
-  @@index([expires_at])
-  @@index([hrm8_user_id])
-  @@index([session_id])
+  @@index([expiresAt])
+  @@index([hrm8UserId])
+  @@index([sessionId])
 }
 
 model HRM8User {
-  id            String         @id
-  email         String         @unique
-  password_hash String
-  first_name    String
-  last_name     String
-  phone         String?
-  photo         String?
-  role          HRM8UserRole
-  status        HRM8UserStatus @default(ACTIVE)
-  licensee_id   String?
-  created_at    DateTime       @default(now())
-  updated_at    DateTime
-  last_login_at DateTime?
-  HRM8Session   HRM8Session[]
+  id           String         @id @default(uuid())
+  email        String         @unique
+  passwordHash String         @map("password_hash")
+  firstName    String         @map("first_name")
+  lastName     String         @map("last_name")
+  phone        String?
+  photo        String?
+  role         HRM8UserRole
+  status       HRM8UserStatus @default(ACTIVE)
+  licenseeId   String?        @map("licensee_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  lastLoginAt  DateTime?      @map("last_login_at")
+  sessions     HRM8Session[]
 
   @@index([email])
-  @@index([licensee_id])
+  @@index([licenseeId])
   @@index([role])
   @@index([status])
 }
@@ -648,77 +648,77 @@ model QuestionnaireResponse {
 }
 
 model Region {
-  id               String            @id
+  id               String            @id @default(uuid())
   name             String
   code             String            @unique
   country          String
-  state_province   String?
+  stateProvince    String?           @map("state_province")
   city             String?
   boundaries       Json?
-  owner_type       RegionOwnerType   @default(HRM8)
-  licensee_id      String?
-  is_active        Boolean           @default(true)
-  created_at       DateTime          @default(now())
-  updated_at       DateTime
-  Commission       Commission[]
-  Company          Company[]
-  Consultant       Consultant[]
-  Job              Job[]
-  RegionalLicensee RegionalLicensee? @relation(fields: [licensee_id], references: [id])
-  RegionalRevenue  RegionalRevenue[]
+  ownerType        RegionOwnerType   @default(HRM8) @map("owner_type")
+  licenseeId       String?           @map("licensee_id")
+  isActive         Boolean           @default(true) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  commissions      Commission[]
+  companies        Company[]
+  consultants      Consultant[]
+  jobs             Job[]
+  licensee         RegionalLicensee? @relation(fields: [licenseeId], references: [id])
+  revenue          RegionalRevenue[]
 
-  @@index([is_active])
-  @@index([licensee_id])
-  @@index([owner_type])
+  @@index([isActive])
+  @@index([licenseeId])
+  @@index([ownerType])
 }
 
 model RegionalLicensee {
-  id                    String            @id
+  id                    String            @id @default(uuid())
   name                  String
-  legal_entity_name     String
+  legalEntityName       String            @map("legal_entity_name")
   email                 String
   phone                 String?
   address               String?
   city                  String?
   state                 String?
   country               String?
-  tax_id                String?
-  agreement_start_date  DateTime
-  agreement_end_date    DateTime?
-  revenue_share_percent Float
+  taxId                 String?           @map("tax_id")
+  agreementStartDate    DateTime          @map("agreement_start_date")
+  agreementEndDate      DateTime?         @map("agreement_end_date")
+  revenueSharePercent   Float             @map("revenue_share_percent")
   exclusivity           Boolean           @default(false)
-  contract_file_url     String?
-  manager_contact       String
-  finance_contact       String?
-  compliance_contact    String?
+  contractFileUrl       String?           @map("contract_file_url")
+  managerContact       String            @map("manager_contact")
+  financeContact        String?           @map("finance_contact")
+  complianceContact     String?           @map("compliance_contact")
   status                LicenseeStatus    @default(ACTIVE)
-  created_at            DateTime          @default(now())
-  updated_at            DateTime
-  Region                Region[]
-  RegionalRevenue       RegionalRevenue[]
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+  regions               Region[]
+  revenueShares         RegionalRevenue[]
 
   @@index([email])
   @@index([status])
 }
 
 model RegionalRevenue {
-  id               String            @id
-  region_id        String
-  licensee_id      String?
-  period_start     DateTime
-  period_end       DateTime
-  total_revenue    Float
-  licensee_share   Float
-  hrm8_share       Float
+  id               String            @id @default(uuid())
+  regionId         String            @map("region_id")
+  licenseeId       String?           @map("licensee_id")
+  periodStart      DateTime          @map("period_start")
+  periodEnd        DateTime          @map("period_end")
+  totalRevenue     Float             @map("total_revenue")
+  licenseeShare    Float             @map("licensee_share")
+  hrm8Share        Float             @map("hrm8_share")
   status           RevenueStatus     @default(PENDING)
-  paid_at          DateTime?
-  created_at       DateTime          @default(now())
-  updated_at       DateTime
-  RegionalLicensee RegionalLicensee? @relation(fields: [licensee_id], references: [id])
-  Region           Region            @relation(fields: [region_id], references: [id])
+  paidAt           DateTime?         @map("paid_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  licensee         RegionalLicensee? @relation(fields: [licenseeId], references: [id])
+  region           Region            @relation(fields: [regionId], references: [id])
 
-  @@index([licensee_id])
-  @@index([region_id])
+  @@index([licenseeId])
+  @@index([regionId])
   @@index([status])
 }
 
@@ -770,28 +770,28 @@ model ScreeningResult {
 }
 
 model VideoInterview {
-  id              String             @id
-  application_id  String
-  candidate_id    String
-  job_id          String
-  scheduled_date  DateTime
+  id              String             @id @default(uuid())
+  applicationId   String             @map("application_id")
+  candidateId     String             @map("candidate_id")
+  jobId           String             @map("job_id")
+  scheduledDate   DateTime           @map("scheduled_date")
   duration        Int                @default(60)
-  meeting_link    String?
+  meetingLink     String?            @map("meeting_link")
   status          InterviewStatus    @default(SCHEDULED)
   type            VideoInterviewType @default(VIDEO)
-  interviewer_ids Json
-  recording_url   String?
+  interviewerIds  Json               @map("interviewer_ids")
+  recordingUrl    String?            @map("recording_url")
   transcript      Json?
   feedback        Json?
   notes           String?
-  created_at      DateTime           @default(now())
-  updated_at      DateTime
-  Application     Application        @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  Application     Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
-  @@index([application_id])
-  @@index([candidate_id])
-  @@index([job_id])
-  @@index([scheduled_date])
+  @@index([applicationId])
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([scheduledDate])
   @@index([status])
 }
 

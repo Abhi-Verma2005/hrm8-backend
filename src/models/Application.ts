@@ -389,7 +389,7 @@ export class ApplicationModel {
     const updateData: any = {};
 
     if (data.score !== undefined) {
-      updateData.manual_screening_score = data.score;
+      updateData.manualScreeningScore = data.score;
       // Also update the main score field
       updateData.score = data.score;
     }
@@ -398,12 +398,12 @@ export class ApplicationModel {
       // Ensure status is a valid ManualScreeningStatus enum value
       const validStatuses = ['PENDING', 'PASSED', 'FAILED'];
       if (validStatuses.includes(data.status)) {
-        updateData.manual_screening_status = data.status;
+        updateData.manualScreeningStatus = data.status;
       }
     }
 
     if (data.notes !== undefined) {
-      updateData.screening_notes = data.notes;
+      updateData.screeningNotes = data.notes;
       // Also update recruiter notes if not already set
       if (!updateData.recruiterNotes) {
         updateData.recruiterNotes = data.notes;
@@ -411,9 +411,9 @@ export class ApplicationModel {
     }
 
     if (data.completed !== undefined) {
-      updateData.manual_screening_completed = data.completed;
+      updateData.manualScreeningCompleted = data.completed;
       if (data.completed) {
-        updateData.manual_screening_date = new Date();
+        updateData.manualScreeningDate = new Date();
       }
     }
 

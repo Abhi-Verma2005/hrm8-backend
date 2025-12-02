@@ -15,6 +15,8 @@ import talentPoolRoutes from './talentPool';
 import publicRoutes from './public';
 import jobTemplateRoutes from './jobTemplate';
 import videoInterviewRoutes from './videoInterview';
+import hrm8Routes from './hrm8';
+import consultantRoutes from './consultant';
 
 const router: RouterType = Router();
 
@@ -30,6 +32,8 @@ router.use('/api/talent-pool', talentPoolRoutes);
 router.use('/api/public', publicRoutes);
 router.use('/api/job-templates', jobTemplateRoutes);
 router.use('/api/video-interviews', videoInterviewRoutes);
+router.use('/api/hrm8', hrm8Routes);
+router.use('/api/consultant', consultantRoutes);
 
 export default router;
 

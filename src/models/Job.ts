@@ -191,6 +191,32 @@ export class JobModel {
   }
 
   /**
+   * Find all jobs with filters (for HRM8 admin)
+   * Returns jobs across all companies with optional filters
+   */
+  static async findAllWithFilters(filters: {
+    regionId?: string;
+    status?: JobStatus;
+  }): Promise<Job[]> {
+    const where: any = {};
+
+    if (filters.regionId) {
+      where.regionId = filters.regionId;
+    }
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    const jobs = await prisma.job.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return jobs.map((job) => this.mapPrismaToJob(job));
+  }
+
+  /**
    * Find public jobs with filters (for public job search)
    * Returns jobs with company information
    */
