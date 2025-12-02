@@ -25,6 +25,7 @@ export interface HRM8UserData {
 export class HRM8UserModel {
   /**
    * Create a new HRM8 user
+   * Role defaults to REGIONAL_LICENSEE if not provided
    */
   static async create(userData: {
     email: string;
@@ -33,7 +34,7 @@ export class HRM8UserModel {
     lastName: string;
     phone?: string;
     photo?: string;
-    role: HRM8UserRole;
+    role?: HRM8UserRole; // Optional - defaults to REGIONAL_LICENSEE
     status?: HRM8UserStatus;
     licenseeId?: string;
   }): Promise<HRM8UserData> {
@@ -45,7 +46,7 @@ export class HRM8UserModel {
         lastName: userData.lastName.trim(),
         phone: userData.phone?.trim(),
         photo: userData.photo,
-        role: userData.role,
+        role: userData.role || HRM8UserRole.REGIONAL_LICENSEE,
         status: userData.status || HRM8UserStatus.ACTIVE,
         licensee_id: userData.licenseeId,
       },
@@ -87,6 +88,7 @@ export class HRM8UserModel {
         ...(data.lastName !== undefined && { lastName: data.lastName }),
         ...(data.phone !== undefined && { phone: data.phone }),
         ...(data.photo !== undefined && { photo: data.photo }),
+        ...(data.role !== undefined && { role: data.role }),
         ...(data.status !== undefined && { status: data.status }),
         ...(data.licenseeId !== undefined && { licensee_id: data.licenseeId }),
       },
