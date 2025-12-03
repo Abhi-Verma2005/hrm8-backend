@@ -34,6 +34,7 @@ export interface CandidateData {
   relocationWilling?: boolean;
   preferredLocations?: string;
   remotePreference?: string;
+  resumeUrl?: string | null;
 
   // Privacy & Visibility
   profileVisibility?: string;
@@ -234,6 +235,7 @@ export class CandidateModel {
       relocationWilling: prismaCandidate.relocationWilling,
       preferredLocations: prismaCandidate.preferredLocations,
       remotePreference: prismaCandidate.remotePreference,
+      resumeUrl: prismaCandidate.resumeUrl,
 
       // Privacy & Visibility
       profileVisibility: prismaCandidate.profileVisibility,

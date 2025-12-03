@@ -21,6 +21,36 @@ export interface ParsedSkill {
     level?: 'beginner' | 'intermediate' | 'expert';
 }
 
+export interface ParsedEducation {
+    institution: string;
+    degree: string;
+    field: string;
+    startDate?: string;
+    endDate?: string;
+    current?: boolean;
+    grade?: string;
+    description?: string;
+}
+
+export interface ParsedCertification {
+    name: string;
+    issuingOrg: string;
+    issueDate?: string;
+    expiryDate?: string;
+    credentialId?: string;
+    credentialUrl?: string;
+    doesNotExpire?: boolean;
+}
+
+export interface ParsedTraining {
+    courseName: string;
+    provider: string;
+    completedDate?: string;
+    duration?: string;
+    description?: string;
+    certificateUrl?: string;
+}
+
 export interface ParsedResumeData {
     firstName?: string;
     lastName?: string;
@@ -29,7 +59,9 @@ export interface ParsedResumeData {
     summary?: string;
     workExperience: ParsedWorkExperience[];
     skills: ParsedSkill[];
-    education?: any[]; // Simplified for now
+    education: ParsedEducation[];
+    certifications: ParsedCertification[];
+    training: ParsedTraining[];
 }
 
 export class ResumeParserService {
@@ -54,12 +86,15 @@ export class ResumeParserService {
             const prompt = `You are an expert ATS (Applicant Tracking System) resume parser. Extract structured data from this resume following ATS best practices.
 
 IMPORTANT PARSING RULES:
-1. Look for standard section headers: "Experience", "Work History", "Employment", "Education", "Skills", "Summary", "Objective"
+1. Look for standard section headers: "Experience", "Work History", "Employment", "Education", "Skills", "Summary", "Objective", "Certifications", "Licenses", "Training", "Courses"
 2. Extract dates in YYYY-MM format when possible
 3. Identify company names, job titles, and locations
 4. Extract skills from dedicated skills sections and from job descriptions
 5. Parse contact information from the top of the resume
 6. Handle both chronological and hybrid resume formats
+7. Extract education details including institution, degree, field of study, and dates
+8. Identify certifications and licenses with issuing organizations and expiry dates
+9. Extract training courses and professional development activities
 
 Return a JSON object with:
 - firstName: string (first name only)
@@ -79,10 +114,29 @@ Return a JSON object with:
   - name: string (skill name)
   - level: string (beginner, intermediate, expert) - infer from context like "proficient", "expert", "familiar with", or default to intermediate
 - education: Array of objects with:
-  - institution: string
-  - degree: string
-  - field: string
-  - graduationDate: string (YYYY-MM format)
+  - institution: string (university/college name)
+  - degree: string (e.g., "Bachelor of Science", "Master of Arts")
+  - field: string (field of study, e.g., "Computer Science")
+  - startDate: string (YYYY-MM format, optional)
+  - endDate: string (YYYY-MM format or "Present" for current)
+  - current: boolean (true if currently studying)
+  - grade: string (GPA or grade, optional)
+  - description: string (honors, achievements, optional)
+- certifications: Array of objects with:
+  - name: string (certification name)
+  - issuingOrg: string (issuing organization)
+  - issueDate: string (YYYY-MM format, optional)
+  - expiryDate: string (YYYY-MM format, optional)
+  - credentialId: string (credential ID, optional)
+  - credentialUrl: string (verification URL, optional)
+  - doesNotExpire: boolean (true if no expiry date)
+- training: Array of objects with:
+  - courseName: string (course/training name)
+  - provider: string (training provider/platform)
+  - completedDate: string (YYYY-MM format, optional)
+  - duration: string (e.g., "40 hours", "3 months", optional)
+  - description: string (course description, optional)
+  - certificateUrl: string (certificate URL, optional)
 
 Resume text:
 ${text}
@@ -109,6 +163,13 @@ Return ONLY valid JSON, no markdown formatting, no code blocks.`;
             }
 
             const extracted = JSON.parse(content);
+            console.log('OpenAI extracted data:', JSON.stringify({
+                workExperience: extracted.workExperience?.length || 0,
+                skills: extracted.skills?.length || 0,
+                education: extracted.education?.length || 0,
+                certifications: extracted.certifications?.length || 0,
+                training: extracted.training?.length || 0,
+            }));
             return this.normalizeParsedData(extracted);
         } catch (error) {
             console.error('OpenAI resume parsing failed:', error);
@@ -139,6 +200,8 @@ Return ONLY valid JSON, no markdown formatting, no code blocks.`;
             workExperience: [],
             skills: [],
             education: [],
+            certifications: [],
+            training: [],
         };
     }
 
@@ -146,6 +209,19 @@ Return ONLY valid JSON, no markdown formatting, no code blocks.`;
      * Normalize parsed data to ensure consistency
      */
     private static normalizeParsedData(data: any): ParsedResumeData {
+        // Helper to convert YYYY-MM to ISO date
+        const toIsoDate = (dateStr?: string) => {
+            if (!dateStr) return undefined;
+            if (dateStr.toLowerCase() === 'present') return undefined;
+            // If already full date, return as is
+            if (dateStr.includes('T')) return dateStr;
+            // If YYYY-MM, append day and time
+            if (/^\d{4}-\d{2}$/.test(dateStr)) return `${dateStr}-01T00:00:00Z`;
+            // If YYYY, append month, day and time
+            if (/^\d{4}$/.test(dateStr)) return `${dateStr}-01-01T00:00:00Z`;
+            return undefined;
+        };
+
         return {
             firstName: data.firstName,
             lastName: data.lastName,
@@ -156,9 +232,9 @@ Return ONLY valid JSON, no markdown formatting, no code blocks.`;
                 ? data.workExperience.map((exp: any) => ({
                     company: exp.company || 'Unknown Company',
                     role: exp.role || 'Unknown Role',
-                    startDate: exp.startDate || new Date().toISOString().substring(0, 7),
-                    endDate: exp.endDate,
-                    current: exp.current || exp.endDate === 'Present' || false,
+                    startDate: toIsoDate(exp.startDate) || new Date().toISOString(),
+                    endDate: toIsoDate(exp.endDate),
+                    current: exp.current || exp.endDate?.toLowerCase() === 'present' || !exp.endDate,
                     description: exp.description,
                     location: exp.location,
                 }))
@@ -169,7 +245,39 @@ Return ONLY valid JSON, no markdown formatting, no code blocks.`;
                     level: skill.level || 'intermediate',
                 }))
                 : [],
-            education: Array.isArray(data.education) ? data.education : [],
+            education: Array.isArray(data.education)
+                ? data.education.map((edu: any) => ({
+                    institution: edu.institution || 'Unknown Institution',
+                    degree: edu.degree || 'Unknown Degree',
+                    field: edu.field || 'Unknown Field',
+                    startDate: toIsoDate(edu.startDate),
+                    endDate: toIsoDate(edu.endDate),
+                    current: edu.current || false,
+                    grade: edu.grade,
+                    description: edu.description,
+                }))
+                : [],
+            certifications: Array.isArray(data.certifications)
+                ? data.certifications.map((cert: any) => ({
+                    name: cert.name || 'Unknown Certification',
+                    issuingOrg: cert.issuingOrg || cert.issuingOrganization || 'Unknown Organization',
+                    issueDate: toIsoDate(cert.issueDate),
+                    expiryDate: toIsoDate(cert.expiryDate),
+                    credentialId: cert.credentialId,
+                    credentialUrl: cert.credentialUrl,
+                    doesNotExpire: cert.doesNotExpire || !cert.expiryDate,
+                }))
+                : [],
+            training: Array.isArray(data.training)
+                ? data.training.map((train: any) => ({
+                    courseName: train.courseName || train.name || 'Unknown Course',
+                    provider: train.provider || 'Unknown Provider',
+                    completedDate: toIsoDate(train.completedDate),
+                    duration: train.duration,
+                    description: train.description,
+                    certificateUrl: train.certificateUrl,
+                }))
+                : [],
         };
     }
 }

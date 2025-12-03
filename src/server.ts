@@ -7,6 +7,7 @@ import { WebSocket } from 'ws';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import path from 'path';
+// Trigger restart for Prisma changes
 import routes from './routes';
 import { wss } from './websocket';
 
@@ -68,7 +69,7 @@ if (isProduction) {
   // __dirname in compiled JS will be backend/dist, so we go up to backend, then to frontend/dist
   const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
   app.use(express.static(frontendDistPath));
-  
+
   // SPA fallback: serve index.html for all non-API routes
   // This must be after API routes and static files
   // Express 5 requires named parameters for wildcard routes
@@ -81,7 +82,7 @@ if (isProduction) {
       });
       return;
     }
-    
+
     // Serve index.html for all other routes (SPA routing)
     const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
     res.sendFile(indexPath);

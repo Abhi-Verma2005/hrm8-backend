@@ -204,5 +204,25 @@ export class CandidateService {
       orderBy: { name: 'asc' },
     });
   }
+
+  /**
+   * Delete all work experience for a candidate
+   */
+  static async deleteAllWorkExperience(candidateId: string) {
+    const { prisma } = await import('../../lib/prisma');
+    return await prisma.candidateWorkExperience.deleteMany({
+      where: { candidateId },
+    });
+  }
+
+  /**
+   * Delete all skills for a candidate
+   */
+  static async deleteAllSkills(candidateId: string) {
+    const { prisma } = await import('../../lib/prisma');
+    return await prisma.candidateSkill.deleteMany({
+      where: { candidateId },
+    });
+  }
 }
 

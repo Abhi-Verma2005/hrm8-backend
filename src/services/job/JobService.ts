@@ -59,7 +59,7 @@ export class JobService {
         description: jobData.description?.substring(0, 100) + '...',
       },
     });
-    
+
     try {
       // Generate job code if not provided
       const jobCode = await this.generateJobCode(companyId);
@@ -98,7 +98,7 @@ export class JobService {
         applicationForm: jobData.applicationForm,
         videoInterviewingEnabled: jobData.videoInterviewingEnabled || false,
       };
-      
+
       console.log('📦 Calling JobModel.create with:', {
         ...jobModelData,
         description: jobModelData.description?.substring(0, 100) + '...',
@@ -106,6 +106,12 @@ export class JobService {
 
       const job = await JobModel.create(jobModelData);
       console.log('✅ JobModel.create succeeded:', job.id);
+
+      // Process job alerts asynchronously (don't wait for it)
+      this.processJobAlertsAsync(job).catch(err => {
+        console.error('Failed to process job alerts:', err);
+      });
+
       return job;
     } catch (error) {
       console.error('❌ JobService.createJob failed:', error);
@@ -114,6 +120,18 @@ export class JobService {
         stack: error instanceof Error ? error.stack : 'No stack trace',
       });
       throw error;
+    }
+  }
+
+  /**
+   * Process job alerts asynchronously
+   */
+  private static async processJobAlertsAsync(job: any) {
+    try {
+      const { CandidateJobService } = await import('../candidate/CandidateJobService');
+      await CandidateJobService.processJobAlerts(job);
+    } catch (error) {
+      console.error('Error in processJobAlertsAsync:', error);
     }
   }
 
@@ -207,7 +225,7 @@ export class JobService {
     // Verify all jobs belong to company
     const jobs = await JobModel.findByCompanyId(companyId);
     const validJobIds = jobs.filter(job => jobIds.includes(job.id)).map(job => job.id);
-    
+
     if (validJobIds.length === 0) {
       throw new Error('No valid jobs found for deletion');
     }
@@ -230,6 +248,11 @@ export class JobService {
     const updatedJob = await JobModel.update(jobId, {
       status: JobStatus.OPEN,
       postingDate: job.postingDate || new Date(),
+    });
+
+    // Process job alerts when job is published
+    this.processJobAlertsAsync(updatedJob).catch(err => {
+      console.error('Failed to process job alerts on publish:', err);
     });
 
     return updatedJob;
@@ -260,6 +283,11 @@ export class JobService {
       postingDate: job.postingDate || new Date(),
       shareLink,
       referralLink,
+    });
+
+    // Process job alerts when job is activated
+    this.processJobAlertsAsync(updatedJob).catch(err => {
+      console.error('Failed to process job alerts on activation:', err);
     });
 
     return updatedJob;
