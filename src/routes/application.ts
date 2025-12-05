@@ -30,6 +30,7 @@ router.post('/from-talent-pool', authenticate, ApplicationController.addFromTale
 
 // Candidate routes continued (specific routes before generic /:id)
 router.post('/:id/withdraw', authenticateCandidate, ApplicationController.withdrawApplication);
+router.delete('/:id', authenticateCandidate, ApplicationController.deleteApplication);
 router.get('/:id', authenticateCandidate, ApplicationController.getApplication);
 
 // Check if candidate has applied (must come before /:id to avoid conflicts)

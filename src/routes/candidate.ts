@@ -89,6 +89,56 @@ router.delete('/qualifications/training/:id', CandidateQualificationsController.
 // Saved Jobs, Searches & Alerts
 import { CandidateJobController } from '../controllers/candidate/CandidateJobController';
 
+// Document routes
+import { CandidateDocumentController } from '../controllers/candidate/CandidateDocumentController';
+
+// Configure multer for document uploads
+const documentUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+    },
+    fileFilter: (_req, file, cb) => {
+        // Accept PDF, DOC, DOCX, TXT, and ZIP files
+        const allowedMimes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain',
+            'application/zip',
+        ];
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            // Check file extension as fallback
+            const ext = file.originalname.toLowerCase().split('.').pop();
+            if (['pdf', 'doc', 'docx', 'txt', 'zip'].includes(ext || '')) {
+                cb(null, true);
+            } else {
+                cb(new Error('Invalid file type. Only PDF, DOC, DOCX, TXT, and ZIP files are allowed.'));
+            }
+        }
+    },
+});
+
+// Resume routes
+router.get('/documents/resumes', CandidateDocumentController.getResumes);
+router.post('/documents/resumes', documentUpload.single('file'), CandidateDocumentController.uploadResume);
+router.put('/documents/resumes/:id/set-default', CandidateDocumentController.setDefaultResume);
+router.delete('/documents/resumes/:id', CandidateDocumentController.deleteResume);
+
+// Cover letter routes
+router.get('/documents/cover-letters', CandidateDocumentController.getCoverLetters);
+router.post('/documents/cover-letters', documentUpload.single('file'), CandidateDocumentController.createCoverLetter);
+router.put('/documents/cover-letters/:id', documentUpload.single('file'), CandidateDocumentController.updateCoverLetter);
+router.delete('/documents/cover-letters/:id', CandidateDocumentController.deleteCoverLetter);
+
+// Portfolio routes
+router.get('/documents/portfolio', CandidateDocumentController.getPortfolioItems);
+router.post('/documents/portfolio', documentUpload.single('file'), CandidateDocumentController.createPortfolioItem);
+router.put('/documents/portfolio/:id', documentUpload.single('file'), CandidateDocumentController.updatePortfolioItem);
+router.delete('/documents/portfolio/:id', CandidateDocumentController.deletePortfolioItem);
+
 // Saved Jobs
 router.get('/saved-jobs', CandidateJobController.getSavedJobs);
 router.post('/saved-jobs/:jobId', CandidateJobController.saveJob);

@@ -122,7 +122,31 @@ export class ApplicationService {
     status: ApplicationStatus,
     stage?: ApplicationStage
   ): Promise<ApplicationData> {
-    return await ApplicationModel.updateStatus(applicationId, status, stage);
+    // Get current application to track status change
+    const currentApplication = await ApplicationModel.findById(applicationId);
+    if (!currentApplication) {
+      throw new Error('Application not found');
+    }
+
+    const oldStatus = currentApplication.status;
+    const updatedApplication = await ApplicationModel.updateStatus(applicationId, status, stage);
+
+    // Send notification if status changed
+    if (oldStatus !== status) {
+      const { ApplicationNotificationService } = await import('../notification/ApplicationNotificationService');
+      ApplicationNotificationService.notifyStatusChange(
+        applicationId,
+        updatedApplication.candidateId,
+        updatedApplication.jobId,
+        oldStatus,
+        status,
+        stage || updatedApplication.stage
+      ).catch((error) => {
+        console.error('Failed to send status change notification:', error);
+      });
+    }
+
+    return updatedApplication;
   }
 
   /**
@@ -248,7 +272,20 @@ export class ApplicationService {
     applicationId: string,
     shortlistedBy: string
   ): Promise<ApplicationData> {
-    return await ApplicationModel.shortlist(applicationId, shortlistedBy);
+    const application = await ApplicationModel.shortlist(applicationId, shortlistedBy);
+
+    // Send notification
+    const { ApplicationNotificationService } = await import('../notification/ApplicationNotificationService');
+    ApplicationNotificationService.notifyShortlisted(
+      applicationId,
+      application.candidateId,
+      application.jobId,
+      shortlistedBy
+    ).catch((error) => {
+      console.error('Failed to send shortlist notification:', error);
+    });
+
+    return application;
   }
 
   /**
@@ -265,7 +302,31 @@ export class ApplicationService {
     applicationId: string,
     stage: ApplicationStage
   ): Promise<ApplicationData> {
-    return await ApplicationModel.updateStage(applicationId, stage);
+    // Get current application to track stage change
+    const currentApplication = await ApplicationModel.findById(applicationId);
+    if (!currentApplication) {
+      throw new Error('Application not found');
+    }
+
+    const oldStage = currentApplication.stage;
+    const updatedApplication = await ApplicationModel.updateStage(applicationId, stage);
+
+    // Send notification if stage changed
+    if (oldStage !== stage) {
+      const { ApplicationNotificationService } = await import('../notification/ApplicationNotificationService');
+      ApplicationNotificationService.notifyStageChange(
+        applicationId,
+        updatedApplication.candidateId,
+        updatedApplication.jobId,
+        oldStage,
+        stage,
+        updatedApplication.status
+      ).catch((error) => {
+        console.error('Failed to send stage change notification:', error);
+      });
+    }
+
+    return updatedApplication;
   }
 
   /**

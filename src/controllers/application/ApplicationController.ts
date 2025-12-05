@@ -12,6 +12,7 @@ import { CandidateModel } from '../../models/Candidate';
 import { JobModel } from '../../models/Job';
 import { CompanyService } from '../../services/company/CompanyService';
 import { JobInvitationModel } from '../../models/JobInvitation';
+import { ApplicationModel } from '../../models/Application';
 
 export class ApplicationController {
   /**
@@ -44,10 +45,18 @@ export class ApplicationController {
         return;
       }
 
+      console.log('[ApplicationController.submitApplication] Submitting application', {
+        candidateId: applicationData.candidateId,
+        jobId: applicationData.jobId,
+        requestBody: req.body,
+        applicationData: applicationData,
+      });
+
       const result = await ApplicationService.submitApplication(applicationData);
 
       // Check if service returned an error
       if ('error' in result) {
+        console.error('[ApplicationController.submitApplication] Application submission failed', result.error);
         res.status(400).json({
           success: false,
           error: result.error,
@@ -55,6 +64,14 @@ export class ApplicationController {
         });
         return;
       }
+
+      console.log('[ApplicationController.submitApplication] Application submitted successfully', {
+        applicationId: result.id,
+        jobId: result.jobId,
+        candidateId: result.candidateId,
+        status: result.status,
+        stage: result.stage,
+      });
 
       res.status(201).json({
         success: true,
@@ -197,6 +214,18 @@ export class ApplicationController {
 
       const applications = await ApplicationService.getCandidateApplications(candidate.id);
 
+      // Log applications for debugging
+      console.log('[ApplicationController.getCandidateApplications]', {
+        count: applications.length,
+        applications: applications.map(app => ({
+          id: app.id,
+          jobId: app.jobId,
+          resumeUrl: app.resumeUrl,
+          coverLetterUrl: app.coverLetterUrl,
+          portfolioUrl: app.portfolioUrl,
+        })),
+      });
+
       res.json({
         success: true,
         data: { applications },
@@ -244,13 +273,32 @@ export class ApplicationController {
         filters.shortlisted = req.query.shortlisted === 'true';
       }
 
-      console.log('[ApplicationController.getJobApplications] recruiter view', { jobId, filters });
+      console.log('[ApplicationController.getJobApplications] recruiter view', { 
+        jobId, 
+        filters,
+        requestedJobId: jobId,
+      });
 
       const applications = await ApplicationService.getJobApplications(jobId, filters);
 
       console.log('[ApplicationController.getJobApplications] loaded applications', {
         jobId,
+        requestedJobId: jobId,
         count: applications.length,
+        applications: applications.map(app => ({
+          id: app.id,
+          jobId: app.jobId,
+          candidateId: app.candidateId,
+          candidateName: app.candidate ? `${app.candidate.firstName} ${app.candidate.lastName}` : 'No candidate data',
+          status: app.status,
+          stage: app.stage,
+        })),
+        // Verify all applications belong to the requested job
+        jobIdMismatches: applications.filter(app => app.jobId !== jobId).map(app => ({
+          applicationId: app.id,
+          applicationJobId: app.jobId,
+          requestedJobId: jobId,
+        })),
       });
 
       res.json({
@@ -262,6 +310,65 @@ export class ApplicationController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get applications',
+      });
+    }
+  }
+
+  /**
+   * Delete application
+   * DELETE /api/applications/:id
+   */
+  static async deleteApplication(req: CandidateAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const candidate = req.candidate;
+      const { id } = req.params;
+
+      if (!candidate) {
+        res.status(401).json({
+          success: false,
+          error: 'Not authenticated',
+        });
+        return;
+      }
+
+      const application = await ApplicationService.getApplication(id);
+
+      if (!application) {
+        res.status(404).json({
+          success: false,
+          error: 'Application not found',
+        });
+        return;
+      }
+
+      // Verify candidate owns this application
+      if (application.candidateId !== candidate.id) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied',
+        });
+        return;
+      }
+
+      // Only allow deletion of withdrawn or rejected applications
+      if (application.status !== 'WITHDRAWN' && application.status !== 'REJECTED') {
+        res.status(400).json({
+          success: false,
+          error: 'Only withdrawn or rejected applications can be deleted',
+        });
+        return;
+      }
+
+      await ApplicationModel.delete(id);
+
+      res.json({
+        success: true,
+        message: 'Application deleted successfully',
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete application',
       });
     }
   }

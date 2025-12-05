@@ -62,6 +62,10 @@ app.get('/health', (_req: Request, res: Response) => {
 // API Routes
 app.use('/', routes);
 
+// Serve uploaded files locally (fallback for when Cloudinary is not configured)
+const uploadsPath = path.join(process.cwd(), 'uploads');
+app.use('/uploads', express.static(uploadsPath));
+
 // Serve static files from frontend dist directory in production
 const isProduction = process.env.NODE_ENV === 'production';
 if (isProduction) {
