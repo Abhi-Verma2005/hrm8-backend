@@ -3,8 +3,11 @@
  * Handles job-related business logic
  */
 
-import { Job, JobStatus, HiringMode, WorkArrangement, EmploymentType, HiringTeamMember } from '../../types';
+import { Job, JobStatus, HiringMode, WorkArrangement, EmploymentType, HiringTeamMember, AssignmentMode, JobAssignmentMode } from '../../types';
 import { JobModel } from '../../models/Job';
+import { CompanyModel } from '../../models/Company';
+import { JobAllocationService } from '../hrm8/JobAllocationService';
+import { prisma } from '../../lib/prisma';
 
 export interface CreateJobRequest {
   title: string;
@@ -34,6 +37,8 @@ export interface CreateJobRequest {
   hiringTeam?: HiringTeamMember[];
   applicationForm?: any;
   videoInterviewingEnabled?: boolean;
+  assignmentMode?: AssignmentMode;
+  regionId?: string;
 }
 
 export interface UpdateJobRequest extends Partial<CreateJobRequest> {
@@ -104,15 +109,76 @@ export class JobService {
         description: jobModelData.description?.substring(0, 100) + '...',
       });
 
-      const job = await JobModel.create(jobModelData);
+      // Add assignmentMode and regionId to job data if provided
+      const finalJobData = {
+        ...jobModelData,
+        assignmentMode: jobData.assignmentMode || AssignmentMode.AUTO,
+        regionId: jobData.regionId,
+      };
+
+      // Get company data to inherit regionId and check assignment settings
+      const company = await CompanyModel.findById(companyId);
+      let companyRegionId: string | undefined;
+      let jobAssignmentMode: JobAssignmentMode = JobAssignmentMode.AUTO_RULES_ONLY;
+
+      if (company) {
+        const companyData = await prisma.company.findUnique({
+          where: { id: companyId },
+          select: {
+            regionId: true,
+            jobAssignmentMode: true,
+          },
+        });
+
+        companyRegionId = companyData?.regionId || undefined;
+        jobAssignmentMode = companyData?.jobAssignmentMode || JobAssignmentMode.AUTO_RULES_ONLY;
+      }
+
+      // Use company's regionId as default if job doesn't have one
+      const finalRegionId = jobData.regionId || companyRegionId;
+      if (finalRegionId) {
+        finalJobData.regionId = finalRegionId;
+        console.log('🌍 Using regionId:', finalRegionId, jobData.regionId ? '(from job data)' : '(from company)');
+      } else {
+        console.log('⚠️ No regionId available - job will not be auto-assignable');
+      }
+
+      const job = await JobModel.create(finalJobData);
       console.log('✅ JobModel.create succeeded:', job.id);
+
+      // Attempt auto-assignment if company mode is AUTO_RULES_ONLY and job assignmentMode is AUTO
+      try {
+        const assignmentMode = jobData.assignmentMode || AssignmentMode.AUTO;
+
+        if (jobAssignmentMode === JobAssignmentMode.AUTO_RULES_ONLY && assignmentMode === AssignmentMode.AUTO) {
+          console.log('🔄 Attempting auto-assignment for job:', job.id);
+          const autoAssignResult = await JobAllocationService.autoAssignJob(job.id);
+
+          if (autoAssignResult.success) {
+            console.log('✅ Auto-assignment succeeded:', autoAssignResult.consultantId);
+          } else {
+            console.log('⚠️ Auto-assignment failed:', autoAssignResult.error);
+            // Don't throw - job creation should succeed even if auto-assignment fails
+          }
+        } else {
+          console.log('ℹ️ Auto-assignment skipped:', {
+            companyMode: jobAssignmentMode,
+            jobMode: assignmentMode,
+          });
+        }
+      } catch (autoAssignError) {
+        console.error('❌ Auto-assignment error (non-fatal):', autoAssignError);
+        // Don't throw - job creation should succeed even if auto-assignment fails
+      }
 
       // Process job alerts asynchronously (don't wait for it)
       this.processJobAlertsAsync(job).catch(err => {
         console.error('Failed to process job alerts:', err);
       });
 
-      return job;
+      // Fetch the job again to get updated assignment info
+      const updatedJob = await JobModel.findById(job.id);
+      return updatedJob || job;
     } catch (error) {
       console.error('❌ JobService.createJob failed:', error);
       console.error('Error details:', {

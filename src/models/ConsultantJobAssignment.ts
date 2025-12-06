@@ -4,6 +4,7 @@
  */
 
 import prisma from '../lib/prisma';
+import { AssignmentSource } from '@prisma/client';
 
 export interface ConsultantJobAssignmentData {
   id: string;
@@ -13,6 +14,7 @@ export interface ConsultantJobAssignmentData {
   assignedAt: Date;
   status: string;
   notes: string | null;
+  assignmentSource?: AssignmentSource | null;
 }
 
 export class ConsultantJobAssignmentModel {
@@ -25,6 +27,7 @@ export class ConsultantJobAssignmentModel {
     assignedBy?: string | null;
     status?: string;
     notes?: string | null;
+    assignmentSource?: AssignmentSource | null;
   }): Promise<ConsultantJobAssignmentData> {
     const assignment = await prisma.consultantJobAssignment.create({
       data: {
@@ -33,6 +36,7 @@ export class ConsultantJobAssignmentModel {
         assignedBy: assignmentData.assignedBy || null,
         status: assignmentData.status || 'ACTIVE',
         notes: assignmentData.notes || null,
+        assignmentSource: assignmentData.assignmentSource || null,
       },
     });
 
@@ -108,6 +112,7 @@ export class ConsultantJobAssignmentModel {
       data: {
         ...(data.status !== undefined && { status: data.status }),
         ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.assignmentSource !== undefined && { assignmentSource: data.assignmentSource }),
       },
     });
 
@@ -160,6 +165,7 @@ export class ConsultantJobAssignmentModel {
     assignedAt: Date;
     status: string;
     notes: string | null;
+    assignmentSource?: AssignmentSource | null;
   }): ConsultantJobAssignmentData {
     return {
       id: prismaAssignment.id,
@@ -169,6 +175,7 @@ export class ConsultantJobAssignmentModel {
       assignedAt: prismaAssignment.assignedAt,
       status: prismaAssignment.status,
       notes: prismaAssignment.notes,
+      assignmentSource: prismaAssignment.assignmentSource || null,
     };
   }
 }

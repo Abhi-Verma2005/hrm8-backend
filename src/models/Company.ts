@@ -3,7 +3,7 @@
  * Represents a company workspace in the HRM8 system
  */
 
-import { Company, CompanyVerificationStatus, VerificationMethod } from '../types';
+import { Company, CompanyVerificationStatus, VerificationMethod, JobAssignmentMode } from '../types';
 import prisma from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 
@@ -165,10 +165,14 @@ export class CompanyModel {
 
   /**
    * Get all companies (admin use)
+   * @param limit - Maximum number of companies to return (default: 100)
+   * @param offset - Number of companies to skip (default: 0)
    */
-  static async findAll(): Promise<Company[]> {
+  static async findAll(limit = 100, offset = 0): Promise<Company[]> {
     const companies = await prisma.company.findMany({
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
     });
 
     return companies.map((company) => this.mapPrismaToCompany(company));
@@ -195,6 +199,61 @@ export class CompanyModel {
   }
 
   /**
+   * Update job assignment mode
+   */
+  static async updateJobAssignmentMode(
+    companyId: string,
+    mode: JobAssignmentMode
+  ): Promise<Company> {
+    const company = await prisma.company.update({
+      where: { id: companyId },
+      data: { jobAssignmentMode: mode },
+    });
+
+    return this.mapPrismaToCompany(company);
+  }
+
+  /**
+   * Set preferred recruiter for a company
+   */
+  static async setPreferredRecruiter(
+    companyId: string,
+    consultantId: string | null
+  ): Promise<Company> {
+    const company = await prisma.company.update({
+      where: { id: companyId },
+      data: { preferredRecruiterId: consultantId },
+    });
+
+    return this.mapPrismaToCompany(company);
+  }
+
+  /**
+   * Get job assignment settings
+   */
+  static async getJobAssignmentSettings(companyId: string): Promise<{
+    jobAssignmentMode: JobAssignmentMode;
+    preferredRecruiterId: string | null;
+  }> {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: {
+        jobAssignmentMode: true,
+        preferredRecruiterId: true,
+      },
+    });
+
+    if (!company) {
+      throw new Error('Company not found');
+    }
+
+    return {
+      jobAssignmentMode: company.jobAssignmentMode,
+      preferredRecruiterId: company.preferredRecruiterId,
+    };
+  }
+
+  /**
    * Map Prisma company model to our Company interface
    */
   private static mapPrismaToCompany(prismaCompany: {
@@ -211,6 +270,9 @@ export class CompanyModel {
     gstNumber: string | null;
     registrationNumber: string | null;
     linkedInUrl: string | null;
+    regionId?: string | null;
+    jobAssignmentMode?: JobAssignmentMode;
+    preferredRecruiterId?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): Company {
@@ -230,6 +292,9 @@ export class CompanyModel {
         registrationNumber: prismaCompany.registrationNumber || undefined,
         linkedInUrl: prismaCompany.linkedInUrl || undefined,
       },
+      regionId: prismaCompany.regionId || undefined,
+      jobAssignmentMode: prismaCompany.jobAssignmentMode || undefined,
+      preferredRecruiterId: prismaCompany.preferredRecruiterId || undefined,
       createdAt: prismaCompany.createdAt,
       updatedAt: prismaCompany.updatedAt,
     };

@@ -8,33 +8,33 @@ datasource db {
 }
 
 model Company {
-  id                     String                    @id @default(uuid())
-  name                   String
-  website                String
-  domain                 String                    @unique
-  countryOrRegion        String                    @default("") @map("country_or_region")
-  acceptedTerms          Boolean                   @default(false) @map("accepted_terms")
-  verificationStatus     CompanyVerificationStatus @default(PENDING)
-  verificationMethod     VerificationMethod?
-  verifiedAt             DateTime?
-  verifiedBy             String?
-  gstNumber              String?
-  registrationNumber     String?
-  linkedInUrl            String?
-  createdAt              DateTime                  @default(now())
-  updatedAt              DateTime                  @updatedAt
-  regionId               String?                   @map("region_id")
-  job_assignment_mode    JobAssignmentMode         @default(AUTO_RULES_ONLY)
-  preferred_recruiter_id String?
-  region                 Region?                   @relation(fields: [regionId], references: [id])
-  profile                CompanyProfile?
-  CompanySettings        CompanySettings?
-  invitations            Invitation[]
-  jobs                   Job[]
-  JobTemplate            JobTemplate[]
-  signupRequests         SignupRequest[]
-  users                  User[]
-  verificationTokens     VerificationToken[]
+  id                   String                    @id @default(uuid())
+  name                 String
+  website              String
+  domain               String                    @unique
+  countryOrRegion      String                    @default("") @map("country_or_region")
+  acceptedTerms        Boolean                   @default(false) @map("accepted_terms")
+  verificationStatus   CompanyVerificationStatus @default(PENDING)
+  verificationMethod   VerificationMethod?
+  verifiedAt           DateTime?
+  verifiedBy           String?
+  gstNumber            String?
+  registrationNumber   String?
+  linkedInUrl          String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  regionId             String?                   @map("region_id")
+  jobAssignmentMode    JobAssignmentMode         @default(AUTO_RULES_ONLY) @map("job_assignment_mode")
+  preferredRecruiterId String?                   @map("preferred_recruiter_id")
+  region               Region?                   @relation(fields: [regionId], references: [id])
+  profile              CompanyProfile?
+  CompanySettings      CompanySettings?
+  invitations          Invitation[]
+  jobs                 Job[]
+  JobTemplate          JobTemplate[]
+  signupRequests       SignupRequest[]
+  users                User[]
+  verificationTokens   VerificationToken[]
 
   @@index([domain])
   @@index([verificationStatus])
@@ -238,22 +238,24 @@ model Job {
   screening_criteria                  Json?
   screening_enabled                   Boolean                     @default(false)
   regionId                            String?                     @map("region_id")
-  assigned_consultant_id              String?
-  assignment_mode                     AssignmentMode              @default(AUTO)
-  assignment_source                   AssignmentSource?
+  assignmentMode                      AssignmentMode              @default(AUTO) @map("assignment_mode")
+  assignmentSource                    AssignmentSource?           @map("assignment_source")
+  assignedConsultantId                String?                     @map("assigned_consultant_id")
   applications                        Application[]
   commissions                         Commission[]
   consultantAssignments               ConsultantJobAssignment[]
-  Consultant                          Consultant?                 @relation(fields: [assigned_consultant_id], references: [id])
   company                             Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   creator                             User                        @relation("JobCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   region                              Region?                     @relation(fields: [regionId], references: [id])
+  assignedConsultant                  Consultant?                 @relation("AssignedConsultant", fields: [assignedConsultantId], references: [id])
   jobInvitations                      JobInvitation[]
   JobRound                            JobRound[]
   JobTemplate                         JobTemplate[]
   PreInterviewQuestionnaire           PreInterviewQuestionnaire[]
-  savedJobs                           SavedJob[]
+  SavedJob                            SavedJob[]
   ScreeningCriteria                   ScreeningCriteria[]
+  consultant                          Consultant?                 @relation(fields: [consultantId], references: [id])
+  consultantId                        String?
 
   @@index([companyId])
   @@index([createdBy])
@@ -261,8 +263,8 @@ model Job {
   @@index([hiringMode])
   @@index([expiryDate])
   @@index([regionId])
-  @@index([assigned_consultant_id])
-  @@index([assignment_source])
+  @@index([assignedConsultantId])
+  @@index([assignmentSource])
 }
 
 model Candidate {
@@ -761,6 +763,7 @@ model Consultant {
   commissions           Commission[]
   region                Region                    @relation(fields: [regionId], references: [id])
   jobAssignments        ConsultantJobAssignment[]
+  assignedJobs          Job[]                     @relation("AssignedConsultant")
   sessions              ConsultantSession[]
   Job                   Job[]
 
@@ -772,16 +775,16 @@ model Consultant {
 }
 
 model ConsultantJobAssignment {
-  id                String            @id @default(uuid())
-  consultantId      String            @map("consultant_id")
-  jobId             String            @map("job_id")
-  assignedAt        DateTime          @default(now()) @map("assigned_at")
-  assignedBy        String?           @map("assigned_by")
-  status            String            @default("ACTIVE")
-  notes             String?
-  assignment_source AssignmentSource?
-  consultant        Consultant        @relation(fields: [consultantId], references: [id], onDelete: Cascade)
-  job               Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id               String            @id @default(uuid())
+  consultantId     String            @map("consultant_id")
+  jobId            String            @map("job_id")
+  assignedAt       DateTime          @default(now()) @map("assigned_at")
+  assignedBy       String?           @map("assigned_by")
+  status           String            @default("ACTIVE")
+  notes            String?
+  assignmentSource AssignmentSource? @map("assignment_source")
+  consultant       Consultant        @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  job              Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([consultantId, jobId])
   @@index([consultantId])
@@ -1441,6 +1444,11 @@ enum NotificationType {
   SYSTEM
 }
 
+enum JobAssignmentMode {
+  AUTO_RULES_ONLY
+  MANUAL_ONLY
+}
+
 enum AssignmentMode {
   AUTO
   MANUAL
@@ -1451,11 +1459,6 @@ enum AssignmentSource {
   MANUAL_EMPLOYER
   MANUAL_LICENSEE
   MANUAL_HRM8
-}
-
-enum JobAssignmentMode {
-  AUTO_RULES_ONLY
-  MANUAL_ONLY
 }
 
 enum FailCriteria {

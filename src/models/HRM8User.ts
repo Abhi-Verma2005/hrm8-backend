@@ -112,7 +112,7 @@ export class HRM8UserModel {
   }
 
   /**
-   * Map Prisma user to HRM8UserData interface
+   * Map Prisma user to HRM8User domain type
    */
   private static mapPrismaToUser(prismaUser: {
     id: string;
@@ -124,7 +124,7 @@ export class HRM8UserModel {
     photo: string | null;
     role: HRM8UserRole;
     status: HRM8UserStatus;
-    licenseeId: string | null;
+    licenseeId: string | null; // Prisma returns camelCase (maps to licensee_id in DB)
     lastLoginAt: Date | null;
     createdAt: Date;
     updatedAt: Date;

@@ -61,5 +61,18 @@ router.post(
   CompanyController.completeProfile
 );
 
+// Job assignment settings
+router.get(
+  '/:id/job-assignment-settings',
+  enforceCompanyIsolation,
+  CompanyController.getJobAssignmentSettings
+);
+
+router.put(
+  '/:id/job-assignment-mode',
+  enforceCompanyIsolation,
+  CompanyController.updateJobAssignmentMode
+);
+
 export default router;
 

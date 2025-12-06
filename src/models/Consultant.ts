@@ -68,7 +68,7 @@ export class ConsultantModel {
     photo?: string;
     role: ConsultantRole;
     status?: ConsultantStatus;
-    regionId?: string;
+    regionId: string; // Required - consultants must belong to a region
     address?: string;
     city?: string;
     stateProvince?: string;
@@ -111,11 +111,8 @@ export class ConsultantModel {
         currentJobs: consultantData.currentJobs ?? 0,
         commissionStructure: consultantData.commissionStructure || null,
         defaultCommissionRate: consultantData.defaultCommissionRate || null,
+        regionId: consultantData.regionId, // Required field
     };
-
-    if (consultantData.regionId) {
-      createData.regionId = consultantData.regionId;
-    }
 
     const consultant = await prisma.consultant.create({
       data: createData,
