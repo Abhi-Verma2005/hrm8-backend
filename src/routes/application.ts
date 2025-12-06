@@ -44,6 +44,7 @@ router.put('/:id/rank', authenticate, ApplicationController.updateRank);
 router.post('/:id/shortlist', authenticate, ApplicationController.shortlistCandidate);
 router.post('/:id/unshortlist', authenticate, ApplicationController.unshortlistCandidate);
 router.put('/:id/stage', authenticate, ApplicationController.updateStage);
+router.put('/:id/round/:roundId', authenticate, ApplicationController.moveToRound);
 router.put('/:id/notes', authenticate, ApplicationController.updateNotes);
 router.put('/:id/manual-screening', authenticate, ApplicationController.updateManualScreening);
 

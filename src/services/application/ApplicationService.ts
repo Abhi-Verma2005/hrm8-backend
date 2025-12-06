@@ -7,6 +7,11 @@ import { ApplicationModel, ApplicationData } from '../../models/Application';
 import { CandidateModel } from '../../models/Candidate';
 import { JobModel } from '../../models/Job';
 import { ApplicationStatus, ApplicationStage, ManualScreeningStatus } from '@prisma/client';
+import { prisma } from '../../lib/prisma';
+import { JobRoundModel } from '../../models/JobRound';
+import { AssessmentService } from '../assessment/AssessmentService';
+import { InterviewService } from '../interview/InterviewService';
+import crypto from 'crypto';
 
 export interface SubmitApplicationRequest {
   candidateId: string;
@@ -298,6 +303,109 @@ export class ApplicationService {
    */
   static async hasApplication(candidateId: string, jobId: string): Promise<boolean> {
     return await ApplicationModel.hasApplication(candidateId, jobId);
+  }
+
+  /**
+   * Move application to a specific round
+   * Creates or updates ApplicationRoundProgress record
+   */
+  static async moveToRound(
+    applicationId: string,
+    jobRoundId: string,
+    userId: string
+  ): Promise<ApplicationData> {
+    // Verify application exists
+    const application = await ApplicationModel.findById(applicationId);
+    if (!application) {
+      throw new Error('Application not found');
+    }
+
+    // Verify round exists and belongs to same job
+    const round = await JobRoundModel.findById(jobRoundId);
+    if (!round) {
+      throw new Error('Round not found');
+    }
+
+    if (round.jobId !== application.jobId) {
+      throw new Error('Round does not belong to the same job');
+    }
+
+    // Create or update ApplicationRoundProgress
+    await prisma.applicationRoundProgress.upsert({
+      where: {
+        applicationId_jobRoundId: {
+          applicationId,
+          jobRoundId,
+        },
+      },
+      create: {
+        id: crypto.randomUUID(),
+        applicationId,
+        jobRoundId,
+        completed: false,
+      },
+      update: {
+        // Reset completion if moving to a round
+        completed: false,
+        completedAt: null,
+      },
+    });
+
+    // Map round to stage for backward compatibility
+    // Map fixed rounds to ApplicationStage
+    let mappedStage: ApplicationStage = ApplicationStage.NEW_APPLICATION;
+    
+    if (round.isFixed) {
+      switch (round.fixedKey) {
+        case 'NEW':
+          mappedStage = ApplicationStage.NEW_APPLICATION;
+          break;
+        case 'OFFER':
+          mappedStage = ApplicationStage.OFFER_EXTENDED;
+          break;
+        case 'HIRED':
+          mappedStage = ApplicationStage.OFFER_ACCEPTED;
+          break;
+        case 'REJECTED':
+          mappedStage = ApplicationStage.REJECTED;
+          break;
+      }
+    } else {
+      // For custom rounds, try to infer stage from type
+      if (round.type === 'ASSESSMENT') {
+        mappedStage = ApplicationStage.RESUME_REVIEW; // Default to screening
+      } else if (round.type === 'INTERVIEW') {
+        mappedStage = ApplicationStage.TECHNICAL_INTERVIEW;
+      }
+    }
+
+    // Update application stage for backward compatibility
+    const updatedApplication = await ApplicationModel.updateStage(applicationId, mappedStage);
+
+    // Auto-assign assessment if moving to an assessment round
+    if (round.type === 'ASSESSMENT') {
+      try {
+        await AssessmentService.autoAssignAssessment(applicationId, jobRoundId, userId);
+      } catch (error) {
+        // Log error but don't fail the move operation
+        console.error('Failed to auto-assign assessment:', error);
+      }
+    }
+    // Auto-schedule interview if moving to an interview round
+    else if (round.type === 'INTERVIEW') {
+      try {
+        await InterviewService.autoScheduleInterview({
+          applicationId,
+          jobRoundId,
+          scheduledBy: userId,
+        });
+      } catch (error) {
+        // Log error but don't fail the move operation
+        console.error('Failed to auto-schedule interview:', error);
+      }
+    }
+
+    return updatedApplication;
   }
 }
 

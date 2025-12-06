@@ -41,12 +41,17 @@ class EmailService {
 
     // If no SMTP credentials, use a test account (for development)
     if (!emailConfig.auth) {
+      console.log('📧 Email Service: Using development mode (console logging)');
       this.transporter = nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
         buffer: true,
       });
     } else {
+      console.log('📧 Email Service: Using SMTP transport');
+      console.log('📧 SMTP Host:', emailConfig.host);
+      console.log('📧 SMTP Port:', emailConfig.port);
+      console.log('📧 SMTP User:', emailConfig.auth.user);
       this.transporter = nodemailer.createTransport({
         host: emailConfig.host,
         port: emailConfig.port,
@@ -1235,6 +1240,647 @@ ${data.jobUrl}
 
 Best regards,
 The HRM8 Team
+    `.trim();
+  }
+
+  /**
+   * Send interview invitation email to candidate
+   */
+  async sendInterviewInvitationEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    interviewDate: Date;
+    interviewDuration: number; // in minutes
+    interviewType: string; // VIDEO, PHONE, etc.
+    meetingLink?: string;
+    recruiterName?: string;
+    recruiterEmail?: string;
+    notes?: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `Interview Invitation: ${data.jobTitle} at ${data.companyName}`,
+        html: this.getInterviewInvitationTemplate(data),
+        text: this.getInterviewInvitationText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Interview Invitation Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Interview Date:', data.interviewDate.toISOString());
+        console.log('Meeting Link:', data.meetingLink || 'N/A');
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send interview invitation email:', error);
+      throw new Error('Failed to send interview invitation email');
+    }
+  }
+
+  /**
+   * Get HTML template for interview invitation email
+   */
+  private getInterviewInvitationTemplate(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    interviewDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    meetingLink?: string;
+    recruiterName?: string;
+    recruiterEmail?: string;
+    notes?: string;
+  }): string {
+    const interviewDateTime = data.interviewDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Interview Invitation</h1>
+            
+            <p>Hello ${data.candidateName},</p>
+            
+            <p>We were impressed with your application and would like to invite you for an interview for the position:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0; color: #7c3aed;">${data.jobTitle}</h2>
+              <p style="margin: 5px 0 0 0; color: #718096;">${data.companyName}</p>
+            </div>
+            
+            <h3 style="color: #4a5568; margin-top: 30px;">Interview Details</h3>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 8px 0;"><strong>Date & Time:</strong> ${interviewDateTime}</p>
+              <p style="margin: 8px 0;"><strong>Duration:</strong> ${data.interviewDuration} minutes</p>
+              <p style="margin: 8px 0;"><strong>Type:</strong> ${data.interviewType.charAt(0) + data.interviewType.slice(1).toLowerCase().replace('_', ' ')}</p>
+              ${data.meetingLink ? `<p style="margin: 8px 0;"><strong>Meeting Link:</strong> <a href="${data.meetingLink}" style="color: #7c3aed;">${data.meetingLink}</a></p>` : ''}
+            </div>
+            
+            ${data.meetingLink && data.interviewType === 'VIDEO' ? `
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.meetingLink}" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Join Video Interview
+              </a>
+            </div>
+            ` : ''}
+            
+            ${data.notes ? `
+            <div style="background-color: #fef3c7; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+              <p style="margin: 0;"><strong>Additional Notes:</strong></p>
+              <p style="margin: 8px 0 0 0;">${data.notes}</p>
+            </div>
+            ` : ''}
+            
+            <p>Please confirm your attendance by replying to this email. If the proposed time doesn't work for you, please let us know and we'll be happy to find an alternative time.</p>
+            
+            <p>We look forward to speaking with you!</p>
+            
+            ${data.recruiterName || data.recruiterEmail ? `
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              ${data.recruiterName ? `Best regards,<br><strong>${data.recruiterName}</strong>` : 'Best regards,'}
+              ${data.recruiterEmail ? `<br>${data.recruiterEmail}` : ''}
+            </p>
+            ` : `
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The ${data.companyName} Hiring Team
+            </p>
+            `}
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of interview invitation email
+   */
+  private getInterviewInvitationText(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    interviewDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    meetingLink?: string;
+    recruiterName?: string;
+    recruiterEmail?: string;
+    notes?: string;
+  }): string {
+    const interviewDateTime = data.interviewDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    return `
+Interview Invitation
+
+Hello ${data.candidateName},
+
+We were impressed with your application and would like to invite you for an interview for the position: ${data.jobTitle} at ${data.companyName}
+
+Interview Details:
+- Date & Time: ${interviewDateTime}
+- Duration: ${data.interviewDuration} minutes
+- Type: ${data.interviewType.charAt(0) + data.interviewType.slice(1).toLowerCase().replace('_', ' ')}
+${data.meetingLink ? `- Meeting Link: ${data.meetingLink}` : ''}
+
+${data.notes ? `Additional Notes:\n${data.notes}\n\n` : ''}Please confirm your attendance by replying to this email. If the proposed time doesn't work for you, please let us know and we'll be happy to find an alternative time.
+
+We look forward to speaking with you!
+
+${data.recruiterName || data.recruiterEmail ? `Best regards,\n${data.recruiterName || ''}\n${data.recruiterEmail || ''}` : `Best regards,\nThe ${data.companyName} Hiring Team`}
+    `.trim();
+  }
+
+  /**
+   * Send assessment invitation email to candidate
+   */
+  async sendAssessmentInvitationEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    assessmentUrl: string;
+    expiryDate?: Date | null;
+    deadlineDays?: number;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `Assessment Invitation: ${data.jobTitle} at ${data.companyName}`,
+        html: this.getAssessmentInvitationTemplate(data),
+        text: this.getAssessmentInvitationText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Assessment Invitation Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Assessment URL:', data.assessmentUrl);
+        console.log('---');
+      } else {
+        console.log('✅ Assessment Invitation Email sent successfully via SMTP');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('From:', fromEmail);
+      }
+    } catch (error) {
+      console.error('Failed to send assessment invitation email:', error);
+      throw new Error('Failed to send assessment invitation email');
+    }
+  }
+
+  /**
+   * Get HTML template for assessment invitation email
+   */
+  private getAssessmentInvitationTemplate(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    assessmentUrl: string;
+    expiryDate?: Date | null;
+    deadlineDays?: number;
+  }): string {
+    const deadlineText = data.deadlineDays 
+      ? `${data.deadlineDays} day${data.deadlineDays !== 1 ? 's' : ''}`
+      : data.expiryDate
+      ? data.expiryDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      : null;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Assessment Invitation</h1>
+            
+            <p>Hello ${data.candidateName},</p>
+            
+            <p>Thank you for your interest in the position at <strong>${data.companyName}</strong>. We'd like to invite you to complete an assessment for:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0; color: #7c3aed;">${data.jobTitle}</h2>
+              <p style="margin: 5px 0 0 0; color: #718096;">${data.companyName}</p>
+            </div>
+            
+            ${deadlineText ? `<p><strong>Deadline:</strong> Complete this assessment within ${deadlineText}.</p>` : ''}
+            
+            <p>This assessment will help us better understand your skills and qualifications for this role. Please click the button below to begin:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.assessmentUrl}" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Start Assessment
+              </a>
+            </div>
+            
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #7c3aed;">${data.assessmentUrl}</p>
+            
+            ${deadlineText ? `<p style="color: #718096; font-size: 14px;"><strong>Note:</strong> This assessment link will expire in ${deadlineText}. Please complete it before then.</p>` : ''}
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The ${data.companyName} Hiring Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of assessment invitation email
+   */
+  private getAssessmentInvitationText(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    assessmentUrl: string;
+    expiryDate?: Date | null;
+    deadlineDays?: number;
+  }): string {
+    const deadlineText = data.deadlineDays 
+      ? `${data.deadlineDays} day${data.deadlineDays !== 1 ? 's' : ''}`
+      : data.expiryDate
+      ? data.expiryDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      : null;
+
+    return `
+Assessment Invitation
+
+Hello ${data.candidateName},
+
+Thank you for your interest in the position at ${data.companyName}. We'd like to invite you to complete an assessment for:
+
+Position: ${data.jobTitle}
+Company: ${data.companyName}
+
+${deadlineText ? `Deadline: Complete this assessment within ${deadlineText}.\n\n` : ''}This assessment will help us better understand your skills and qualifications for this role. Please visit the link below to begin:
+
+${data.assessmentUrl}
+
+If you have any questions, please do not hesitate to contact us.
+
+Best regards,
+The ${data.companyName} Hiring Team
+    `.trim();
+  }
+
+  /**
+   * Send assessment completion email to candidate
+   */
+  async sendAssessmentCompletionEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    completedAt: Date;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `Assessment Completed: ${data.jobTitle} at ${data.companyName}`,
+        html: this.getAssessmentCompletionTemplate(data),
+        text: this.getAssessmentCompletionText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Assessment Completion Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('---');
+      } else {
+        console.log('✅ Assessment Completion Email sent successfully via SMTP');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+      }
+    } catch (error) {
+      console.error('Failed to send assessment completion email:', error);
+      throw new Error('Failed to send assessment completion email');
+    }
+  }
+
+  /**
+   * Get HTML template for assessment completion email
+   */
+  private getAssessmentCompletionTemplate(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    completedAt: Date;
+  }): string {
+    const completionDate = data.completedAt.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Thank You for Completing Your Assessment</h1>
+            
+            <p>Hello ${data.candidateName},</p>
+            
+            <p>We're pleased to confirm that we have received your completed assessment for:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0; color: #7c3aed;">${data.jobTitle}</h2>
+              <p style="margin: 5px 0 0 0; color: #718096;">${data.companyName}</p>
+            </div>
+            
+            <p><strong>Completed on:</strong> ${completionDate}</p>
+            
+            <p>Our team will review your assessment and get back to you soon with the next steps in the hiring process. We typically review assessments within 2-3 business days.</p>
+            
+            <p>If you have any questions or need to update any information, please don't hesitate to reach out to us.</p>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The ${data.companyName} Hiring Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of assessment completion email
+   */
+  private getAssessmentCompletionText(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    completedAt: Date;
+  }): string {
+    const completionDate = data.completedAt.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    return `
+Assessment Completed - Thank You
+
+Hello ${data.candidateName},
+
+We're pleased to confirm that we have received your completed assessment for:
+
+Position: ${data.jobTitle}
+Company: ${data.companyName}
+Completed on: ${completionDate}
+
+Our team will review your assessment and get back to you soon with the next steps in the hiring process. We typically review assessments within 2-3 business days.
+
+If you have any questions or need to update any information, please don't hesitate to reach out to us.
+
+Best regards,
+The ${data.companyName} Hiring Team
+    `.trim();
+  }
+
+  /**
+   * Send assessment results notification to recruiter
+   */
+  async sendAssessmentResultsNotification(data: {
+    to: string;
+    recruiterName: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    assessmentScore?: number;
+    passThreshold?: number;
+    passed?: boolean;
+    assessmentUrl: string;
+    candidateProfileUrl: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `Assessment Results: ${data.candidateName} - ${data.jobTitle}`,
+        html: this.getAssessmentResultsTemplate(data),
+        text: this.getAssessmentResultsText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Assessment Results Notification (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Candidate:', data.candidateName);
+        console.log('Score:', data.assessmentScore);
+        console.log('---');
+      } else {
+        console.log('✅ Assessment Results Notification sent successfully via SMTP');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+      }
+    } catch (error) {
+      console.error('Failed to send assessment results notification:', error);
+      throw new Error('Failed to send assessment results notification');
+    }
+  }
+
+  /**
+   * Get HTML template for assessment results notification
+   */
+  private getAssessmentResultsTemplate(data: {
+    recruiterName: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    assessmentScore?: number;
+    passThreshold?: number;
+    passed?: boolean;
+    assessmentUrl: string;
+    candidateProfileUrl: string;
+  }): string {
+    const scoreDisplay = data.assessmentScore !== undefined 
+      ? `${data.assessmentScore}${data.passThreshold ? ` / ${data.passThreshold}` : ''}`
+      : 'Pending Review';
+    
+    const statusBadge = data.passed !== undefined
+      ? data.passed
+        ? '<span style="background-color: #10b981; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">PASSED</span>'
+        : '<span style="background-color: #ef4444; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">DID NOT PASS</span>'
+      : '<span style="background-color: #6b7280; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">PENDING REVIEW</span>';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Assessment Results Available</h1>
+            
+            <p>Hello ${data.recruiterName},</p>
+            
+            <p>A candidate has completed their assessment and the results are ready for review:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0 0 10px 0; color: #7c3aed;">${data.candidateName}</h2>
+              <p style="margin: 5px 0; color: #718096;"><strong>Position:</strong> ${data.jobTitle}</p>
+              <p style="margin: 5px 0; color: #718096;"><strong>Company:</strong> ${data.companyName}</p>
+            </div>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="margin: 0 0 10px 0; color: #4a5568;">Assessment Results</h3>
+              <p style="margin: 5px 0;"><strong>Score:</strong> ${scoreDisplay}</p>
+              ${data.passThreshold ? `<p style="margin: 5px 0;"><strong>Pass Threshold:</strong> ${data.passThreshold}</p>` : ''}
+              <p style="margin: 10px 0 0 0;"><strong>Status:</strong> ${statusBadge}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.assessmentUrl}" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; margin: 5px;">
+                View Assessment
+              </a>
+              <a href="${data.candidateProfileUrl}" 
+                 style="background-color: #4a5568; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; margin: 5px;">
+                View Candidate Profile
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              HRM8 System
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of assessment results notification
+   */
+  private getAssessmentResultsText(data: {
+    recruiterName: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    assessmentScore?: number;
+    passThreshold?: number;
+    passed?: boolean;
+    assessmentUrl: string;
+    candidateProfileUrl: string;
+  }): string {
+    const scoreDisplay = data.assessmentScore !== undefined 
+      ? `${data.assessmentScore}${data.passThreshold ? ` / ${data.passThreshold}` : ''}`
+      : 'Pending Review';
+    
+    const statusText = data.passed !== undefined
+      ? data.passed ? 'PASSED' : 'DID NOT PASS'
+      : 'PENDING REVIEW';
+
+    return `
+Assessment Results Available
+
+Hello ${data.recruiterName},
+
+A candidate has completed their assessment and the results are ready for review:
+
+Candidate: ${data.candidateName}
+Position: ${data.jobTitle}
+Company: ${data.companyName}
+
+Assessment Results:
+Score: ${scoreDisplay}
+${data.passThreshold ? `Pass Threshold: ${data.passThreshold}\n` : ''}Status: ${statusText}
+
+View Assessment: ${data.assessmentUrl}
+View Candidate Profile: ${data.candidateProfileUrl}
+
+Best regards,
+HRM8 System
     `.trim();
   }
 }

@@ -70,6 +70,13 @@ export class VideoInterviewService {
   }
 
   /**
+   * Get interview by ID
+   */
+  static async getInterviewById(id: string): Promise<VideoInterviewData | null> {
+    return await VideoInterviewModel.findById(id);
+  }
+
+  /**
    * List interviews for a job
    */
   static async getJobInterviews(jobId: string): Promise<VideoInterviewData[]> {

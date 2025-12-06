@@ -253,9 +253,47 @@ export class ApplicationController {
         count: applications.length,
       });
 
+      // Also load ApplicationRoundProgress to map applications to rounds
+      const { prisma } = await import('../../lib/prisma');
+      const roundProgress = await prisma.applicationRoundProgress.findMany({
+        where: {
+          Application: {
+            jobId,
+          },
+        },
+        include: {
+          JobRound: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // Group by applicationId and get the latest (most recent) round for each
+      const progressByApplication = new Map<string, any>();
+      roundProgress.forEach((progress) => {
+        const existing = progressByApplication.get(progress.applicationId);
+        if (!existing || new Date(progress.createdAt) > new Date(existing.createdAt)) {
+          progressByApplication.set(progress.applicationId, progress);
+        }
+      });
+
+      // Create round progress object
+      const roundProgressData: Record<string, { roundId: string; roundName?: string; completed: boolean }> = {};
+      progressByApplication.forEach((progress, applicationId) => {
+        roundProgressData[applicationId] = {
+          roundId: progress.jobRoundId,
+          roundName: progress.JobRound?.name,
+          completed: progress.completed,
+        };
+      });
+
       res.json({
         success: true,
-        data: { applications },
+        data: { 
+          applications,
+          roundProgress: roundProgressData,
+        },
       });
     } catch (error) {
       console.error('[ApplicationController.getJobApplications] error', error);
@@ -557,6 +595,46 @@ export class ApplicationController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update stage',
+      });
+    }
+  }
+
+  /**
+   * Move application to a round
+   * PUT /api/applications/:id/round/:roundId
+   */
+  static async moveToRound(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id, roundId } = req.params;
+
+      if (!roundId) {
+        res.status(400).json({
+          success: false,
+          error: 'Round ID is required',
+        });
+        return;
+      }
+
+      const application = await ApplicationService.moveToRound(id, roundId, req.user.id);
+
+      res.json({
+        success: true,
+        data: { application },
+        message: 'Application moved to round successfully',
+      });
+    } catch (error) {
+      console.error('[ApplicationController.moveToRound] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to move application to round',
       });
     }
   }

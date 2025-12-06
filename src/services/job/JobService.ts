@@ -106,6 +106,17 @@ export class JobService {
 
       const job = await JobModel.create(jobModelData);
       console.log('✅ JobModel.create succeeded:', job.id);
+
+      // Initialize fixed rounds for the new job
+      try {
+        const { JobRoundService } = await import('./JobRoundService');
+        await JobRoundService.initializeFixedRounds(job.id);
+        console.log('✅ Fixed rounds initialized for job:', job.id);
+      } catch (roundError) {
+        console.error('⚠️ Failed to initialize fixed rounds (non-critical):', roundError);
+        // Don't fail job creation if round initialization fails
+      }
+
       return job;
     } catch (error) {
       console.error('❌ JobService.createJob failed:', error);

@@ -4,6 +4,7 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { CompanyController } from '../controllers/company/CompanyController';
+import { CompanySettingsController } from '../controllers/company/CompanySettingsController';
 import { authenticate } from '../middleware/auth';
 import { enforceCompanyIsolation } from '../middleware/companyIsolation';
 import { validateProfileSectionUpdate } from '../validators/companyProfile';
@@ -59,6 +60,18 @@ router.post(
   '/:id/profile/complete',
   enforceCompanyIsolation,
   CompanyController.completeProfile
+);
+
+// Company settings (office hours, timezone)
+// These routes use the authenticated user's company ID, not a route parameter
+router.get(
+  '/settings',
+  CompanySettingsController.getCompanySettings
+);
+
+router.put(
+  '/settings',
+  CompanySettingsController.updateCompanySettings
 );
 
 export default router;
