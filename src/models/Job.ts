@@ -110,6 +110,14 @@ export class JobModel {
         prismaData.jobTargetApproved = (jobData as any).jobTargetApproved || false;
       }
       
+      // Assignment fields
+      if ((jobData as any).assignmentMode !== undefined) {
+        prismaData.assignmentMode = (jobData as any).assignmentMode;
+      }
+      if ((jobData as any).regionId !== undefined) {
+        prismaData.regionId = (jobData as any).regionId || null;
+      }
+      
       console.log('💾 Calling prisma.job.create with:', {
         ...prismaData,
         description: prismaData.description?.substring(0, 100) + '...',
@@ -632,6 +640,10 @@ export class JobModel {
     jobTargetBudgetSpent?: number | null;
     jobTargetStatus?: string | null;
     jobTargetApproved?: boolean;
+    regionId?: string | null;
+    assignmentMode?: any;
+    assignmentSource?: any;
+    assignedConsultantId?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): Job {
@@ -693,6 +705,10 @@ export class JobModel {
       jobTargetBudgetSpent: prismaJob.jobTargetBudgetSpent || undefined,
       jobTargetStatus: prismaJob.jobTargetStatus || undefined,
       jobTargetApproved: prismaJob.jobTargetApproved || false,
+      regionId: prismaJob.regionId || undefined,
+      assignmentMode: prismaJob.assignmentMode || undefined,
+      assignmentSource: prismaJob.assignmentSource || undefined,
+      assignedConsultantId: prismaJob.assignedConsultantId || undefined,
       createdAt: prismaJob.createdAt,
       updatedAt: prismaJob.updatedAt,
     };

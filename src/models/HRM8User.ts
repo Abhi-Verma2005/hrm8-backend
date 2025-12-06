@@ -32,7 +32,7 @@ export class HRM8UserModel {
         photo: userData.photo,
         role: userData.role || HRM8UserRole.REGIONAL_LICENSEE,
         status: userData.status || HRM8UserStatus.ACTIVE,
-        licensee_id: userData.licenseeId,
+        licenseeId: userData.licenseeId,
       },
     });
 
@@ -74,7 +74,7 @@ export class HRM8UserModel {
         ...(data.photo !== undefined && { photo: data.photo }),
         ...(data.role !== undefined && { role: data.role }),
         ...(data.status !== undefined && { status: data.status }),
-        ...(data.licenseeId !== undefined && { licensee_id: data.licenseeId }),
+        ...(data.licenseeId !== undefined && { licenseeId: data.licenseeId }),
       },
     });
 
@@ -112,7 +112,7 @@ export class HRM8UserModel {
   }
 
   /**
-   * Map Prisma user to HRM8UserData interface
+   * Map Prisma user to HRM8User domain type
    */
   private static mapPrismaToUser(prismaUser: {
     id: string;
@@ -124,7 +124,7 @@ export class HRM8UserModel {
     photo: string | null;
     role: HRM8UserRole;
     status: HRM8UserStatus;
-    licensee_id: string | null;
+    licenseeId: string | null; // Prisma returns camelCase (maps to licensee_id in DB)
     lastLoginAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -139,7 +139,7 @@ export class HRM8UserModel {
       photo: prismaUser.photo || undefined,
       role: prismaUser.role,
       status: prismaUser.status,
-      licenseeId: prismaUser.licensee_id || undefined,
+      licenseeId: prismaUser.licenseeId || undefined,
       lastLoginAt: prismaUser.lastLoginAt || undefined,
       createdAt: prismaUser.createdAt,
       updatedAt: prismaUser.updatedAt,

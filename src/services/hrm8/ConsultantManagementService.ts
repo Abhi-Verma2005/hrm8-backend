@@ -6,6 +6,7 @@
 import { ConsultantModel, ConsultantData } from '../../models/Consultant';
 import { ConsultantRole, ConsultantStatus } from '@prisma/client';
 import { hashPassword } from '../../utils/password';
+import prisma from '../../lib/prisma';
 
 export class ConsultantManagementService {
   /**
@@ -19,7 +20,7 @@ export class ConsultantManagementService {
     phone?: string;
     photo?: string;
     role: ConsultantRole;
-    regionId?: string;
+    regionId: string; // Required - consultants must belong to a region
   }): Promise<ConsultantData | { error: string; status: number }> {
     try {
       // Check if consultant already exists
@@ -28,13 +29,8 @@ export class ConsultantManagementService {
         return { error: 'Consultant with this email already exists', status: 409 };
       }
 
-      // If regionId provided, check if region already has a consultant
-      if (consultantData.regionId) {
-        const existingRegionConsultant = await ConsultantModel.findByRegionId(consultantData.regionId);
-        if (existingRegionConsultant) {
-          return { error: 'Region already has a consultant assigned', status: 409 };
-        }
-      }
+      // Note: Multiple consultants can belong to the same region
+      // (removed the check that prevented multiple consultants per region)
 
       // Hash password
       const passwordHash = await hashPassword(consultantData.password);
@@ -137,6 +133,76 @@ export class ConsultantManagementService {
    */
   static async reactivateConsultant(id: string): Promise<void> {
     await ConsultantModel.updateStatus(id, ConsultantStatus.ACTIVE);
+  }
+
+  /**
+   * Generate HRM8 email address for consultant
+   * Format: firstname.lastname@hrm8.com
+   * If email exists, appends number (e.g., firstname.lastname2@hrm8.com)
+   */
+  static async generateEmail(
+    firstName: string,
+    lastName: string,
+    excludeConsultantId?: string
+  ): Promise<{ email: string } | { error: string; status: number }> {
+    try {
+      if (!firstName || !lastName) {
+        return { error: 'First name and last name are required', status: 400 };
+      }
+
+      // Normalize names: lowercase, remove special characters, handle spaces
+      const normalizeName = (name: string): string => {
+        return name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]/g, '') // Remove special characters
+          .replace(/\s+/g, ''); // Remove spaces
+      };
+
+      const normalizedFirstName = normalizeName(firstName);
+      const normalizedLastName = normalizeName(lastName);
+
+      if (!normalizedFirstName || !normalizedLastName) {
+        return { error: 'Invalid first name or last name', status: 400 };
+      }
+
+      // Generate base email
+      const baseEmail = `${normalizedFirstName}.${normalizedLastName}@hrm8.com`;
+
+      // Check if base email exists
+      const existingBase = await prisma.consultant.findUnique({
+        where: { email: baseEmail },
+      });
+
+      // If base email doesn't exist or it's the same consultant being updated, return it
+      if (!existingBase || (excludeConsultantId && existingBase.id === excludeConsultantId)) {
+        return { email: baseEmail };
+      }
+
+      // If base email exists, try with numbers
+      let counter = 2;
+      let generatedEmail = `${normalizedFirstName}.${normalizedLastName}${counter}@hrm8.com`;
+      
+      while (counter < 1000) {
+        const existing = await prisma.consultant.findUnique({
+          where: { email: generatedEmail },
+        });
+
+        // If email doesn't exist or it's the same consultant, return it
+        if (!existing || (excludeConsultantId && existing.id === excludeConsultantId)) {
+          return { email: generatedEmail };
+        }
+
+        counter++;
+        generatedEmail = `${normalizedFirstName}.${normalizedLastName}${counter}@hrm8.com`;
+      }
+
+      // If we've tried 1000 variations, return error
+      return { error: 'Unable to generate unique email address', status: 500 };
+    } catch (error: any) {
+      console.error('Generate email error:', error);
+      return { error: 'Failed to generate email address', status: 500 };
+    }
   }
 }
 

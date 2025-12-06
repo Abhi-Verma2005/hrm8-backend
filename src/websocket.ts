@@ -207,25 +207,26 @@ const broadcast = (
 
   targetKeys.forEach((connectionKey) => {
     const connection = connections.get(connectionKey);
-    const label = describeConnectionKey(connectionKey);
     if (connection && connection.ws.readyState === 1) {
       try {
         connection.ws.send(JSON.stringify(message));
         successCount++;
-        console.log(`✅ Message sent to ${label}`);
       } catch (error) {
         failCount++;
-        console.log(`❌ Failed to send to ${label}:`, error);
+        // Only log errors, not every successful send to reduce memory accumulation
+        console.error(`❌ Failed to send to ${describeConnectionKey(connectionKey)}:`, error);
       }
     } else {
       failCount++;
-      console.log(`❌ Cannot send to ${label} - connection not available or closed`);
     }
   });
 
-  console.log(
-    `📊 Broadcast complete: ${successCount} successful, ${failCount} failed`
-  );
+  // Only log if there were failures or in debug mode
+  if (failCount > 0 || process.env.DEBUG_WEBSOCKET === 'true') {
+    console.log(
+      `📊 Broadcast complete: ${successCount} successful, ${failCount} failed`
+    );
+  }
 };
 
 /**
@@ -358,17 +359,18 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
   console.log(`💓 Starting heartbeat for connection ${ip}`);
 
   // Heartbeat to keep connection alive
+  // Reduced logging to prevent memory accumulation - only log errors
   heartbeatInterval = setInterval(() => {
     if (ws.readyState === 1) {
       // WebSocket.OPEN = 1
-      console.log(
-        `💓 Sending ping to ${currentConnection?.userEmail || ip}`
-      );
+      // Removed verbose logging - ping silently
       ws.ping();
     } else {
+      // Only log when connection is actually closed
       console.log(
         `💔 Heartbeat failed - connection closed for ${currentConnection?.userEmail || ip}`
       );
+      clearInterval(heartbeatInterval);
     }
   }, 30000);
 

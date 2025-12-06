@@ -45,6 +45,7 @@ router.post('/licensees/:id/terminate', RegionalLicenseeController.terminate);
 // Consultant Management routes
 router.get('/consultants', ConsultantManagementController.getAll);
 router.post('/consultants', ConsultantManagementController.create);
+router.post('/consultants/generate-email', ConsultantManagementController.generateEmail);
 router.get('/consultants/:id', ConsultantManagementController.getById);
 router.put('/consultants/:id', ConsultantManagementController.update);
 router.post('/consultants/:id/assign-region', ConsultantManagementController.assignRegion);
@@ -52,10 +53,14 @@ router.post('/consultants/:id/suspend', ConsultantManagementController.suspend);
 router.post('/consultants/:id/reactivate', ConsultantManagementController.reactivate);
 
 // Job Allocation routes
+router.get('/jobs/unassigned', JobAllocationController.getUnassignedJobs);
+router.get('/jobs/:id/assignment-info', JobAllocationController.getAssignmentInfo);
+router.post('/jobs/:id/auto-assign', JobAllocationController.autoAssign);
 router.post('/jobs/:id/assign-consultant', JobAllocationController.assignConsultant);
 router.post('/jobs/:id/assign-region', JobAllocationController.assignRegion);
 router.post('/jobs/:id/unassign', JobAllocationController.unassign);
 router.get('/jobs/:id/consultants', JobAllocationController.getJobConsultants);
+router.get('/consultants/for-assignment', JobAllocationController.getConsultantsForAssignment);
 
 // Commission routes
 router.get('/commissions', CommissionController.getAll);
