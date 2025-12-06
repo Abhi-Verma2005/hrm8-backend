@@ -291,7 +291,10 @@ model Candidate {
   resumeUrl         String?                   @map("resume_url")
   applications      Application[]
   certifications    CandidateCertification[]
+  coverLetters      CandidateCoverLetter[]
   education         CandidateEducation[]
+  portfolioItems    CandidatePortfolio[]
+  resumes           CandidateResume[]
   sessions          CandidateSession[]
   skills            CandidateSkill[]
   training          CandidateTraining[]
@@ -299,9 +302,6 @@ model Candidate {
   jobAlerts         JobAlert[]
   JobInvitation     JobInvitation[]
   notifications     Notification[]
-  resumes           CandidateResume[]
-  coverLetters      CandidateCoverLetter[]
-  portfolioItems    CandidatePortfolio[]
   savedJobs         SavedJob[]
   savedSearches     SavedSearch[]
 
@@ -465,53 +465,53 @@ model Notification {
 }
 
 model CandidateResume {
-  id         String   @id @default(uuid())
-  candidateId String  @map("candidate_id")
-  fileName   String   @map("file_name")
-  fileUrl    String   @map("file_url")
-  fileSize   Int      @map("file_size")
-  fileType   String   @map("file_type")
-  isDefault  Boolean  @default(false) @map("is_default")
-  version    Int      @default(1)
-  uploadedAt DateTime @default(now()) @map("uploaded_at")
-  candidate  Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  candidateId String    @map("candidate_id")
+  fileName    String    @map("file_name")
+  fileUrl     String    @map("file_url")
+  fileSize    Int       @map("file_size")
+  fileType    String    @map("file_type")
+  isDefault   Boolean   @default(false) @map("is_default")
+  version     Int       @default(1)
+  uploadedAt  DateTime  @default(now()) @map("uploaded_at")
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@index([candidateId])
   @@index([isDefault])
 }
 
 model CandidateCoverLetter {
-  id         String   @id @default(uuid())
-  candidateId String  @map("candidate_id")
-  title      String
-  content    String?  @db.Text
-  fileUrl    String?  @map("file_url")
-  fileName   String?  @map("file_name")
-  fileSize   Int?     @map("file_size")
-  fileType   String?  @map("file_type")
-  isTemplate Boolean  @default(false) @map("is_template")
-  isDraft    Boolean  @default(true) @map("is_draft")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  candidate  Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  candidateId String    @map("candidate_id")
+  title       String
+  content     String?   @db.Text
+  fileUrl     String?   @map("file_url")
+  fileName    String?   @map("file_name")
+  fileSize    Int?      @map("file_size")
+  fileType    String?   @map("file_type")
+  isTemplate  Boolean   @default(false) @map("is_template")
+  isDraft     Boolean   @default(true) @map("is_draft")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@index([candidateId])
 }
 
 model CandidatePortfolio {
-  id          String   @id @default(uuid())
-  candidateId String   @map("candidate_id")
+  id          String    @id @default(uuid())
+  candidateId String    @map("candidate_id")
   title       String
-  type        String   // 'file' or 'link'
-  fileUrl     String?  @map("file_url")
-  fileName    String?  @map("file_name")
-  fileSize    Int?     @map("file_size")
-  fileType    String?  @map("file_type")
-  externalUrl String?  @map("external_url")
-  platform    String?  // 'github', 'behance', 'dribbble', 'website', 'other'
-  description String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  type        String // 'file' or 'link'
+  fileUrl     String?   @map("file_url")
+  fileName    String?   @map("file_name")
+  fileSize    Int?      @map("file_size")
+  fileType    String?   @map("file_type")
+  externalUrl String?   @map("external_url")
+  platform    String? // 'github', 'behance', 'dribbble', 'website', 'other'
+  description String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
   candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@index([candidateId])
@@ -995,29 +995,43 @@ model ScreeningResult {
 }
 
 model VideoInterview {
-  id             String             @id @default(uuid())
-  applicationId  String             @map("application_id")
-  candidateId    String             @map("candidate_id")
-  jobId          String             @map("job_id")
-  scheduledDate  DateTime           @map("scheduled_date")
-  duration       Int                @default(60)
-  meetingLink    String?            @map("meeting_link")
-  status         InterviewStatus    @default(SCHEDULED)
-  type           VideoInterviewType @default(VIDEO)
-  interviewerIds Json               @map("interviewer_ids")
-  recordingUrl   String?            @map("recording_url")
-  transcript     Json?
-  feedback       Json?
-  notes          String?
-  createdAt      DateTime           @default(now()) @map("created_at")
-  updatedAt      DateTime           @updatedAt @map("updated_at")
-  Application    Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  id                     String                   @id @default(uuid())
+  applicationId          String                   @map("application_id")
+  candidateId            String                   @map("candidate_id")
+  jobId                  String                   @map("job_id")
+  scheduledDate          DateTime                 @map("scheduled_date")
+  duration               Int                      @default(60)
+  meetingLink            String?                  @map("meeting_link")
+  status                 InterviewStatus          @default(SCHEDULED)
+  type                   VideoInterviewType       @default(VIDEO)
+  interviewerIds         Json                     @map("interviewer_ids")
+  recordingUrl           String?                  @map("recording_url")
+  transcript             Json?
+  feedback               Json?
+  notes                  String?
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  cancellation_reason    String?
+  is_auto_scheduled      Boolean                  @default(false)
+  job_round_id           String?
+  no_show_reason         String?
+  overall_score          Float?
+  rating_criteria_scores Json?
+  recommendation         InterviewRecommendation?
+  rescheduled_at         DateTime?
+  rescheduled_by         String?
+  rescheduled_from       String?
+  InterviewFeedback      InterviewFeedback[]
+  Application            Application              @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  JobRound               JobRound?                @relation(fields: [job_round_id], references: [id])
 
   @@index([applicationId])
   @@index([candidateId])
   @@index([jobId])
   @@index([scheduledDate])
   @@index([status])
+  @@index([is_auto_scheduled])
+  @@index([job_round_id])
 }
 
 model ApplicationRoundProgress {
@@ -1066,7 +1080,9 @@ model JobRound {
   updated_at               DateTime
   ApplicationRoundProgress ApplicationRoundProgress[]
   AssessmentConfiguration  AssessmentConfiguration?
+  InterviewConfiguration   InterviewConfiguration?
   Job                      Job                        @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  VideoInterview           VideoInterview[]
 
   @@index([isFixed])
   @@index([job_id])
@@ -1092,6 +1108,65 @@ model AssessmentConfiguration {
 
   @@index([job_round_id])
   @@index([provider])
+}
+
+model InterviewConfiguration {
+  id                         String          @id
+  job_round_id               String          @unique
+  enabled                    Boolean         @default(false)
+  auto_schedule              Boolean         @default(true)
+  require_before_progression Boolean         @default(false)
+  require_all_interviewers   Boolean         @default(false)
+  interview_format           InterviewFormat @default(LIVE_VIDEO)
+  default_duration           Int?            @default(60)
+  requires_interviewer       Boolean         @default(true)
+  auto_schedule_window_days  Int?
+  available_time_slots       Json?
+  buffer_time_minutes        Int?
+  calendar_integration       String?
+  auto_reschedule_on_no_show Boolean         @default(false)
+  auto_reschedule_on_cancel  Boolean         @default(false)
+  use_custom_criteria        Boolean         @default(false)
+  rating_criteria            Json?
+  pass_threshold             Float?
+  scoring_method             ScoringMethod?
+  auto_move_on_pass          Boolean         @default(false)
+  pass_criteria              PassCriteria?
+  next_round_on_pass_id      String?
+  auto_reject_on_fail        Boolean         @default(false)
+  fail_criteria              FailCriteria?
+  reject_round_id            String?
+  requires_manual_review     Boolean         @default(true)
+  template_id                String?
+  questions                  Json?
+  agenda                     String?
+  created_at                 DateTime        @default(now())
+  updated_at                 DateTime
+  JobRound                   JobRound        @relation(fields: [job_round_id], references: [id], onDelete: Cascade)
+
+  @@index([job_round_id])
+}
+
+model InterviewFeedback {
+  id                     String                   @id
+  video_interview_id     String
+  interviewer_id         String?
+  interviewer_name       String
+  interviewer_email      String?
+  rating_criteria_scores Json?
+  overall_rating         Float?
+  recommendation         InterviewRecommendation?
+  strengths              String?
+  concerns               String?
+  notes                  String?
+  submitted_at           DateTime                 @default(now())
+  created_at             DateTime                 @default(now())
+  updated_at             DateTime
+  VideoInterview         VideoInterview           @relation(fields: [video_interview_id], references: [id], onDelete: Cascade)
+
+  @@index([interviewer_id])
+  @@index([submitted_at])
+  @@index([video_interview_id])
 }
 
 enum UserRole {
@@ -1381,4 +1456,39 @@ enum AssignmentSource {
 enum JobAssignmentMode {
   AUTO_RULES_ONLY
   MANUAL_ONLY
+}
+
+enum FailCriteria {
+  SCORE_BELOW_THRESHOLD
+  RECOMMENDATION_NO
+  RATING_CRITERIA_FAIL
+  COMBINATION
+}
+
+enum InterviewFormat {
+  LIVE_VIDEO
+  PHONE
+  IN_PERSON
+  PANEL
+}
+
+enum InterviewRecommendation {
+  STRONG_YES
+  YES
+  MAYBE
+  NO
+  STRONG_NO
+}
+
+enum PassCriteria {
+  SCORE_THRESHOLD
+  RECOMMENDATION
+  RATING_CRITERIA
+  COMBINATION
+}
+
+enum ScoringMethod {
+  AVERAGE
+  WEIGHTED
+  CONSENSUS
 }
