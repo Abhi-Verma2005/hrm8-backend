@@ -32,6 +32,19 @@ export class ApplicationController {
         return;
       }
 
+      // Validate email format
+      const { isValidEmail, normalizeEmail } = await import('../../utils/email');
+      const normalizedEmail = normalizeEmail(email);
+      
+      if (!isValidEmail(normalizedEmail)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid email address format',
+          code: 'INVALID_EMAIL',
+        });
+        return;
+      }
+
       // Prepare file buffers from multer if files were uploaded
       // Multer with fields() returns req.files as an object with field names as keys
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -131,9 +144,8 @@ export class ApplicationController {
 
       // Send email notification with login details
       try {
-        const { EmailService } = await import('../../services/email/EmailService');
+        const { emailService } = await import('../../services/email/EmailService');
         const { JobModel } = await import('../../models/Job');
-        const emailService = new EmailService();
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
         const applicationTrackingUrl = `${frontendUrl}/candidate/applications/${application.id}`;
         
@@ -151,8 +163,9 @@ export class ApplicationController {
           loginPassword: returnedPassword,
         });
       } catch (emailError) {
-        console.error('Failed to send application confirmation email:', emailError);
-        // Continue even if email fails
+        console.error('❌ Failed to send application confirmation email:', emailError);
+        console.error('Error details:', emailError instanceof Error ? emailError.message : emailError);
+        // Continue even if email fails - don't block application submission
       }
 
       console.log('[ApplicationController.submitAnonymousApplication] Application submitted successfully', {
@@ -250,6 +263,30 @@ export class ApplicationController {
         status: result.status,
         stage: result.stage,
       });
+
+      // Send email notification for authenticated users
+      try {
+        const { emailService } = await import('../../services/email/EmailService');
+        const { JobModel } = await import('../../models/Job');
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+        const applicationTrackingUrl = `${frontendUrl}/candidate/applications/${result.id}`;
+        
+        // Fetch job title for email
+        const job = await JobModel.findById(result.jobId);
+        const jobTitle = job?.title || 'the position';
+        
+        await emailService.sendApplicationSubmittedEmail({
+          to: candidate.email,
+          name: `${candidate.firstName} ${candidate.lastName}`,
+          jobTitle,
+          applicationId: result.id,
+          applicationTrackingUrl,
+        });
+      } catch (emailError) {
+        console.error('❌ Failed to send application submitted email:', emailError);
+        console.error('Error details:', emailError instanceof Error ? emailError.message : emailError);
+        // Continue even if email fails - don't block application submission
+      }
 
       res.status(201).json({
         success: true,

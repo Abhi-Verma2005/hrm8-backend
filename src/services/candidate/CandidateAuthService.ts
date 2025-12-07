@@ -27,8 +27,13 @@ export class CandidateAuthService {
   static async register(
     registerData: CandidateRegisterRequest
   ): Promise<CandidateData | { error: string; code?: string }> {
-    // Normalize email
+    // Validate email format
+    const { isValidEmail } = await import('../../utils/email');
     const email = normalizeEmail(registerData.email);
+    
+    if (!isValidEmail(email)) {
+      return { error: 'Invalid email address format', code: 'INVALID_EMAIL' };
+    }
 
     // Check if candidate already exists
     const existing = await CandidateModel.findByEmail(email);

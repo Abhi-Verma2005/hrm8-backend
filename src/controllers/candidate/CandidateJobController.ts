@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { CandidateJobService } from '../../services/candidate/CandidateJobService';
+import { CandidateAuthenticatedRequest } from '../../middleware/candidateAuth';
 
 export class CandidateJobController {
     // Saved Jobs
     static async getSavedJobs(req: Request, res: Response) {
         try {
-            const candidateId = (req as any).candidate?.id;
+            const candidateId = (req as CandidateAuthenticatedRequest).candidate?.id;
             if (!candidateId) {
                 res.status(401).json({ success: false, error: 'Unauthorized' });
                 return;
@@ -21,7 +22,7 @@ export class CandidateJobController {
 
     static async saveJob(req: Request, res: Response) {
         try {
-            const candidateId = (req as any).candidate?.id;
+            const candidateId = (req as CandidateAuthenticatedRequest).candidate?.id;
             const { jobId } = req.params;
 
             if (!candidateId) {
@@ -39,7 +40,7 @@ export class CandidateJobController {
 
     static async unsaveJob(req: Request, res: Response) {
         try {
-            const candidateId = (req as any).candidate?.id;
+            const candidateId = (req as CandidateAuthenticatedRequest).candidate?.id;
             const { jobId } = req.params;
 
             if (!candidateId) {

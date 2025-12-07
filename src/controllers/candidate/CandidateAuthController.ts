@@ -28,6 +28,19 @@ export class CandidateAuthController {
         return;
       }
 
+      // Validate email format
+      const { isValidEmail, normalizeEmail } = await import('../../utils/email');
+      const normalizedEmail = normalizeEmail(registerData.email);
+      
+      if (!isValidEmail(normalizedEmail)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid email address format',
+          code: 'INVALID_EMAIL',
+        });
+        return;
+      }
+
       // Register candidate
       const result = await CandidateAuthService.register(registerData);
 
@@ -41,6 +54,22 @@ export class CandidateAuthController {
         return;
       }
 
+      // Send account creation email
+      try {
+        const { emailService } = await import('../../services/email/EmailService');
+        
+        await emailService.sendAccountCreationEmail({
+          to: result.email,
+          name: `${result.firstName} ${result.lastName}`,
+          loginEmail: result.email,
+          loginPassword: registerData.password, // Send the plain password for first login
+        });
+      } catch (emailError) {
+        console.error('❌ Failed to send account creation email:', emailError);
+        console.error('Error details:', emailError instanceof Error ? emailError.message : emailError);
+        // Continue even if email fails - don't block registration
+      }
+
       res.status(201).json({
         success: true,
         data: {
@@ -52,7 +81,7 @@ export class CandidateAuthController {
             emailVerified: result.emailVerified,
             status: result.status,
           },
-          message: 'Registration successful. Please verify your email to activate your account.',
+          message: 'Registration successful. Check your email for account details.',
         },
       });
     } catch (error) {

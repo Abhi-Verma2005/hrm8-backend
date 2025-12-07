@@ -432,8 +432,15 @@ export class ApplicationService {
     const { CloudinaryService } = await import('../storage/CloudinaryService');
 
     try {
-      // Step 1: Check if candidate already exists
+      // Step 1: Validate email format
+      const { isValidEmail } = await import('../../utils/email');
       const email = normalizeEmail(applicationData.email);
+      
+      if (!isValidEmail(email)) {
+        return { error: 'Invalid email address format', code: 'INVALID_EMAIL' };
+      }
+
+      // Step 2: Check if candidate already exists
       let candidate = await CandidateAuthService.findByEmail(email);
 
       if (candidate) {
@@ -441,7 +448,7 @@ export class ApplicationService {
         return { error: 'An account with this email already exists. Please login to apply.', code: 'EMAIL_EXISTS' };
       }
 
-      // Step 2: Validate password
+      // Step 3: Validate password
       if (!isPasswordStrong(applicationData.password)) {
         return { error: 'Password must be at least 8 characters with uppercase, lowercase, and number', code: 'WEAK_PASSWORD' };
       }
