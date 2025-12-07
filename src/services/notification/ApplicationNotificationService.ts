@@ -18,11 +18,25 @@ interface NotificationData {
 export class ApplicationNotificationService {
   /**
    * Create in-app notification for candidate
+   * Checks notification preferences before creating
    */
   private static async createInAppNotification(data: NotificationData): Promise<void> {
     const { prisma } = await import('../../lib/prisma');
+    const { CandidateNotificationPreferencesService } = await import('../candidate/CandidateNotificationPreferencesService');
 
     try {
+      // Check if notification should be sent based on preferences
+      const shouldSend = await CandidateNotificationPreferencesService.shouldSendNotification(
+        data.candidateId,
+        data.type,
+        'inApp'
+      );
+
+      if (!shouldSend) {
+        console.log(`⏭️ Notification skipped for candidate ${data.candidateId} (preferences disabled): ${data.title}`);
+        return;
+      }
+
       await prisma.notification.create({
         data: {
           candidateId: data.candidateId,

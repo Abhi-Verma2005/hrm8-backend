@@ -14,6 +14,38 @@ const router: RouterType = Router();
 router.post('/upload', authenticateCandidate, ApplicationUploadController.uploadMiddleware, ApplicationUploadController.uploadFile);
 router.delete('/upload/:publicId', authenticateCandidate, ApplicationUploadController.deleteFile);
 
+// Anonymous application submission (no authentication required)
+import multer from 'multer';
+const anonymousUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      const ext = file.originalname.toLowerCase().split('.').pop();
+      if (['pdf', 'doc', 'docx', 'txt'].includes(ext || '')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed.'));
+      }
+    }
+  },
+});
+router.post('/anonymous', anonymousUpload.fields([
+  { name: 'resume', maxCount: 1 },
+  { name: 'coverLetter', maxCount: 1 },
+  { name: 'portfolio', maxCount: 1 },
+]), ApplicationController.submitAnonymousApplication);
+
 // Candidate routes (require candidate authentication)
 router.post('/', authenticateCandidate, ApplicationController.submitApplication);
 router.post('/accept-invitation', authenticateCandidate, ApplicationController.acceptJobInvitation);

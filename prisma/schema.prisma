@@ -238,24 +238,22 @@ model Job {
   screening_criteria                  Json?
   screening_enabled                   Boolean                     @default(false)
   regionId                            String?                     @map("region_id")
+  assignedConsultantId                String?                     @map("assigned_consultant_id")
   assignmentMode                      AssignmentMode              @default(AUTO) @map("assignment_mode")
   assignmentSource                    AssignmentSource?           @map("assignment_source")
-  assignedConsultantId                String?                     @map("assigned_consultant_id")
   applications                        Application[]
   commissions                         Commission[]
   consultantAssignments               ConsultantJobAssignment[]
+  assignedConsultant                  Consultant?                 @relation("AssignedConsultant", fields: [assignedConsultantId], references: [id])
   company                             Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   creator                             User                        @relation("JobCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   region                              Region?                     @relation(fields: [regionId], references: [id])
-  assignedConsultant                  Consultant?                 @relation("AssignedConsultant", fields: [assignedConsultantId], references: [id])
   jobInvitations                      JobInvitation[]
   JobRound                            JobRound[]
   JobTemplate                         JobTemplate[]
   PreInterviewQuestionnaire           PreInterviewQuestionnaire[]
   SavedJob                            SavedJob[]
   ScreeningCriteria                   ScreeningCriteria[]
-  consultant                          Consultant?                 @relation(fields: [consultantId], references: [id])
-  consultantId                        String?
 
   @@index([companyId])
   @@index([createdBy])
@@ -301,11 +299,12 @@ model Candidate {
   skills            CandidateSkill[]
   training          CandidateTraining[]
   workExperience    CandidateWorkExperience[]
-  jobAlerts         JobAlert[]
-  JobInvitation     JobInvitation[]
-  notifications     Notification[]
-  savedJobs         SavedJob[]
-  savedSearches     SavedSearch[]
+  jobAlerts              JobAlert[]
+  JobInvitation          JobInvitation[]
+  notifications          Notification[]
+  notificationPreferences NotificationPreferences?
+  savedJobs              SavedJob[]
+  savedSearches          SavedSearch[]
 
   @@index([email])
   @@index([status])
@@ -466,6 +465,24 @@ model Notification {
   @@index([createdAt])
 }
 
+model NotificationPreferences {
+  id                      String   @id @default(uuid())
+  candidateId             String   @unique @map("candidate_id")
+  applicationStatusChanges Boolean  @default(true) @map("application_status_changes")
+  interviewReminders      Boolean  @default(true) @map("interview_reminders")
+  jobMatchAlerts          Boolean  @default(true) @map("job_match_alerts")
+  messages                Boolean  @default(true) @map("messages")
+  systemUpdates           Boolean  @default(true) @map("system_updates")
+  emailEnabled            Boolean  @default(true) @map("email_enabled")
+  inAppEnabled            Boolean  @default(true) @map("in_app_enabled")
+  reminderHoursBefore     Int      @default(24) @map("reminder_hours_before")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+  candidate               Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
 model CandidateResume {
   id          String    @id @default(uuid())
   candidateId String    @map("candidate_id")
@@ -486,7 +503,7 @@ model CandidateCoverLetter {
   id          String    @id @default(uuid())
   candidateId String    @map("candidate_id")
   title       String
-  content     String?   @db.Text
+  content     String?
   fileUrl     String?   @map("file_url")
   fileName    String?   @map("file_name")
   fileSize    Int?      @map("file_size")
@@ -504,14 +521,14 @@ model CandidatePortfolio {
   id          String    @id @default(uuid())
   candidateId String    @map("candidate_id")
   title       String
-  type        String // 'file' or 'link'
+  type        String
   fileUrl     String?   @map("file_url")
   fileName    String?   @map("file_name")
   fileSize    Int?      @map("file_size")
   fileType    String?   @map("file_type")
   externalUrl String?   @map("external_url")
-  platform    String? // 'github', 'behance', 'dribbble', 'website', 'other'
-  description String?   @db.Text
+  platform    String?
+  description String?
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
@@ -763,9 +780,8 @@ model Consultant {
   commissions           Commission[]
   region                Region                    @relation(fields: [regionId], references: [id])
   jobAssignments        ConsultantJobAssignment[]
-  assignedJobs          Job[]                     @relation("AssignedConsultant")
   sessions              ConsultantSession[]
-  Job                   Job[]
+  assignedJobs          Job[]                     @relation("AssignedConsultant")
 
   @@index([email])
   @@index([regionId])

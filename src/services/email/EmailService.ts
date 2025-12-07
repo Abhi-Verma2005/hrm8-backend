@@ -171,6 +171,49 @@ class EmailService {
   }
 
   /**
+   * Send application confirmation email with login details
+   */
+  async sendApplicationConfirmationEmail(data: {
+    to: string;
+    name: string;
+    jobTitle: string;
+    applicationId: string;
+    applicationTrackingUrl: string;
+    loginEmail: string;
+    loginPassword: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `Application Submitted: ${data.jobTitle}`,
+        html: this.getApplicationConfirmationTemplate(data),
+        text: this.getApplicationConfirmationText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Application Confirmation Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Application ID:', data.applicationId);
+        console.log('Tracking URL:', data.applicationTrackingUrl);
+        console.log('Login Email:', data.loginEmail);
+        console.log('Login Password:', data.loginPassword);
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send application confirmation email:', error);
+      throw new Error('Failed to send application confirmation email');
+    }
+  }
+
+  /**
    * Get HTML template for verification email
    */
   private getVerificationEmailTemplate(
@@ -1232,6 +1275,133 @@ Company: ${data.companyName}
 We think you'd be a great fit for this role. Visit the link below to view the job details and submit your application:
 
 ${data.jobUrl}
+
+Best regards,
+The HRM8 Team
+    `.trim();
+  }
+
+  /**
+   * Get HTML template for application confirmation email
+   */
+  private getApplicationConfirmationTemplate(data: {
+    name: string;
+    jobTitle: string;
+    applicationId: string;
+    applicationTrackingUrl: string;
+    loginEmail: string;
+    loginPassword: string;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Application Submitted Successfully!</h1>
+            
+            <p>Hello ${data.name || 'there'},</p>
+            
+            <p>Thank you for applying to <strong>${data.jobTitle}</strong> on HRM8. Your application has been received and is being reviewed.</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0; color: #7c3aed;">Application Details</h2>
+              <p style="margin: 10px 0 5px 0;"><strong>Application ID:</strong> ${data.applicationId}</p>
+              <p style="margin: 5px 0;"><strong>Position:</strong> ${data.jobTitle}</p>
+            </div>
+            
+            <h2 style="color: #4a5568; margin-top: 30px;">Track Your Application</h2>
+            <p>You can track the status of your application at any time:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.applicationTrackingUrl}" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                View Application Status
+              </a>
+            </div>
+            
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #7c3aed;">${data.applicationTrackingUrl}</p>
+            
+            <h2 style="color: #4a5568; margin-top: 30px;">Your Account Details</h2>
+            <p>We've created an account for you so you can track your application and apply to more jobs. Here are your login credentials:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border: 1px solid #e2e8f0;">
+              <p style="margin: 5px 0;"><strong>Email:</strong> ${data.loginEmail}</p>
+              <p style="margin: 5px 0;"><strong>Password:</strong> ${data.loginPassword}</p>
+            </div>
+            
+            <p style="color: #e53e3e; font-weight: bold;">⚠️ Please save this password in a secure location. For security reasons, we recommend changing it after your first login.</p>
+            
+            <h2 style="color: #4a5568; margin-top: 30px;">Next Steps</h2>
+            <ul style="padding-left: 20px;">
+              <li>Complete your profile to increase your chances of being selected</li>
+              <li>Upload additional documents (resume, cover letter, portfolio)</li>
+              <li>Set up job alerts to be notified of new opportunities</li>
+              <li>Explore other job openings that match your skills</li>
+            </ul>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.applicationTrackingUrl.replace('/applications/' + data.applicationId, '/profile')}" 
+                 style="background-color: #48bb78; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Complete Your Profile
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The HRM8 Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of application confirmation email
+   */
+  private getApplicationConfirmationText(data: {
+    name: string;
+    jobTitle: string;
+    applicationId: string;
+    applicationTrackingUrl: string;
+    loginEmail: string;
+    loginPassword: string;
+  }): string {
+    return `
+Application Submitted Successfully!
+
+Hello ${data.name || 'there'},
+
+Thank you for applying to ${data.jobTitle} on HRM8. Your application has been received and is being reviewed.
+
+Application Details:
+- Application ID: ${data.applicationId}
+- Position: ${data.jobTitle}
+
+Track Your Application:
+You can track the status of your application at any time by visiting:
+${data.applicationTrackingUrl}
+
+Your Account Details:
+We've created an account for you so you can track your application and apply to more jobs.
+
+Email: ${data.loginEmail}
+Password: ${data.loginPassword}
+
+⚠️ Please save this password in a secure location. For security reasons, we recommend changing it after your first login.
+
+Next Steps:
+- Complete your profile to increase your chances of being selected
+- Upload additional documents (resume, cover letter, portfolio)
+- Set up job alerts to be notified of new opportunities
+- Explore other job openings that match your skills
 
 Best regards,
 The HRM8 Team

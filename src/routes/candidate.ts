@@ -163,6 +163,9 @@ router.get('/notifications/unread-count', CandidateNotificationController.getUnr
 router.put('/notifications/:id/read', CandidateNotificationController.markAsRead);
 router.put('/notifications/mark-all-read', CandidateNotificationController.markAllAsRead);
 router.delete('/notifications/:id', CandidateNotificationController.deleteNotification);
+router.get('/notifications/preferences', CandidateNotificationController.getPreferences);
+router.put('/notifications/preferences', CandidateNotificationController.updatePreferences);
+router.get('/notifications/upcoming-interviews', CandidateNotificationController.getUpcomingInterviews);
 
 export default router;
 

@@ -16,6 +16,184 @@ import { ApplicationModel } from '../../models/Application';
 
 export class ApplicationController {
   /**
+   * Submit a new application (anonymous - auto-creates account)
+   * POST /api/applications/anonymous
+   */
+  static async submitAnonymousApplication(req: Request, res: Response): Promise<void> {
+    try {
+      const { email, password, firstName, lastName, phone, jobId, resumeUrl, coverLetterUrl, portfolioUrl, linkedInUrl, websiteUrl, customAnswers, questionnaireData, tags } = req.body;
+
+      // Validate required fields
+      if (!email || !password || !jobId) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing required fields: email, password, jobId',
+        });
+        return;
+      }
+
+      // Prepare file buffers from multer if files were uploaded
+      // Multer with fields() returns req.files as an object with field names as keys
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      console.log('[ApplicationController.submitAnonymousApplication] Files received:', {
+        filesKeys: files ? Object.keys(files) : [],
+        hasResume: !!files?.resume?.[0],
+        hasCoverLetter: !!files?.coverLetter?.[0],
+        hasPortfolio: !!files?.portfolio?.[0],
+      });
+      
+      const resumeFile = files?.resume?.[0];
+      const coverLetterFile = files?.coverLetter?.[0];
+      const portfolioFile = files?.portfolio?.[0];
+      
+      if (resumeFile) {
+        console.log('[ApplicationController.submitAnonymousApplication] Resume file details:', {
+          originalname: resumeFile.originalname,
+          mimetype: resumeFile.mimetype,
+          size: resumeFile.size,
+          bufferLength: resumeFile.buffer?.length || 0,
+        });
+      }
+
+      const anonymousData: any = {
+        email,
+        password,
+        firstName,
+        lastName,
+        phone,
+        jobId,
+        resumeUrl,
+        coverLetterUrl,
+        portfolioUrl,
+        linkedInUrl,
+        websiteUrl,
+        customAnswers,
+        questionnaireData,
+        tags,
+      };
+
+      // Add file buffers if available
+      if (resumeFile) {
+        anonymousData.resumeFile = {
+          buffer: resumeFile.buffer,
+          originalname: resumeFile.originalname,
+          mimetype: resumeFile.mimetype,
+          size: resumeFile.size,
+        };
+      }
+
+      if (coverLetterFile) {
+        anonymousData.coverLetterFile = {
+          buffer: coverLetterFile.buffer,
+          originalname: coverLetterFile.originalname,
+          mimetype: coverLetterFile.mimetype,
+          size: coverLetterFile.size,
+        };
+      }
+
+      if (portfolioFile) {
+        anonymousData.portfolioFile = {
+          buffer: portfolioFile.buffer,
+          originalname: portfolioFile.originalname,
+          mimetype: portfolioFile.mimetype,
+          size: portfolioFile.size,
+        };
+      }
+
+      console.log('[ApplicationController.submitAnonymousApplication] Submitting anonymous application', {
+        email,
+        jobId,
+        hasResumeFile: !!resumeFile,
+        hasCoverLetterFile: !!coverLetterFile,
+        hasPortfolioFile: !!portfolioFile,
+      });
+
+      const result = await ApplicationService.submitAnonymousApplication(anonymousData);
+
+      // Check if service returned an error
+      if ('error' in result) {
+        console.error('[ApplicationController.submitAnonymousApplication] Application submission failed', result.error);
+        res.status(400).json({
+          success: false,
+          error: result.error,
+          ...(result.code ? { code: result.code } : {}),
+        });
+        return;
+      }
+
+      const { application, candidate, sessionId, password: returnedPassword } = result;
+
+      // Set session cookie for auto-login
+      if (sessionId) {
+        const { getSessionCookieOptions } = await import('../../utils/session');
+        res.cookie('candidateSessionId', sessionId, getSessionCookieOptions());
+      }
+
+      // Send email notification with login details
+      try {
+        const { EmailService } = await import('../../services/email/EmailService');
+        const { JobModel } = await import('../../models/Job');
+        const emailService = new EmailService();
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+        const applicationTrackingUrl = `${frontendUrl}/candidate/applications/${application.id}`;
+        
+        // Fetch job title for email
+        const job = await JobModel.findById(application.jobId);
+        const jobTitle = job?.title || 'the position';
+        
+        await emailService.sendApplicationConfirmationEmail({
+          to: candidate.email,
+          name: `${candidate.firstName} ${candidate.lastName}`,
+          jobTitle,
+          applicationId: application.id,
+          applicationTrackingUrl,
+          loginEmail: candidate.email,
+          loginPassword: returnedPassword,
+        });
+      } catch (emailError) {
+        console.error('Failed to send application confirmation email:', emailError);
+        // Continue even if email fails
+      }
+
+      console.log('[ApplicationController.submitAnonymousApplication] Application submitted successfully', {
+        applicationId: application.id,
+        jobId: application.jobId,
+        candidateId: application.candidateId,
+        status: application.status,
+        stage: application.stage,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: {
+          application: {
+            id: application.id,
+            candidateId: application.candidateId,
+            jobId: application.jobId,
+            status: application.status,
+            stage: application.stage,
+            appliedDate: application.appliedDate,
+            createdAt: application.createdAt,
+          },
+          candidate: {
+            id: candidate.id,
+            email: candidate.email,
+            firstName: candidate.firstName,
+            lastName: candidate.lastName,
+          },
+          message: 'Application submitted successfully. Check your email for login details.',
+        },
+      });
+    } catch (error) {
+      console.error('[ApplicationController.submitAnonymousApplication] Error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to submit application',
+      });
+    }
+  }
+
+  /**
    * Submit a new application
    * POST /api/applications
    */
