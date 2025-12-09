@@ -244,6 +244,7 @@ model Job {
   applications                        Application[]
   commissions                         Commission[]
   consultantAssignments               ConsultantJobAssignment[]
+  conversations                       Conversation[]
   assignedConsultant                  Consultant?                 @relation(fields: [assignedConsultantId], references: [id])
   company                             Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   creator                             User                        @relation("JobCreator", fields: [createdBy], references: [id], onDelete: Cascade)
@@ -254,7 +255,6 @@ model Job {
   PreInterviewQuestionnaire           PreInterviewQuestionnaire[]
   SavedJob                            SavedJob[]
   ScreeningCriteria                   ScreeningCriteria[]
-  conversations                       Conversation[]
 
   @@index([companyId])
   @@index([createdBy])
@@ -417,9 +417,9 @@ model Conversation {
   createdAt      DateTime                  @default(now()) @map("created_at")
   updatedAt      DateTime                  @updatedAt @map("updated_at")
   status         ConversationStatus        @default(ACTIVE) @map("status")
+  job            Job?                      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   participants   ConversationParticipant[]
   messages       Message[]
-  job            Job?                     @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([candidateId])
   @@index([employerUserId])
