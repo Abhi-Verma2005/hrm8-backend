@@ -184,20 +184,21 @@ export class ConsultantJobAssignmentModel {
     pipelineUpdatedAt: Date | null;
     pipelineUpdatedBy: string | null;
   }): ConsultantJobAssignmentData {
+    const assignment = prismaAssignment as any;
     return {
-      id: prismaAssignment.id,
-      consultantId: prismaAssignment.consultantId,
-      jobId: prismaAssignment.jobId,
-      assignedBy: prismaAssignment.assignedBy,
-      assignedAt: prismaAssignment.assignedAt,
-      status: prismaAssignment.status,
-      notes: prismaAssignment.notes,
-      assignmentSource: prismaAssignment.assignmentSource || null,
-      pipelineStage: prismaAssignment.pipelineStage,
-      pipelineProgress: prismaAssignment.pipelineProgress,
-      pipelineNote: prismaAssignment.pipelineNote,
-      pipelineUpdatedAt: prismaAssignment.pipelineUpdatedAt,
-      pipelineUpdatedBy: prismaAssignment.pipelineUpdatedBy,
+      id: assignment.id,
+      consultantId: assignment.consultantId || assignment.consultant_id,
+      jobId: assignment.jobId || assignment.job_id,
+      assignedBy: assignment.assignedBy || assignment.assigned_by,
+      assignedAt: assignment.assignedAt || assignment.assigned_at,
+      status: assignment.status,
+      notes: assignment.notes,
+      assignmentSource: assignment.assignmentSource || assignment.assignment_source || null,
+      pipelineStage: assignment.pipelineStage || assignment.pipeline_stage,
+      pipelineProgress: assignment.pipelineProgress !== undefined ? assignment.pipelineProgress : assignment.pipeline_progress,
+      pipelineNote: assignment.pipelineNote || assignment.pipeline_note,
+      pipelineUpdatedAt: assignment.pipelineUpdatedAt || assignment.pipeline_updated_at,
+      pipelineUpdatedBy: assignment.pipelineUpdatedBy || assignment.pipeline_updated_by,
     };
   }
 }

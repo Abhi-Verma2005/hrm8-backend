@@ -3,6 +3,7 @@
  * Handles in-app notifications for application-related events in candidate portal
  */
 
+import { randomUUID } from 'crypto';
 import { ApplicationStatus, ApplicationStage, NotificationType } from '@prisma/client';
 import { CandidateModel } from '../../models/Candidate';
 import { JobModel } from '../../models/Job';
@@ -39,7 +40,8 @@ export class ApplicationNotificationService {
 
       await prisma.notification.create({
         data: {
-          candidateId: data.candidateId,
+          id: randomUUID(),
+          candidate_id: data.candidateId,
           type: data.type,
           title: data.title,
           message: data.message,
@@ -75,6 +77,13 @@ export class ApplicationNotificationService {
         return;
       }
 
+      // Fetch company separately since JobModel.findById doesn't include it
+      const { prisma } = await import('../../lib/prisma');
+      const company = await prisma.company.findUnique({
+        where: { id: job.companyId },
+        select: { name: true },
+      });
+
       const statusLabels: Record<ApplicationStatus, string> = {
         NEW: 'New',
         SCREENING: 'Under Review',
@@ -93,12 +102,12 @@ export class ApplicationNotificationService {
         candidateId,
         type: 'APPLICATION_UPDATE',
         title: 'Application Status Updated',
-        message: `Your application for ${job.title} at ${job.company?.name || 'the company'} has been updated from "${oldStatusLabel}" to "${newStatusLabel}".`,
+        message: `Your application for ${job.title} at ${company?.name || 'the company'} has been updated from "${oldStatusLabel}" to "${newStatusLabel}".`,
         data: {
           applicationId,
           jobId,
           jobTitle: job.title,
-          companyName: job.company?.name,
+          companyName: company?.name,
           oldStatus,
           newStatus,
           stage,
@@ -130,6 +139,13 @@ export class ApplicationNotificationService {
         return;
       }
 
+      // Fetch company separately since JobModel.findById doesn't include it
+      const { prisma } = await import('../../lib/prisma');
+      const company = await prisma.company.findUnique({
+        where: { id: job.companyId },
+        select: { name: true },
+      });
+
       const stageLabels: Record<ApplicationStage, string> = {
         NEW_APPLICATION: 'New Application',
         RESUME_REVIEW: 'Resume Review',
@@ -141,7 +157,6 @@ export class ApplicationNotificationService {
         REJECTED: 'Rejected',
       };
 
-      const oldStageLabel = oldStage ? stageLabels[oldStage] || oldStage : 'Previous Stage';
       const newStageLabel = stageLabels[newStage] || newStage;
 
       // Create in-app notification
@@ -149,12 +164,12 @@ export class ApplicationNotificationService {
         candidateId,
         type: 'APPLICATION_UPDATE',
         title: 'Application Progress Update',
-        message: `Your application for ${job.title} at ${job.company?.name || 'the company'} has moved to the "${newStageLabel}" stage.`,
+        message: `Your application for ${job.title} at ${company?.name || 'the company'} has moved to the "${newStageLabel}" stage.`,
         data: {
           applicationId,
           jobId,
           jobTitle: job.title,
-          companyName: job.company?.name,
+          companyName: company?.name,
           oldStage,
           newStage,
           status,
@@ -183,17 +198,24 @@ export class ApplicationNotificationService {
         return;
       }
 
+      // Fetch company separately since JobModel.findById doesn't include it
+      const { prisma } = await import('../../lib/prisma');
+      const company = await prisma.company.findUnique({
+        where: { id: job.companyId },
+        select: { name: true },
+      });
+
       // Create in-app notification
       await this.createInAppNotification({
         candidateId,
         type: 'APPLICATION_UPDATE',
         title: 'You\'ve Been Shortlisted!',
-        message: `Congratulations! Your application for ${job.title} at ${job.company?.name || 'the company'} has been shortlisted.`,
+        message: `Congratulations! Your application for ${job.title} at ${company?.name || 'the company'} has been shortlisted.`,
         data: {
           applicationId,
           jobId,
           jobTitle: job.title,
-          companyName: job.company?.name,
+          companyName: company?.name,
           shortlistedBy,
         },
       });
@@ -223,6 +245,13 @@ export class ApplicationNotificationService {
         return;
       }
 
+      // Fetch company separately since JobModel.findById doesn't include it
+      const { prisma } = await import('../../lib/prisma');
+      const company = await prisma.company.findUnique({
+        where: { id: job.companyId },
+        select: { name: true },
+      });
+
       // Create in-app notification
       const formattedDate = new Date(interviewDate).toLocaleString('en-US', {
         weekday: 'long',
@@ -233,7 +262,7 @@ export class ApplicationNotificationService {
         minute: '2-digit',
       });
 
-      let notificationMessage = `An interview has been scheduled for your application to ${job.title} at ${job.company?.name || 'the company'} on ${formattedDate}.`;
+      let notificationMessage = `An interview has been scheduled for your application to ${job.title} at ${company?.name || 'the company'} on ${formattedDate}.`;
       if (location) {
         notificationMessage += ` Location: ${location}.`;
       }
@@ -250,7 +279,7 @@ export class ApplicationNotificationService {
           applicationId,
           jobId,
           jobTitle: job.title,
-          companyName: job.company?.name,
+          companyName: company?.name,
           interviewDate: interviewDate.toISOString(),
           interviewType,
           location,
@@ -281,8 +310,15 @@ export class ApplicationNotificationService {
         return;
       }
 
+      // Fetch company separately since JobModel.findById doesn't include it
+      const { prisma } = await import('../../lib/prisma');
+      const company = await prisma.company.findUnique({
+        where: { id: job.companyId },
+        select: { name: true },
+      });
+
       // Create in-app notification
-      let message = `We regret to inform you that your application for ${job.title} at ${job.company?.name || 'the company'} was not successful at this time.`;
+      let message = `We regret to inform you that your application for ${job.title} at ${company?.name || 'the company'} was not successful at this time.`;
       if (rejectionReason) {
         message += ` ${rejectionReason}`;
       }
@@ -296,7 +332,7 @@ export class ApplicationNotificationService {
           applicationId,
           jobId,
           jobTitle: job.title,
-          companyName: job.company?.name,
+          companyName: company?.name,
           rejectionReason,
         },
       });
@@ -323,17 +359,24 @@ export class ApplicationNotificationService {
         return;
       }
 
+      // Fetch company separately since JobModel.findById doesn't include it
+      const { prisma } = await import('../../lib/prisma');
+      const company = await prisma.company.findUnique({
+        where: { id: job.companyId },
+        select: { name: true },
+      });
+
       // Create in-app notification
       await this.createInAppNotification({
         candidateId,
         type: 'APPLICATION_UPDATE',
         title: '🎉 Offer Extended!',
-        message: `Congratulations! An offer has been extended for ${job.title} at ${job.company?.name || 'the company'}. Please review the offer details in your dashboard.`,
+        message: `Congratulations! An offer has been extended for ${job.title} at ${company?.name || 'the company'}. Please review the offer details in your dashboard.`,
         data: {
           applicationId,
           jobId,
           jobTitle: job.title,
-          companyName: job.company?.name,
+          companyName: company?.name,
           offerDetails,
         },
       });

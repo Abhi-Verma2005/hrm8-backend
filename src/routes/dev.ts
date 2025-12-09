@@ -5,12 +5,8 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth';
-import { authenticateConsultant } from '../middleware/consultantAuth';
-import { authenticateHrm8 } from '../middleware/hrm8Auth';
-import { authenticateCandidate } from '../middleware/candidateAuth';
 
-const router = Router();
+const router: Router = Router();
 
 // Only enable dev routes in development
 if (process.env.NODE_ENV !== 'production') {
@@ -86,4 +82,6 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export default router;
+
+
 

@@ -48,28 +48,29 @@ export async function getConversations(
           if (message) {
             lastMessage = {
               id: message.id,
-              conversationId: message.conversationId,
-              senderEmail: message.senderEmail,
-              senderType: message.senderType,
-              senderId: message.senderId || undefined,
+              conversationId: (message as any).conversation_id || (message as any).conversationId,
+              senderEmail: (message as any).sender_email || (message as any).senderEmail,
+              senderType: (message as any).sender_type || (message as any).senderType,
+              senderId: (message as any).sender_id || (message as any).senderId || undefined,
               content: message.content,
-              type: message.type,
-              isRead: message.isRead,
-              readAt: message.readAt?.toISOString() || undefined,
-              createdAt: message.createdAt.toISOString(),
-              updatedAt: message.updatedAt.toISOString(),
+              type: (message as any).content_type || (message as any).type || 'TEXT',
+              isRead: (message as any).read_by && Array.isArray((message as any).read_by) && (message as any).read_by.length > 0,
+              readAt: (message as any).read_at ? new Date((message as any).read_at).toISOString() : ((message as any).readAt ? new Date((message as any).readAt).toISOString() : undefined),
+              createdAt: (message as any).created_at ? new Date((message as any).created_at).toISOString() : new Date((message as any).createdAt).toISOString(),
+              updatedAt: (message as any).updated_at ? new Date((message as any).updated_at).toISOString() : new Date((message as any).updatedAt).toISOString(),
             };
           }
         }
 
+        const convData = conv as any;
         return {
-          id: conv.id,
-          jobId: conv.jobId,
-          candidateId: conv.candidateId,
-          participants: conv.participants,
-          lastMessageId: conv.lastMessageId || undefined,
-          createdAt: conv.createdAt.toISOString(),
-          updatedAt: conv.updatedAt.toISOString(),
+          id: convData.id,
+          jobId: convData.jobId || convData.job_id || '',
+          candidateId: convData.candidateId || convData.candidate_id || '',
+          participants: convData.participants || (convData.ConversationParticipant ? convData.ConversationParticipant.map((p: any) => p.participant_email) : []),
+          lastMessageId: convData.last_message_id || convData.lastMessageId || undefined,
+          createdAt: (convData.created_at ? new Date(convData.created_at) : new Date(convData.createdAt)).toISOString(),
+          updatedAt: (convData.updated_at ? new Date(convData.updated_at) : new Date(convData.updatedAt)).toISOString(),
           job: job
             ? {
                 id: job.id,
@@ -152,18 +153,19 @@ export async function getConversation(
         where: { id: conversation.lastMessageId },
       });
       if (message) {
+        const msgData = message as any;
         lastMessage = {
-          id: message.id,
-          conversationId: message.conversationId,
-          senderEmail: message.senderEmail,
-          senderType: message.senderType,
-          senderId: message.senderId || undefined,
-          content: message.content,
-          type: message.type,
-          isRead: message.isRead,
-          readAt: message.readAt?.toISOString() || undefined,
-          createdAt: message.createdAt.toISOString(),
-          updatedAt: message.updatedAt.toISOString(),
+          id: msgData.id,
+          conversationId: msgData.conversation_id || msgData.conversationId,
+          senderEmail: msgData.sender_email || msgData.senderEmail,
+          senderType: msgData.sender_type || msgData.senderType,
+          senderId: msgData.sender_id || msgData.senderId || undefined,
+          content: msgData.content,
+          type: msgData.content_type || msgData.type || 'TEXT',
+          isRead: msgData.read_by && Array.isArray(msgData.read_by) && msgData.read_by.length > 0,
+          readAt: msgData.read_at ? new Date(msgData.read_at).toISOString() : (msgData.readAt ? new Date(msgData.readAt).toISOString() : undefined),
+          createdAt: (msgData.created_at ? new Date(msgData.created_at) : new Date(msgData.createdAt)).toISOString(),
+          updatedAt: (msgData.updated_at ? new Date(msgData.updated_at) : new Date(msgData.updatedAt)).toISOString(),
         };
       }
     }

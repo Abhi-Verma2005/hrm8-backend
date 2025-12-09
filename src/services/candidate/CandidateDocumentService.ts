@@ -10,10 +10,10 @@ export class CandidateDocumentService {
     static async getResumes(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateResume.findMany({
-            where: { candidateId },
+            where: { candidate_id: candidateId },
             orderBy: [
-                { isDefault: 'desc' },
-                { uploadedAt: 'desc' }
+                { is_default: 'desc' },
+                { uploaded_at: 'desc' }
             ],
         });
     }
@@ -32,21 +32,23 @@ export class CandidateDocumentService {
 
         // Get the highest version number for this candidate
         const latestResume = await prisma.candidateResume.findFirst({
-            where: { candidateId },
+            where: { candidate_id: candidateId },
             orderBy: { version: 'desc' },
         });
 
         const nextVersion = latestResume ? latestResume.version + 1 : 1;
 
+        const { randomUUID } = await import('crypto');
         return await prisma.candidateResume.create({
             data: {
-                candidateId,
-                fileName,
-                fileUrl,
-                fileSize,
-                fileType,
+                id: randomUUID(),
+                candidate_id: candidateId,
+                file_name: fileName,
+                file_url: fileUrl,
+                file_size: fileSize,
+                file_type: fileType,
                 version: nextVersion,
-                isDefault: false, // New uploads are not default by default
+                is_default: false, // New uploads are not default by default
             },
         });
     }
@@ -59,7 +61,7 @@ export class CandidateDocumentService {
 
         // Verify ownership
         const resume = await prisma.candidateResume.findFirst({
-            where: { id: resumeId, candidateId },
+            where: { id: resumeId, candidate_id: candidateId },
         });
 
         if (!resume) {
@@ -68,14 +70,14 @@ export class CandidateDocumentService {
 
         // Unset all other defaults
         await prisma.candidateResume.updateMany({
-            where: { candidateId, isDefault: true },
-            data: { isDefault: false },
+            where: { candidate_id: candidateId, is_default: true },
+            data: { is_default: false },
         });
 
         // Set this one as default
         return await prisma.candidateResume.update({
             where: { id: resumeId },
-            data: { isDefault: true },
+            data: { is_default: true },
         });
     }
 
@@ -87,7 +89,7 @@ export class CandidateDocumentService {
 
         // Verify ownership
         const resume = await prisma.candidateResume.findFirst({
-            where: { id: resumeId, candidateId },
+            where: { id: resumeId, candidate_id: candidateId },
         });
 
         if (!resume) {
@@ -105,10 +107,10 @@ export class CandidateDocumentService {
     static async getCoverLetters(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateCoverLetter.findMany({
-            where: { candidateId },
+            where: { candidate_id: candidateId },
             orderBy: [
-                { isTemplate: 'desc' },
-                { updatedAt: 'desc' }
+                { is_template: 'desc' },
+                { updated_at: 'desc' }
             ],
         });
     }
@@ -130,10 +132,20 @@ export class CandidateDocumentService {
         }
     ) {
         const { prisma } = await import('../../lib/prisma');
+        const { randomUUID } = await import('crypto');
         return await prisma.candidateCoverLetter.create({
             data: {
-                candidateId,
-                ...data,
+                id: randomUUID(),
+                candidate_id: candidateId,
+                title: data.title,
+                content: data.content,
+                file_url: data.fileUrl,
+                file_name: data.fileName,
+                file_size: data.fileSize,
+                file_type: data.fileType,
+                is_template: data.isTemplate ?? false,
+                is_draft: data.isDraft ?? true,
+                updated_at: new Date(),
             },
         });
     }
@@ -159,16 +171,27 @@ export class CandidateDocumentService {
 
         // Verify ownership
         const coverLetter = await prisma.candidateCoverLetter.findFirst({
-            where: { id: coverLetterId, candidateId },
+            where: { id: coverLetterId, candidate_id: candidateId },
         });
 
         if (!coverLetter) {
             throw new Error('Cover letter not found');
         }
 
+        const updateData: any = {};
+        if (data.title !== undefined) updateData.title = data.title;
+        if (data.content !== undefined) updateData.content = data.content;
+        if (data.fileUrl !== undefined) updateData.file_url = data.fileUrl;
+        if (data.fileName !== undefined) updateData.file_name = data.fileName;
+        if (data.fileSize !== undefined) updateData.file_size = data.fileSize;
+        if (data.fileType !== undefined) updateData.file_type = data.fileType;
+        if (data.isTemplate !== undefined) updateData.is_template = data.isTemplate;
+        if (data.isDraft !== undefined) updateData.is_draft = data.isDraft;
+        updateData.updated_at = new Date();
+
         return await prisma.candidateCoverLetter.update({
             where: { id: coverLetterId },
-            data,
+            data: updateData,
         });
     }
 
@@ -180,7 +203,7 @@ export class CandidateDocumentService {
 
         // Verify ownership
         const coverLetter = await prisma.candidateCoverLetter.findFirst({
-            where: { id: coverLetterId, candidateId },
+            where: { id: coverLetterId, candidate_id: candidateId },
         });
 
         if (!coverLetter) {
@@ -198,8 +221,8 @@ export class CandidateDocumentService {
     static async getPortfolioItems(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.candidatePortfolio.findMany({
-            where: { candidateId },
-            orderBy: { createdAt: 'desc' },
+            where: { candidate_id: candidateId },
+            orderBy: { created_at: 'desc' },
         });
     }
 
@@ -221,10 +244,21 @@ export class CandidateDocumentService {
         }
     ) {
         const { prisma } = await import('../../lib/prisma');
+        const { randomUUID } = await import('crypto');
         return await prisma.candidatePortfolio.create({
             data: {
-                candidateId,
-                ...data,
+                id: randomUUID(),
+                candidate_id: candidateId,
+                title: data.title,
+                type: data.type,
+                file_url: data.fileUrl,
+                file_name: data.fileName,
+                file_size: data.fileSize,
+                file_type: data.fileType,
+                external_url: data.externalUrl,
+                platform: data.platform,
+                description: data.description,
+                updated_at: new Date(),
             },
         });
     }
@@ -250,16 +284,27 @@ export class CandidateDocumentService {
 
         // Verify ownership
         const portfolio = await prisma.candidatePortfolio.findFirst({
-            where: { id: portfolioId, candidateId },
+            where: { id: portfolioId, candidate_id: candidateId },
         });
 
         if (!portfolio) {
             throw new Error('Portfolio item not found');
         }
 
+        const updateData: any = {};
+        if (data.title !== undefined) updateData.title = data.title;
+        if (data.fileUrl !== undefined) updateData.file_url = data.fileUrl;
+        if (data.fileName !== undefined) updateData.file_name = data.fileName;
+        if (data.fileSize !== undefined) updateData.file_size = data.fileSize;
+        if (data.fileType !== undefined) updateData.file_type = data.fileType;
+        if (data.externalUrl !== undefined) updateData.external_url = data.externalUrl;
+        if (data.platform !== undefined) updateData.platform = data.platform;
+        if (data.description !== undefined) updateData.description = data.description;
+        updateData.updated_at = new Date();
+
         return await prisma.candidatePortfolio.update({
             where: { id: portfolioId },
-            data,
+            data: updateData,
         });
     }
 
@@ -271,7 +316,7 @@ export class CandidateDocumentService {
 
         // Verify ownership
         const portfolio = await prisma.candidatePortfolio.findFirst({
-            where: { id: portfolioId, candidateId },
+            where: { id: portfolioId, candidate_id: candidateId },
         });
 
         if (!portfolio) {

@@ -36,8 +36,8 @@ export class CandidateQualificationsService {
     static async getEducation(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateEducation.findMany({
-            where: { candidateId },
-            orderBy: { endDate: 'desc' },
+            where: { candidate_id: candidateId },
+            orderBy: { end_date: 'desc' },
         });
     }
 
@@ -49,7 +49,7 @@ export class CandidateQualificationsService {
         const normalized = normalizeDates(data, ['startDate', 'endDate']);
         return await prisma.candidateEducation.create({
             data: {
-                candidateId,
+                candidate_id: candidateId,
                 ...normalized,
             },
         });
@@ -63,7 +63,7 @@ export class CandidateQualificationsService {
 
         // Verify ownership
         const existing = await prisma.candidateEducation.findFirst({
-            where: { id, candidateId },
+            where: { id, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -85,7 +85,7 @@ export class CandidateQualificationsService {
 
         // Verify ownership
         const existing = await prisma.candidateEducation.findFirst({
-            where: { id, candidateId },
+            where: { id, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -103,8 +103,8 @@ export class CandidateQualificationsService {
     static async getCertifications(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateCertification.findMany({
-            where: { candidateId },
-            orderBy: { issueDate: 'desc' },
+            where: { candidate_id: candidateId },
+            orderBy: { issue_date: 'desc' },
         });
     }
 
@@ -116,7 +116,7 @@ export class CandidateQualificationsService {
         const normalized = normalizeDates(data, ['issueDate', 'expiryDate']);
         return await prisma.candidateCertification.create({
             data: {
-                candidateId,
+                candidate_id: candidateId,
                 ...normalized,
             },
         });
@@ -130,7 +130,7 @@ export class CandidateQualificationsService {
 
         // Verify ownership
         const existing = await prisma.candidateCertification.findFirst({
-            where: { id, candidateId },
+            where: { id, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -152,7 +152,7 @@ export class CandidateQualificationsService {
 
         // Verify ownership
         const existing = await prisma.candidateCertification.findFirst({
-            where: { id, candidateId },
+            where: { id, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -170,8 +170,8 @@ export class CandidateQualificationsService {
     static async getTraining(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateTraining.findMany({
-            where: { candidateId },
-            orderBy: { completedDate: 'desc' },
+            where: { candidate_id: candidateId },
+            orderBy: { completed_date: 'desc' },
         });
     }
 
@@ -183,7 +183,7 @@ export class CandidateQualificationsService {
         const normalized = normalizeDates(data, ['completedDate']);
         return await prisma.candidateTraining.create({
             data: {
-                candidateId,
+                candidate_id: candidateId,
                 ...normalized,
             },
         });
@@ -197,7 +197,7 @@ export class CandidateQualificationsService {
 
         // Verify ownership
         const existing = await prisma.candidateTraining.findFirst({
-            where: { id, candidateId },
+            where: { id, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -219,7 +219,7 @@ export class CandidateQualificationsService {
 
         // Verify ownership
         const existing = await prisma.candidateTraining.findFirst({
-            where: { id, candidateId },
+            where: { id, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -241,14 +241,14 @@ export class CandidateQualificationsService {
 
         return await prisma.candidateCertification.findMany({
             where: {
-                candidateId,
-                doesNotExpire: false,
-                expiryDate: {
+                candidate_id: candidateId,
+                does_not_expire: false,
+                expiry_date: {
                     lte: thirtyDaysFromNow,
                     gte: new Date(),
                 },
             },
-            orderBy: { expiryDate: 'asc' },
+            orderBy: { expiry_date: 'asc' },
         });
     }
 
@@ -258,7 +258,7 @@ export class CandidateQualificationsService {
     static async deleteAllEducation(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateEducation.deleteMany({
-            where: { candidateId },
+            where: { candidate_id: candidateId },
         });
     }
 
@@ -268,7 +268,7 @@ export class CandidateQualificationsService {
     static async deleteAllCertifications(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateCertification.deleteMany({
-            where: { candidateId },
+            where: { candidate_id: candidateId },
         });
     }
 
@@ -278,7 +278,7 @@ export class CandidateQualificationsService {
     static async deleteAllTraining(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateTraining.deleteMany({
-            where: { candidateId },
+            where: { candidate_id: candidateId },
         });
     }
 }

@@ -56,7 +56,8 @@ export class CommissionController {
   static async getById(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const commission = await CommissionService.getCommissionById(id);
+      const { CommissionModel } = await import('../../models/Commission');
+      const commission = await CommissionModel.findById(id);
 
       if (!commission) {
         res.status(404).json({
@@ -85,10 +86,9 @@ export class CommissionController {
    */
   static async create(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      // Request body is already validated by validateCreateCommission middleware
       const commissionData = req.body;
-
-      const commission = await CommissionService.createCommission(commissionData);
+      const { CommissionModel } = await import('../../models/Commission');
+      const commission = await CommissionModel.create(commissionData);
 
       res.status(201).json({
         success: true,
@@ -110,7 +110,18 @@ export class CommissionController {
   static async confirm(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const commission = await CommissionService.confirmCommission(id);
+      const result = await CommissionService.confirmCommissionForJob(id);
+
+      if (!result.success) {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Failed to confirm commission',
+        });
+        return;
+      }
+
+      const { CommissionModel } = await import('../../models/Commission');
+      const commission = await CommissionModel.findById(id);
 
       res.json({
         success: true,
@@ -132,9 +143,19 @@ export class CommissionController {
   static async markAsPaid(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      // Request body is already validated by validateMarkAsPaid middleware
       const { paymentReference } = req.body;
-      const commission = await CommissionService.markAsPaid(id, paymentReference);
+      const result = await CommissionService.processPayment(id, paymentReference);
+
+      if (!result.success) {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Failed to process payment',
+        });
+        return;
+      }
+
+      const { CommissionModel } = await import('../../models/Commission');
+      const commission = await CommissionModel.findById(id);
 
       res.json({
         success: true,
@@ -150,21 +171,66 @@ export class CommissionController {
   }
 
   /**
+   * Process multiple commission payments (for HR admin)
+   * POST /api/hrm8/commissions/pay
+   */
+  static async processPayments(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { commissionIds, paymentReference } = req.body;
+
+      if (!Array.isArray(commissionIds) || commissionIds.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'commissionIds must be a non-empty array',
+        });
+        return;
+      }
+
+      if (!paymentReference || typeof paymentReference !== 'string') {
+        res.status(400).json({
+          success: false,
+          error: 'paymentReference is required',
+        });
+        return;
+      }
+
+      const result = await CommissionService.processPayments(commissionIds, paymentReference);
+
+      res.json({
+        success: result.success,
+        data: {
+          processed: result.processed,
+          total: commissionIds.length,
+          errors: result.errors,
+        },
+      });
+    } catch (error) {
+      console.error('Process payments error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to process payments',
+      });
+    }
+  }
+
+  /**
    * Get commissions by region
    * GET /api/hrm8/commissions/regional
    */
   static async getRegional(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      // Query parameters are already validated by validateRegionalCommissionsQuery middleware
       const regionId = req.query.regionId as string;
       const statusStr = req.query.status as string | undefined;
 
-      const filterOptions: { status?: CommissionStatus } = {};
+      const filters: { regionId?: string; status?: CommissionStatus } = {};
+      if (regionId) {
+        filters.regionId = regionId;
+      }
       if (statusStr) {
-          filterOptions.status = statusStr as CommissionStatus;
+        filters.status = statusStr as CommissionStatus;
       }
 
-      const commissions = await CommissionService.getRegionalCommissions(regionId, filterOptions);
+      const commissions = await CommissionService.getAllCommissions(filters);
 
       res.json({
         success: true,

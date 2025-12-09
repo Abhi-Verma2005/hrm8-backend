@@ -10,6 +10,8 @@ import { ConsultantJobAssignmentModel } from '../../models/ConsultantJobAssignme
 import { JobModel } from '../../models/Job';
 import { Job, JobStatus, HiringMode, WorkArrangement, EmploymentType } from '../../types';
 import { AutoAssignmentService } from './AutoAssignmentService';
+import { PackageService } from './PackageService';
+import { CommissionService } from './CommissionService';
 import { AssignmentSource, ConsultantRole, AvailabilityStatus, PipelineStage } from '@prisma/client';
 
 export class JobAllocationService {
@@ -18,6 +20,20 @@ export class JobAllocationService {
    */
   static async autoAssignJob(jobId: string): Promise<{ success: boolean; consultantId?: string; error?: string }> {
     try {
+      // Check if company has paid package before allowing consultant assignment
+      const job = await JobModel.findById(jobId);
+      if (!job) {
+        return { success: false, error: 'Job not found' };
+      }
+
+      const canOffload = await PackageService.canOffloadToConsultants(job.companyId);
+      if (!canOffload) {
+        return { 
+          success: false, 
+          error: 'Companies with free packages (ATS Lite) cannot assign jobs to consultants. Please upgrade to a paid subscription to use consultant services.' 
+        };
+      }
+
       const match = await AutoAssignmentService.findBestConsultantForJob(jobId);
       
       if (!match.consultantId) {
@@ -53,6 +69,19 @@ export class JobAllocationService {
     assignmentSource?: AssignmentSource
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // Get job to check company package
+      const job = await JobModel.findById(jobId);
+      if (!job) {
+        return { success: false, error: 'Job not found' };
+      }
+
+      // Validate that company has paid package before allowing consultant assignment
+      try {
+        await PackageService.validateConsultantAssignment(job.companyId);
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+
       // Get consultant
       const consultant = await ConsultantModel.findById(consultantId);
       if (!consultant || !consultant.regionId) {
@@ -113,6 +142,16 @@ export class JobAllocationService {
           where: { id: consultantId },
           data: { currentJobs: { increment: 1 } },
         });
+      }
+
+      // Create commission for consultant if job has paid recruitment service
+      // Only create commission if this is a new assignment (not reassignment)
+      if (!oldConsultantIds.has(consultantId)) {
+        await CommissionService.createCommissionForJobAssignment(
+          jobId,
+          consultantId,
+          consultant.regionId
+        );
       }
 
       return { success: true };
@@ -270,7 +309,15 @@ export class JobAllocationService {
       note?: string | null;
       updatedBy?: string;
     }
-  ): Promise<{ success: boolean; error?: string; pipeline?: Awaited<ReturnType<typeof this.getPipelineForConsultantJob>> }> {
+  ): Promise<{ success: boolean; error?: string; pipeline?: {
+    consultantId: string;
+    jobId: string;
+    stage: PipelineStage;
+    progress: number;
+    note: string | null;
+    updatedAt: Date | null;
+    updatedBy: string | null;
+  } | null }> {
     const assignment = await ConsultantJobAssignmentModel.findByConsultantAndJob(consultantId, jobId);
     if (!assignment) {
       return { success: false, error: 'Assignment not found' };

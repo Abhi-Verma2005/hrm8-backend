@@ -68,6 +68,7 @@ router.post('/commissions', CommissionController.create);
 router.get('/commissions/:id', CommissionController.getById);
 router.put('/commissions/:id/confirm', CommissionController.confirm);
 router.put('/commissions/:id/pay', CommissionController.markAsPaid);
+router.post('/commissions/pay', CommissionController.processPayments);
 router.get('/commissions/regional', CommissionController.getRegional);
 
 // Revenue routes

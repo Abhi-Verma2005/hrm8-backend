@@ -3,6 +3,8 @@
  * Handles saved jobs, saved searches, and job alerts
  */
 
+import { randomUUID } from 'crypto';
+
 export class CandidateJobService {
     /**
      * Get all saved jobs for a candidate
@@ -10,9 +12,9 @@ export class CandidateJobService {
     static async getSavedJobs(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.savedJob.findMany({
-            where: { candidateId },
+            where: { candidate_id: candidateId },
             include: {
-                job: {
+                Job: {
                     select: {
                         id: true,
                         title: true,
@@ -35,7 +37,7 @@ export class CandidateJobService {
                     }
                 }
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { created_at: 'desc' },
         });
     }
 
@@ -48,9 +50,9 @@ export class CandidateJobService {
         // Check if already saved
         const existing = await prisma.savedJob.findUnique({
             where: {
-                candidateId_jobId: {
-                    candidateId,
-                    jobId,
+                candidate_id_job_id: {
+                    candidate_id: candidateId,
+                    job_id: jobId,
                 }
             }
         });
@@ -61,8 +63,9 @@ export class CandidateJobService {
 
         return await prisma.savedJob.create({
             data: {
-                candidateId,
-                jobId,
+                id: randomUUID(),
+                candidate_id: candidateId,
+                job_id: jobId,
             }
         });
     }
@@ -76,9 +79,9 @@ export class CandidateJobService {
         try {
             return await prisma.savedJob.delete({
                 where: {
-                    candidateId_jobId: {
-                        candidateId,
-                        jobId,
+                    candidate_id_job_id: {
+                        candidate_id: candidateId,
+                        job_id: jobId,
                     }
                 }
             });
@@ -94,8 +97,8 @@ export class CandidateJobService {
     static async getSavedSearches(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.savedSearch.findMany({
-            where: { candidateId },
-            orderBy: { lastSearchedAt: 'desc' },
+            where: { candidate_id: candidateId },
+            orderBy: { last_searched_at: 'desc' },
         });
     }
 
@@ -115,7 +118,7 @@ export class CandidateJobService {
 
         const existing = await prisma.savedSearch.findFirst({
             where: {
-                candidateId,
+                candidate_id: candidateId,
                 query: query || null,
                 // We can't easily query by JSON equality in all DBs, so we might fetch and compare in app
                 // or just rely on query text if filters are complex.
@@ -132,7 +135,7 @@ export class CandidateJobService {
                 // Update timestamp
                 return await prisma.savedSearch.update({
                     where: { id: existing.id },
-                    data: { lastSearchedAt: new Date() }
+                    data: { last_searched_at: new Date() }
                 });
             }
         }
@@ -140,10 +143,12 @@ export class CandidateJobService {
         // Create new if not found or filters differ
         return await prisma.savedSearch.create({
             data: {
-                candidateId,
+                id: randomUUID(),
+                candidate_id: candidateId,
                 query,
                 filters,
-                lastSearchedAt: new Date(),
+                last_searched_at: new Date(),
+                updated_at: new Date(),
             }
         });
     }
@@ -156,7 +161,7 @@ export class CandidateJobService {
 
         // Verify ownership
         const existing = await prisma.savedSearch.findFirst({
-            where: { id, candidateId },
+            where: { id, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -174,8 +179,8 @@ export class CandidateJobService {
     static async getJobAlerts(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.jobAlert.findMany({
-            where: { candidateId },
-            orderBy: { createdAt: 'desc' },
+            where: { candidate_id: candidateId },
+            orderBy: { created_at: 'desc' },
         });
     }
 
@@ -190,12 +195,14 @@ export class CandidateJobService {
 
         return await prisma.jobAlert.create({
             data: {
-                candidateId,
+                id: randomUUID(),
+                candidate_id: candidateId,
                 name: alertName,
                 criteria: data.criteria || {},
                 frequency: data.frequency || 'DAILY',
                 channels: data.channels || ['EMAIL'],
-                isActive: true,
+                is_active: true,
+                updated_at: new Date(),
             }
         });
     }
@@ -208,7 +215,7 @@ export class CandidateJobService {
 
         // Verify ownership
         const existing = await prisma.jobAlert.findFirst({
-            where: { id, candidateId },
+            where: { id, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -229,7 +236,7 @@ export class CandidateJobService {
 
         // Verify ownership
         const existing = await prisma.jobAlert.findFirst({
-            where: { id, candidateId },
+            where: { id, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -259,9 +266,9 @@ export class CandidateJobService {
         try {
             // Get all active job alerts
             const activeAlerts = await prisma.jobAlert.findMany({
-                where: { isActive: true },
+                where: { is_active: true },
                 include: {
-                    candidate: {
+                    Candidate: {
                         select: {
                             id: true,
                             email: true,
@@ -279,15 +286,15 @@ export class CandidateJobService {
                 console.log(`   Criteria:`, alert.criteria);
 
                 if (this.jobMatchesAlert(job, alert.criteria)) {
-                    console.log(`✅ Job matches alert ${alert.id} for candidate ${alert.candidate.email}`);
+                    console.log(`✅ Job matches alert ${alert.id} for candidate ${alert.Candidate.email}`);
 
                     // Send notifications based on channels
                     if (alert.channels.includes('EMAIL')) {
-                        await this.sendEmailNotification(alert.candidate, job);
+                        await this.sendEmailNotification(alert.Candidate, job);
                     }
 
                     if (alert.channels.includes('IN_APP')) {
-                        await this.createInAppNotification(alert.candidateId, job);
+                        await this.createInAppNotification(alert.candidate_id, job);
                     }
                 } else {
                     console.log(`❌ Job does NOT match alert ${alert.id}`);
@@ -382,14 +389,15 @@ export class CandidateJobService {
         try {
             const notification = await prisma.notification.create({
                 data: {
-                    candidateId,
+                    id: randomUUID(),
+                    candidate_id: candidateId,
                     type: 'JOB_ALERT',
                     title: 'New Job Alert',
                     message: `New job matching your criteria: ${job.title}`,
                     data: {
                         jobId: job.id,
                         jobTitle: job.title,
-                        company: job.company?.name || 'Company',
+                        company: (job as any).company?.name || 'Company',
                         location: job.location,
                         workArrangement: job.workArrangement,
                         employmentType: job.employmentType
