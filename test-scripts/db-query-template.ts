@@ -7,100 +7,61 @@
  * Edit the query function below to customize your query.
  */
 
+import { randomUUID } from 'crypto';
 import { prisma } from '../src/lib/prisma';
 
 async function runQuery() {
   try {
-    console.log('\n🔍 Checking consultants and regions for assignment drawer...\n');
+    console.log('\n🔧 Upgrading the first company to a paid subscription (payg)...\n');
     console.log('─'.repeat(70));
 
-    // ============================================
-    // EDIT THIS SECTION TO CUSTOMIZE YOUR QUERY
-    // ============================================
-
-    // 1) Inspect consultants (name/email contains "raj") and their regions/availability
-    const rajConsultants = await prisma.consultant.findMany({
-      where: {
-        OR: [
-          { firstName: { contains: 'raj', mode: 'insensitive' } },
-          { lastName: { contains: 'raj', mode: 'insensitive' } },
-          { email: { contains: 'raj', mode: 'insensitive' } },
-        ],
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        regionId: true,
-        status: true,
-        availability: true,
-        currentJobs: true,
-        maxJobs: true,
-      },
+    // Find the first company
+    const company = await prisma.company.findFirst({
+      select: { id: true, name: true, domain: true },
     });
 
-    console.log('\nConsultants matching "raj":');
-    if (rajConsultants.length === 0) {
-      console.log('  ❌ None found');
-    } else {
-      rajConsultants.forEach((c) => {
-        const workload =
-          c.maxJobs && c.maxJobs > 0 ? `${c.currentJobs}/${c.maxJobs} (${Math.round((c.currentJobs / c.maxJobs) * 100)}%)` : 'n/a';
-        console.log(
-          `  - ${c.firstName} ${c.lastName} (${c.email}) | region=${c.regionId} | status=${c.status} | availability=${c.availability} | workload=${workload}`
-        );
-      });
+    if (!company) {
+      console.log('❌ No company found in the database.');
+      return;
     }
 
-    // 2) Sample of consultants by region to confirm availability
-    const consultantCountsByRegion = await prisma.consultant.groupBy({
-      by: ['regionId'],
-      _count: { id: true },
-    });
-    console.log('\nConsultant counts by region:');
-    consultantCountsByRegion.forEach((r) => {
-      console.log(`  - region=${r.regionId ?? 'null'} -> consultants=${r._count.id}`);
+    console.log(`Found company: ${company.name} (${company.domain}) [${company.id}]`);
+
+    // Fetch existing profile data (if any)
+    const profile = await prisma.companyProfile.findUnique({
+      where: { companyId: company.id },
+      select: { profileData: true },
     });
 
-    // 3) Latest OPEN/ON_HOLD jobs and their regions to verify filter alignment
-    const recentJobs = await prisma.job.findMany({
-      where: {
-        status: { in: ['OPEN', 'ON_HOLD'] },
+    const existingProfileData = (profile?.profileData as any) ?? {};
+    const updatedProfileData = {
+      ...existingProfileData,
+      billing: {
+        ...(existingProfileData.billing ?? {}),
+        subscriptionTier: 'payg',
+      },
+      // Also set at root level for compatibility
+      subscriptionTier: 'payg',
+    };
+
+    const result = await prisma.companyProfile.upsert({
+      where: { companyId: company.id },
+      create: {
+        id: randomUUID(),
+        companyId: company.id,
+        profileData: updatedProfileData,
+      },
+      update: {
+        profileData: updatedProfileData,
       },
       select: {
-        id: true,
-        title: true,
-        status: true,
-        regionId: true,
         companyId: true,
-        assignmentMode: true,
-        assignedConsultantId: true,
+        profileData: true,
       },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
     });
 
-    console.log('\nRecent OPEN/ON_HOLD jobs (top 5):');
-    if (recentJobs.length === 0) {
-      console.log('  ❌ None found');
-    } else {
-      for (const job of recentJobs) {
-        const company = await prisma.company.findUnique({
-          where: { id: job.companyId },
-          select: { name: true, regionId: true },
-        });
-        console.log(
-          `  - ${job.title} (${job.id}) | status=${job.status} | jobRegion=${job.regionId ?? 'null'} | companyRegion=${
-            company?.regionId ?? 'null'
-          } | assigned=${job.assignedConsultantId ?? 'none'} | mode=${job.assignmentMode}`
-        );
-      }
-    }
-
-    // ============================================
-    // END OF CUSTOMIZABLE SECTION
-    // ============================================
+    console.log('\n✅ Updated subscription tier to "payg"');
+    console.log(JSON.stringify(result, null, 2));
 
     console.log('\n' + '─'.repeat(70));
     console.log('\n✅ Query complete!\n');
