@@ -41,7 +41,7 @@ export class ApplicationNotificationService {
       await prisma.notification.create({
         data: {
           id: randomUUID(),
-          candidate_id: data.candidateId,
+          candidateId: data.candidateId,
           type: data.type,
           title: data.title,
           message: data.message,

@@ -76,18 +76,18 @@ export class InterviewReminderService {
         );
 
         // Check if reminder should be sent based on preference
-        if (hoursUntilInterview <= preferences.reminder_hours_before && hoursUntilInterview > 0) {
+        if (hoursUntilInterview <= preferences.reminderHoursBefore && hoursUntilInterview > 0) {
           // Check if reminder was already sent
           const existingReminder = await prisma.notification.findFirst({
             where: {
-              candidate_id: application.candidateId,
+              candidateId: application.candidateId,
               type: 'INTERVIEW_SCHEDULED',
               data: {
                 path: ['videoInterviewId'],
                 equals: videoInterview.id,
               },
-              created_at: {
-                gte: new Date(now.getTime() - preferences.reminder_hours_before * 60 * 60 * 1000),
+              createdAt: {
+                gte: new Date(now.getTime() - preferences.reminderHoursBefore * 60 * 60 * 1000),
               },
             },
           });
@@ -113,7 +113,7 @@ export class InterviewReminderService {
               await prisma.notification.create({
                 data: {
                   id: randomUUID(),
-                  candidate_id: application.candidateId,
+                  candidateId: application.candidateId,
                   type: 'INTERVIEW_SCHEDULED',
                   title: 'Interview Reminder',
                   message: `Reminder: You have an interview for ${application.job.title} at ${application.job.company?.name || 'the company'} scheduled for ${formattedDate}.`,
@@ -162,18 +162,18 @@ export class InterviewReminderService {
         );
 
         // Check if reminder should be sent based on preference
-        if (hoursUntilInterview <= preferences.reminder_hours_before && hoursUntilInterview > 0) {
+        if (hoursUntilInterview <= preferences.reminderHoursBefore && hoursUntilInterview > 0) {
           // Check if reminder was already sent
           const existingReminder = await prisma.notification.findFirst({
             where: {
-              candidate_id: application.candidateId,
+              candidateId: application.candidateId,
               type: 'INTERVIEW_SCHEDULED',
               data: {
                 path: ['applicationId'],
                 equals: application.id,
               },
-              created_at: {
-                gte: new Date(now.getTime() - preferences.reminder_hours_before * 60 * 60 * 1000),
+              createdAt: {
+                gte: new Date(now.getTime() - preferences.reminderHoursBefore * 60 * 60 * 1000),
               },
             },
           });
@@ -199,7 +199,7 @@ export class InterviewReminderService {
               await prisma.notification.create({
                 data: {
                   id: randomUUID(),
-                  candidate_id: application.candidateId,
+                  candidateId: application.candidateId,
                   type: 'INTERVIEW_SCHEDULED',
                   title: 'Interview Reminder',
                   message: `Reminder: You have an interview for ${application.job.title} at ${application.job.company?.name || 'the company'} scheduled for ${formattedDate}.`,

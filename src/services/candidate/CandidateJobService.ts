@@ -12,9 +12,9 @@ export class CandidateJobService {
     static async getSavedJobs(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.savedJob.findMany({
-            where: { candidate_id: candidateId },
+            where: { candidateId: candidateId },
             include: {
-                Job: {
+                job: {
                     select: {
                         id: true,
                         title: true,
@@ -37,7 +37,7 @@ export class CandidateJobService {
                     }
                 }
             },
-            orderBy: { created_at: 'desc' },
+            orderBy: { createdAt: 'desc' },
         });
     }
 
@@ -50,9 +50,9 @@ export class CandidateJobService {
         // Check if already saved
         const existing = await prisma.savedJob.findUnique({
             where: {
-                candidate_id_job_id: {
-                    candidate_id: candidateId,
-                    job_id: jobId,
+                candidateId_jobId: {
+                    candidateId: candidateId,
+                    jobId: jobId,
                 }
             }
         });
@@ -64,8 +64,8 @@ export class CandidateJobService {
         return await prisma.savedJob.create({
             data: {
                 id: randomUUID(),
-                candidate_id: candidateId,
-                job_id: jobId,
+                candidateId: candidateId,
+                jobId: jobId,
             }
         });
     }
@@ -79,9 +79,9 @@ export class CandidateJobService {
         try {
             return await prisma.savedJob.delete({
                 where: {
-                    candidate_id_job_id: {
-                        candidate_id: candidateId,
-                        job_id: jobId,
+                    candidateId_jobId: {
+                        candidateId: candidateId,
+                        jobId: jobId,
                     }
                 }
             });
@@ -97,8 +97,8 @@ export class CandidateJobService {
     static async getSavedSearches(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.savedSearch.findMany({
-            where: { candidate_id: candidateId },
-            orderBy: { last_searched_at: 'desc' },
+            where: { candidateId: candidateId },
+            orderBy: { lastSearchedAt: 'desc' },
         });
     }
 
@@ -118,7 +118,7 @@ export class CandidateJobService {
 
         const existing = await prisma.savedSearch.findFirst({
             where: {
-                candidate_id: candidateId,
+                candidateId: candidateId,
                 query: query || null,
                 // We can't easily query by JSON equality in all DBs, so we might fetch and compare in app
                 // or just rely on query text if filters are complex.
@@ -135,7 +135,7 @@ export class CandidateJobService {
                 // Update timestamp
                 return await prisma.savedSearch.update({
                     where: { id: existing.id },
-                    data: { last_searched_at: new Date() }
+                    data: { lastSearchedAt: new Date() }
                 });
             }
         }
@@ -144,11 +144,10 @@ export class CandidateJobService {
         return await prisma.savedSearch.create({
             data: {
                 id: randomUUID(),
-                candidate_id: candidateId,
+                candidateId: candidateId,
                 query,
                 filters,
-                last_searched_at: new Date(),
-                updated_at: new Date(),
+                lastSearchedAt: new Date(),
             }
         });
     }
@@ -161,7 +160,7 @@ export class CandidateJobService {
 
         // Verify ownership
         const existing = await prisma.savedSearch.findFirst({
-            where: { id, candidate_id: candidateId },
+            where: { id, candidateId: candidateId },
         });
 
         if (!existing) {
@@ -179,8 +178,8 @@ export class CandidateJobService {
     static async getJobAlerts(candidateId: string) {
         const { prisma } = await import('../../lib/prisma');
         return await prisma.jobAlert.findMany({
-            where: { candidate_id: candidateId },
-            orderBy: { created_at: 'desc' },
+            where: { candidateId: candidateId },
+            orderBy: { createdAt: 'desc' },
         });
     }
 
@@ -196,13 +195,12 @@ export class CandidateJobService {
         return await prisma.jobAlert.create({
             data: {
                 id: randomUUID(),
-                candidate_id: candidateId,
+                candidateId: candidateId,
                 name: alertName,
                 criteria: data.criteria || {},
                 frequency: data.frequency || 'DAILY',
                 channels: data.channels || ['EMAIL'],
-                is_active: true,
-                updated_at: new Date(),
+                isActive: true,
             }
         });
     }
@@ -215,7 +213,7 @@ export class CandidateJobService {
 
         // Verify ownership
         const existing = await prisma.jobAlert.findFirst({
-            where: { id, candidate_id: candidateId },
+            where: { id, candidateId: candidateId },
         });
 
         if (!existing) {
@@ -236,7 +234,7 @@ export class CandidateJobService {
 
         // Verify ownership
         const existing = await prisma.jobAlert.findFirst({
-            where: { id, candidate_id: candidateId },
+            where: { id, candidateId: candidateId },
         });
 
         if (!existing) {
@@ -274,9 +272,9 @@ export class CandidateJobService {
 
             // Get all active job alerts
             const activeAlerts = await prisma.jobAlert.findMany({
-                where: { is_active: true },
+                where: { isActive: true },
                 include: {
-                    Candidate: {
+                    candidate: {
                         select: {
                             id: true,
                             email: true,
@@ -294,23 +292,24 @@ export class CandidateJobService {
                 console.log(`   Criteria:`, alert.criteria);
 
                 if (this.jobMatchesAlert(jobData, alert.criteria)) {
-                    console.log(`✅ Job matches alert ${alert.id} for candidate ${alert.candidate.email}`);
+                    const alertWithCandidate = alert as typeof alert & { candidate: { id: string; email: string; firstName: string; lastName: string } };
+                    console.log(`✅ Job matches alert ${alert.id} for candidate ${alertWithCandidate.candidate.email}`);
 
                     // Respect candidate preferences
                     const allowEmail = await CandidateNotificationPreferencesService.shouldSendNotification(
-                        alert.candidate.id,
+                        alertWithCandidate.candidate.id,
                         'JOB_ALERT',
                         'email'
                     );
                     const allowInApp = await CandidateNotificationPreferencesService.shouldSendNotification(
-                        alert.candidate.id,
+                        alertWithCandidate.candidate.id,
                         'JOB_ALERT',
                         'inApp'
                     );
 
                     // Send notifications based on channels + preferences
                     if (alert.channels.includes('EMAIL') && allowEmail) {
-                        await this.sendEmailNotification(alert.candidate, jobData);
+                        await this.sendEmailNotification(alertWithCandidate.candidate, jobData);
                     }
 
                     if (alert.channels.includes('IN_APP') && allowInApp) {
@@ -422,7 +421,7 @@ export class CandidateJobService {
             const notification = await prisma.notification.create({
                 data: {
                     id: randomUUID(),
-                    candidate_id: candidateId,
+                    candidateId: candidateId,
                     type: 'JOB_ALERT',
                     title: 'New Job Alert',
                     message: `New job matching your criteria: ${job.title}`,

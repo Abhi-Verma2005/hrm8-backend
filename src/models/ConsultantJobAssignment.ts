@@ -42,8 +42,8 @@ export class ConsultantJobAssignmentModel {
         status: assignmentData.status || 'ACTIVE',
         notes: assignmentData.notes || null,
         assignmentSource: assignmentData.assignmentSource || null,
-        pipelineStage: 'INTAKE' as PipelineStage,
-        pipelineProgress: 0,
+        pipeline_stage: 'INTAKE' as PipelineStage,
+        pipeline_progress: 0,
       },
     });
 
@@ -120,11 +120,11 @@ export class ConsultantJobAssignmentModel {
         ...(data.status !== undefined && { status: data.status }),
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(data.assignmentSource !== undefined && { assignmentSource: data.assignmentSource }),
-        ...(data.pipelineStage !== undefined && { pipelineStage: data.pipelineStage }),
-        ...(data.pipelineProgress !== undefined && { pipelineProgress: data.pipelineProgress }),
-        ...(data.pipelineNote !== undefined && { pipelineNote: data.pipelineNote }),
-        ...(data.pipelineUpdatedAt !== undefined && { pipelineUpdatedAt: data.pipelineUpdatedAt }),
-        ...(data.pipelineUpdatedBy !== undefined && { pipelineUpdatedBy: data.pipelineUpdatedBy }),
+        ...(data.pipelineStage !== undefined && { pipeline_stage: data.pipelineStage }),
+        ...(data.pipelineProgress !== undefined && { pipeline_progress: data.pipelineProgress }),
+        ...(data.pipelineNote !== undefined && { pipeline_note: data.pipelineNote }),
+        ...(data.pipelineUpdatedAt !== undefined && { pipeline_updated_at: data.pipelineUpdatedAt }),
+        ...(data.pipelineUpdatedBy !== undefined && { pipeline_updated_by: data.pipelineUpdatedBy }),
       },
     });
 
@@ -169,36 +169,21 @@ export class ConsultantJobAssignmentModel {
   /**
    * Map Prisma assignment to ConsultantJobAssignmentData interface
    */
-  private static mapPrismaToAssignment(prismaAssignment: {
-    id: string;
-    consultantId: string;
-    jobId: string;
-    assignedBy: string | null;
-    assignedAt: Date;
-    status: string;
-    notes: string | null;
-    assignmentSource?: AssignmentSource | null;
-    pipelineStage: string;
-    pipelineProgress: number;
-    pipelineNote: string | null;
-    pipelineUpdatedAt: Date | null;
-    pipelineUpdatedBy: string | null;
-  }): ConsultantJobAssignmentData {
-    const assignment = prismaAssignment as any;
+  private static mapPrismaToAssignment(prismaAssignment: any): ConsultantJobAssignmentData {
     return {
-      id: assignment.id,
-      consultantId: assignment.consultantId || assignment.consultant_id,
-      jobId: assignment.jobId || assignment.job_id,
-      assignedBy: assignment.assignedBy || assignment.assigned_by,
-      assignedAt: assignment.assignedAt || assignment.assigned_at,
-      status: assignment.status,
-      notes: assignment.notes,
-      assignmentSource: assignment.assignmentSource || assignment.assignment_source || null,
-      pipelineStage: assignment.pipelineStage || assignment.pipeline_stage,
-      pipelineProgress: assignment.pipelineProgress !== undefined ? assignment.pipelineProgress : assignment.pipeline_progress,
-      pipelineNote: assignment.pipelineNote || assignment.pipeline_note,
-      pipelineUpdatedAt: assignment.pipelineUpdatedAt || assignment.pipeline_updated_at,
-      pipelineUpdatedBy: assignment.pipelineUpdatedBy || assignment.pipeline_updated_by,
+      id: prismaAssignment.id,
+      consultantId: prismaAssignment.consultantId || prismaAssignment.consultant_id,
+      jobId: prismaAssignment.jobId || prismaAssignment.job_id,
+      assignedBy: prismaAssignment.assignedBy || prismaAssignment.assigned_by,
+      assignedAt: prismaAssignment.assignedAt || prismaAssignment.assigned_at,
+      status: prismaAssignment.status,
+      notes: prismaAssignment.notes,
+      assignmentSource: prismaAssignment.assignmentSource || prismaAssignment.assignment_source || null,
+      pipelineStage: (prismaAssignment.pipelineStage || prismaAssignment.pipeline_stage) as PipelineStage,
+      pipelineProgress: prismaAssignment.pipelineProgress !== undefined ? prismaAssignment.pipelineProgress : (prismaAssignment.pipeline_progress || 0),
+      pipelineNote: prismaAssignment.pipelineNote || prismaAssignment.pipeline_note,
+      pipelineUpdatedAt: prismaAssignment.pipelineUpdatedAt || prismaAssignment.pipeline_updated_at,
+      pipelineUpdatedBy: prismaAssignment.pipelineUpdatedBy || prismaAssignment.pipeline_updated_by,
     };
   }
 }

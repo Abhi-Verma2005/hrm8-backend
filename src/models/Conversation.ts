@@ -30,7 +30,6 @@ export class ConversationModel {
         id: randomUUID(),
         jobId: conversationData.jobId,
         candidateId: conversationData.candidateId,
-        updated_at: new Date(),
       },
     });
 
@@ -44,7 +43,7 @@ export class ConversationModel {
     const conversation = await prisma.conversation.findUnique({
       where: { id },
       include: {
-        ConversationParticipant: true,
+        participants: true,
       },
     });
 
@@ -64,7 +63,7 @@ export class ConversationModel {
         candidateId,
       },
       include: {
-        ConversationParticipant: true,
+        participants: true,
       },
     });
 
@@ -79,17 +78,17 @@ export class ConversationModel {
   ): Promise<ConversationData[]> {
     const conversations = await prisma.conversation.findMany({
       where: {
-        ConversationParticipant: {
+        participants: {
           some: {
-            participant_email: email,
+            participantEmail: email,
           },
         },
       },
       include: {
-        ConversationParticipant: true,
+        participants: true,
       },
       orderBy: {
-        updated_at: 'desc',
+        updatedAt: 'desc',
       },
     });
 
@@ -106,12 +105,11 @@ export class ConversationModel {
     const conversation = await prisma.conversation.update({
       where: { id: conversationId },
       data: {
-        last_message_id: lastMessageId,
-        last_message_at: new Date(),
-        updated_at: new Date(),
+        lastMessageId: lastMessageId,
+        lastMessageAt: new Date(),
       },
       include: {
-        ConversationParticipant: true,
+        participants: true,
       },
     });
 

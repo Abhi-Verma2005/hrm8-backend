@@ -122,7 +122,12 @@ export class ApplicationService {
             : null;
 
           // Build participants array
-          const participants = [
+          const participants: Array<{
+            participantType: ParticipantType;
+            participantId: string;
+            participantEmail: string;
+            displayName: string;
+          }> = [
             {
               participantType: ParticipantType.CANDIDATE,
               participantId: candidate.id,
@@ -900,7 +905,7 @@ export class ApplicationService {
           // Set as default if it's the first resume
           const { prisma } = await import('../../lib/prisma');
           const resumeCount = await prisma.candidateResume.count({
-            where: { candidate_id: candidate.id },
+            where: { candidateId: candidate.id },
           });
           if (resumeCount === 1) {
             await CandidateDocumentService.setDefaultResume(candidate.id, resumeDoc.id);
@@ -1014,7 +1019,12 @@ export class ApplicationService {
             : null;
 
           // Build participants array
-          const participants = [
+          const participants: Array<{
+            participantType: ParticipantType;
+            participantId: string;
+            participantEmail: string;
+            displayName: string;
+          }> = [
             {
               participantType: ParticipantType.CANDIDATE,
               participantId: candidate.id,

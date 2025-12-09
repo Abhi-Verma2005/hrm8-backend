@@ -38,13 +38,12 @@ export class MessageModel {
     const message = await prisma.message.create({
       data: {
         id: randomUUID(),
-        conversation_id: messageData.conversationId,
-        sender_email: messageData.senderEmail,
-        sender_type: messageData.senderType as any,
-        sender_id: messageData.senderId || '',
+        conversationId: messageData.conversationId,
+        senderEmail: messageData.senderEmail,
+        senderType: messageData.senderType as any,
+        senderId: messageData.senderId || '',
         content: messageData.content,
-        content_type: (messageData.type || 'TEXT') as any,
-        updated_at: new Date(),
+        contentType: (messageData.type || 'TEXT') as any,
       },
     });
 
@@ -59,10 +58,10 @@ export class MessageModel {
   ): Promise<MessageData[]> {
     const messages = await prisma.message.findMany({
       where: {
-        conversation_id: conversationId,
+        conversationId: conversationId,
       },
       orderBy: {
-        created_at: 'asc',
+        createdAt: 'asc',
       },
     });
 
@@ -76,7 +75,7 @@ export class MessageModel {
     const message = await prisma.message.update({
       where: { id: messageId },
       data: {
-        read_at: new Date(),
+        readAt: new Date(),
       },
     });
 
@@ -93,29 +92,29 @@ export class MessageModel {
     // Get messages that haven't been read by this sender
     const allMessages = await prisma.message.findMany({
       where: {
-        conversation_id: conversationId,
-        sender_email: {
+        conversationId: conversationId,
+        senderEmail: {
           not: senderEmail,
         },
       },
     });
 
-    // Filter messages where senderEmail is not in read_by array
+    // Filter messages where senderEmail is not in readBy array
     const messages = allMessages.filter(msg => {
-      const readBy = Array.isArray(msg.read_by) ? msg.read_by : [];
+      const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
       return !readBy.includes(senderEmail);
     });
 
-    // Update each message to add sender to read_by array
+    // Update each message to add sender to readBy array
     const updatePromises = messages.map(async (msg) => {
-      const currentReadBy = Array.isArray(msg.read_by) ? msg.read_by : [];
+      const currentReadBy = Array.isArray(msg.readBy) ? msg.readBy : [];
       const updatedReadBy = [...currentReadBy, senderEmail];
       
       return prisma.message.update({
         where: { id: msg.id },
         data: {
-          read_by: updatedReadBy,
-          read_at: new Date(),
+          readBy: updatedReadBy,
+          readAt: new Date(),
         },
       });
     });

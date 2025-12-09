@@ -14,7 +14,7 @@ export class CandidateNotificationService {
     }) {
         const { prisma } = await import('../../lib/prisma');
 
-        const where: any = { candidate_id: candidateId };
+        const where: any = { candidateId: candidateId };
         if (options?.unreadOnly) {
             where.read = false;
         }
@@ -22,7 +22,7 @@ export class CandidateNotificationService {
         const [notifications, total] = await Promise.all([
             prisma.notification.findMany({
                 where,
-                orderBy: { created_at: 'desc' },
+                orderBy: { createdAt: 'desc' },
                 take: options?.limit || 50,
                 skip: options?.offset || 0,
             }),
@@ -33,7 +33,7 @@ export class CandidateNotificationService {
             notifications,
             total,
             unreadCount: await prisma.notification.count({
-                where: { candidate_id: candidateId, read: false }
+                where: { candidateId: candidateId, read: false }
             })
         };
     }
@@ -45,7 +45,7 @@ export class CandidateNotificationService {
         const { prisma } = await import('../../lib/prisma');
 
         const notification = await prisma.notification.findFirst({
-            where: { id: notificationId, candidate_id: candidateId }
+            where: { id: notificationId, candidateId: candidateId }
         });
 
         if (!notification) {
@@ -56,7 +56,7 @@ export class CandidateNotificationService {
             where: { id: notificationId },
             data: {
                 read: true,
-                read_at: new Date()
+                readAt: new Date()
             }
         });
     }
@@ -69,12 +69,12 @@ export class CandidateNotificationService {
 
         return await prisma.notification.updateMany({
             where: {
-                candidate_id: candidateId,
+                candidateId: candidateId,
                 read: false
             },
             data: {
                 read: true,
-                read_at: new Date()
+                readAt: new Date()
             }
         });
     }
@@ -86,7 +86,7 @@ export class CandidateNotificationService {
         const { prisma } = await import('../../lib/prisma');
 
         const notification = await prisma.notification.findFirst({
-            where: { id: notificationId, candidate_id: candidateId }
+            where: { id: notificationId, candidateId: candidateId }
         });
 
         if (!notification) {
@@ -105,7 +105,7 @@ export class CandidateNotificationService {
         const { prisma } = await import('../../lib/prisma');
 
         return await prisma.notification.count({
-            where: { candidate_id: candidateId, read: false }
+            where: { candidateId: candidateId, read: false }
         });
     }
 }

@@ -67,7 +67,12 @@ export class CandidateMessageController {
 
       const { subject, jobId, employerUserId, consultantId } = req.body;
 
-      const participants = [
+      const participants: Array<{
+        participantType: ParticipantType;
+        participantId: string;
+        participantEmail: string;
+        displayName: string;
+      }> = [
         {
           participantType: ParticipantType.CANDIDATE,
           participantId: candidate.id,
