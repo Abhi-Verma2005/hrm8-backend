@@ -6,7 +6,7 @@
 import { ApplicationModel, ApplicationData } from '../../models/Application';
 import { CandidateModel } from '../../models/Candidate';
 import { JobModel } from '../../models/Job';
-import { ApplicationStatus, ApplicationStage, ManualScreeningStatus } from '@prisma/client';
+import { ApplicationStatus, ApplicationStage, ManualScreeningStatus, ParticipantType } from '@prisma/client';
 
 export interface SubmitApplicationRequest {
   candidateId: string;
@@ -104,6 +104,96 @@ export class ApplicationService {
         questionnaireData: applicationData.questionnaireData,
         tags: applicationData.tags,
       });
+
+      // Auto-create conversation for candidate ↔ job owner/consultant
+      try {
+        const { prisma } = await import('../../lib/prisma');
+        const existingConversation = await prisma.conversation.findFirst({
+          where: { jobId: job.id, candidateId: candidate.id },
+        });
+
+        if (!existingConversation) {
+          // Fetch owner/consultant details
+          const owner = job.createdBy
+            ? await prisma.user.findUnique({ where: { id: job.createdBy } })
+            : null;
+          const consultant = job.assignedConsultantId
+            ? await prisma.consultant.findUnique({ where: { id: job.assignedConsultantId } })
+            : null;
+
+          // Build participants array
+          const participants = [
+            {
+              participantType: ParticipantType.CANDIDATE,
+              participantId: candidate.id,
+              participantEmail: candidate.email,
+              displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
+            },
+          ];
+
+          if (owner) {
+            participants.push({
+              participantType: ParticipantType.EMPLOYER,
+              participantId: owner.id,
+              participantEmail: owner.email,
+              displayName: owner.name || owner.email,
+            });
+          }
+
+          if (consultant) {
+            participants.push({
+              participantType: ParticipantType.CONSULTANT,
+              participantId: consultant.id,
+              participantEmail: consultant.email,
+              displayName: `${consultant.firstName} ${consultant.lastName}`.trim(),
+            });
+          }
+
+          // Only create conversation if we have at least one other participant (owner or consultant)
+          if (owner || consultant) {
+            console.log(`💬 Creating conversation for application - Job: ${job.id}, Candidate: ${candidate.id}, Owner: ${owner?.id || 'none'}, Consultant: ${consultant?.id || 'none'}`);
+            
+            const newConversation = await prisma.conversation.create({
+              data: {
+                jobId: job.id,
+                candidateId: candidate.id,
+                employerUserId: owner?.id,
+                consultantId: consultant?.id,
+                channelType: consultant ? 'CANDIDATE_CONSULTANT' : 'CANDIDATE_EMPLOYER',
+                status: 'ACTIVE',
+                participants: {
+                  create: participants,
+                },
+              },
+            });
+
+            console.log(`✅ Conversation created: ${newConversation.id}`);
+
+            // Create initial system message
+            try {
+              const { ConversationService } = await import('../messaging/ConversationService');
+              await ConversationService.createMessage({
+                conversationId: newConversation.id,
+                senderType: ParticipantType.SYSTEM,
+                senderId: 'system',
+                senderEmail: 'system@hrm8.com',
+                content: `Your application for "${job.title}" has been submitted successfully! 🎉\n\nYou can use this conversation to communicate with ${consultant ? 'your HRM8 consultant' : 'the employer'} about your application. We'll keep you updated on any status changes.`,
+              });
+              console.log(`✅ Initial system message created for conversation ${newConversation.id}`);
+            } catch (msgError) {
+              console.error('❌ Failed to create initial system message:', msgError);
+              // Don't fail the application submission if message creation fails
+            }
+          } else {
+            console.warn(`⚠️ Skipping conversation creation - no owner or consultant for job ${job.id}`);
+          }
+        } else {
+          console.log(`ℹ️ Conversation already exists for job ${job.id} and candidate ${candidate.id}`);
+        }
+      } catch (convError) {
+        console.error('❌ Failed to auto-create conversation on application submit:', convError);
+        // Do not block application submission on conversation failure
+      }
 
       return application;
     } catch (error: any) {
@@ -203,11 +293,37 @@ export class ApplicationService {
    * Withdraw application
    */
   static async withdrawApplication(applicationId: string): Promise<ApplicationData> {
-    return await ApplicationModel.updateStatus(
+    const application = await ApplicationModel.updateStatus(
       applicationId,
       ApplicationStatus.WITHDRAWN,
       undefined // No stage for withdrawn applications
     );
+
+    // Archive the conversation associated with this application
+    try {
+      const { ConversationService } = await import('../messaging/ConversationService');
+      const conversation = await ConversationService.findConversationByJobAndCandidate(
+        application.jobId,
+        application.candidateId
+      );
+
+      if (conversation) {
+        const { JobModel } = await import('../../models/Job');
+        const job = await JobModel.findById(application.jobId);
+        const jobTitle = job?.title || 'the position';
+        
+        await ConversationService.archiveConversation(
+          conversation.id,
+          `This conversation has been archived because your application for "${jobTitle}" was withdrawn. You can no longer send messages in this conversation.`
+        );
+        console.log(`✅ Archived conversation ${conversation.id} for withdrawn application ${applicationId}`);
+      }
+    } catch (error) {
+      console.error('Failed to archive conversation on application withdrawal:', error);
+      // Don't fail the withdrawal if conversation archiving fails
+    }
+
+    return application;
   }
 
   /**
@@ -881,6 +997,94 @@ export class ApplicationService {
         candidate.email,
         expiresAt
       );
+
+      // Auto-create conversation for candidate ↔ job owner/consultant
+      try {
+        const { prisma } = await import('../../lib/prisma');
+        const existingConversation = await prisma.conversation.findFirst({
+          where: { jobId: job.id, candidateId: candidate.id },
+        });
+
+        if (!existingConversation) {
+          const owner = job.createdBy
+            ? await prisma.user.findUnique({ where: { id: job.createdBy } })
+            : null;
+          const consultant = job.assignedConsultantId
+            ? await prisma.consultant.findUnique({ where: { id: job.assignedConsultantId } })
+            : null;
+
+          // Build participants array
+          const participants = [
+            {
+              participantType: ParticipantType.CANDIDATE,
+              participantId: candidate.id,
+              participantEmail: candidate.email,
+              displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
+            },
+          ];
+
+          if (owner) {
+            participants.push({
+              participantType: ParticipantType.EMPLOYER,
+              participantId: owner.id,
+              participantEmail: owner.email,
+              displayName: owner.name || owner.email,
+            });
+          }
+
+          if (consultant) {
+            participants.push({
+              participantType: ParticipantType.CONSULTANT,
+              participantId: consultant.id,
+              participantEmail: consultant.email,
+              displayName: `${consultant.firstName} ${consultant.lastName}`.trim(),
+            });
+          }
+
+          // Only create conversation if we have at least one other participant (owner or consultant)
+          if (owner || consultant) {
+            console.log(`💬 Creating conversation for anonymous application - Job: ${job.id}, Candidate: ${candidate.id}, Owner: ${owner?.id || 'none'}, Consultant: ${consultant?.id || 'none'}`);
+            
+            const newConversation = await prisma.conversation.create({
+              data: {
+                jobId: job.id,
+                candidateId: candidate.id,
+                employerUserId: owner?.id,
+                consultantId: consultant?.id,
+                channelType: consultant ? 'CANDIDATE_CONSULTANT' : 'CANDIDATE_EMPLOYER',
+                status: 'ACTIVE',
+                participants: {
+                  create: participants,
+                },
+              },
+            });
+
+            console.log(`✅ Conversation created: ${newConversation.id}`);
+
+            // Create initial system message
+            try {
+              const { ConversationService } = await import('../messaging/ConversationService');
+              await ConversationService.createMessage({
+                conversationId: newConversation.id,
+                senderType: ParticipantType.SYSTEM,
+                senderId: 'system',
+                senderEmail: 'system@hrm8.com',
+                content: `Your application for "${job.title}" has been submitted successfully! 🎉\n\nYou can use this conversation to communicate with ${consultant ? 'your HRM8 consultant' : 'the employer'} about your application. We'll keep you updated on any status changes.`,
+              });
+              console.log(`✅ Initial system message created for conversation ${newConversation.id}`);
+            } catch (msgError) {
+              console.error('❌ Failed to create initial system message:', msgError);
+              // Don't fail the application submission if message creation fails
+            }
+          } else {
+            console.warn(`⚠️ Skipping conversation creation - no owner or consultant for job ${job.id}`);
+          }
+        } else {
+          console.log(`ℹ️ Conversation already exists for job ${job.id} and candidate ${candidate.id}`);
+        }
+      } catch (convError) {
+        console.error('❌ Failed to auto-create conversation on anonymous application submit:', convError);
+      }
 
       return {
         application,

@@ -574,6 +574,31 @@ export class ApplicationController {
         return;
       }
 
+      // Close the conversation associated with this application before deleting
+      try {
+        const { ConversationService } = await import('../../services/messaging/ConversationService');
+        const { JobModel } = await import('../../models/Job');
+        
+        const conversation = await ConversationService.findConversationByJobAndCandidate(
+          application.jobId,
+          application.candidateId
+        );
+
+        if (conversation) {
+          const job = await JobModel.findById(application.jobId);
+          const jobTitle = job?.title || 'the position';
+          
+          await ConversationService.closeConversation(
+            conversation.id,
+            `This conversation has been closed because your application for "${jobTitle}" was deleted. You can no longer send messages in this conversation.`
+          );
+          console.log(`✅ Closed conversation ${conversation.id} for deleted application ${id}`);
+        }
+      } catch (error) {
+        console.error('Failed to close conversation on application deletion:', error);
+        // Continue with deletion even if conversation closing fails
+      }
+
       await ApplicationModel.delete(id);
 
       res.json({

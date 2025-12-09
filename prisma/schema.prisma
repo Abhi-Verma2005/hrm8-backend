@@ -254,6 +254,7 @@ model Job {
   PreInterviewQuestionnaire           PreInterviewQuestionnaire[]
   SavedJob                            SavedJob[]
   ScreeningCriteria                   ScreeningCriteria[]
+  conversations                       Conversation[]
 
   @@index([companyId])
   @@index([createdBy])
@@ -266,45 +267,45 @@ model Job {
 }
 
 model Candidate {
-  id                String                    @id @default(uuid())
-  email             String                    @unique
-  passwordHash      String                    @map("password_hash")
-  firstName         String                    @map("first_name")
-  lastName          String                    @map("last_name")
-  phone             String?
-  photo             String?
-  linkedInUrl       String?                   @map("linked_in_url")
-  city              String?
-  state             String?
-  country           String?                   @default("United States")
-  visaStatus        String?                   @map("visa_status")
-  workEligibility   String?                   @map("work_eligibility")
-  jobTypePreference String[]                  @default([]) @map("job_type_preference")
-  salaryPreference  Json?                     @map("salary_preference")
-  relocationWilling Boolean?                  @default(false) @map("relocation_willing")
-  remotePreference  String?                   @map("remote_preference")
-  emailVerified     Boolean                   @default(false) @map("email_verified")
-  status            CandidateStatus           @default(ACTIVE)
-  lastLoginAt       DateTime?                 @map("last_login_at")
-  createdAt         DateTime                  @default(now()) @map("created_at")
-  updatedAt         DateTime                  @updatedAt @map("updated_at")
-  resumeUrl         String?                   @map("resume_url")
-  applications      Application[]
-  certifications    CandidateCertification[]
-  coverLetters      CandidateCoverLetter[]
-  education         CandidateEducation[]
-  portfolioItems    CandidatePortfolio[]
-  resumes           CandidateResume[]
-  sessions          CandidateSession[]
-  skills            CandidateSkill[]
-  training          CandidateTraining[]
-  workExperience    CandidateWorkExperience[]
-  jobAlerts              JobAlert[]
-  JobInvitation          JobInvitation[]
-  notifications          Notification[]
+  id                      String                    @id @default(uuid())
+  email                   String                    @unique
+  passwordHash            String                    @map("password_hash")
+  firstName               String                    @map("first_name")
+  lastName                String                    @map("last_name")
+  phone                   String?
+  photo                   String?
+  linkedInUrl             String?                   @map("linked_in_url")
+  city                    String?
+  state                   String?
+  country                 String?                   @default("United States")
+  visaStatus              String?                   @map("visa_status")
+  workEligibility         String?                   @map("work_eligibility")
+  jobTypePreference       String[]                  @default([]) @map("job_type_preference")
+  salaryPreference        Json?                     @map("salary_preference")
+  relocationWilling       Boolean?                  @default(false) @map("relocation_willing")
+  remotePreference        String?                   @map("remote_preference")
+  emailVerified           Boolean                   @default(false) @map("email_verified")
+  status                  CandidateStatus           @default(ACTIVE)
+  lastLoginAt             DateTime?                 @map("last_login_at")
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
+  resumeUrl               String?                   @map("resume_url")
+  applications            Application[]
+  certifications          CandidateCertification[]
+  coverLetters            CandidateCoverLetter[]
+  education               CandidateEducation[]
+  portfolioItems          CandidatePortfolio[]
+  resumes                 CandidateResume[]
+  sessions                CandidateSession[]
+  skills                  CandidateSkill[]
+  training                CandidateTraining[]
+  workExperience          CandidateWorkExperience[]
+  jobAlerts               JobAlert[]
+  JobInvitation           JobInvitation[]
+  notifications           Notification[]
   notificationPreferences NotificationPreferences?
-  savedJobs              SavedJob[]
-  savedSearches          SavedSearch[]
+  savedJobs               SavedJob[]
+  savedSearches           SavedSearch[]
 
   @@index([email])
   @@index([status])
@@ -466,21 +467,96 @@ model Notification {
 }
 
 model NotificationPreferences {
-  id                      String   @id @default(uuid())
-  candidateId             String   @unique @map("candidate_id")
-  applicationStatusChanges Boolean  @default(true) @map("application_status_changes")
-  interviewReminders      Boolean  @default(true) @map("interview_reminders")
-  jobMatchAlerts          Boolean  @default(true) @map("job_match_alerts")
-  messages                Boolean  @default(true) @map("messages")
-  systemUpdates           Boolean  @default(true) @map("system_updates")
-  emailEnabled            Boolean  @default(true) @map("email_enabled")
-  inAppEnabled            Boolean  @default(true) @map("in_app_enabled")
-  reminderHoursBefore     Int      @default(24) @map("reminder_hours_before")
-  createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt @map("updated_at")
-  candidate               Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  id                       String    @id @default(uuid())
+  candidateId              String    @unique @map("candidate_id")
+  applicationStatusChanges Boolean   @default(true) @map("application_status_changes")
+  interviewReminders       Boolean   @default(true) @map("interview_reminders")
+  jobMatchAlerts           Boolean   @default(true) @map("job_match_alerts")
+  messages                 Boolean   @default(true) @map("messages")
+  systemUpdates            Boolean   @default(true) @map("system_updates")
+  emailEnabled             Boolean   @default(true) @map("email_enabled")
+  inAppEnabled             Boolean   @default(true) @map("in_app_enabled")
+  reminderHoursBefore      Int       @default(24) @map("reminder_hours_before")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+  candidate                Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@index([candidateId])
+}
+
+model Conversation {
+  id             String                    @id @default(uuid())
+  subject        String?
+  jobId          String?
+  candidateId    String?
+  employerUserId String?
+  consultantId   String?
+  channelType    ConversationChannelType   @default(CANDIDATE_EMPLOYER) @map("channel_type")
+  lastMessageId  String?                   @map("last_message_id")
+  lastMessageAt  DateTime?                 @map("last_message_at")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  updatedAt      DateTime                  @updatedAt @map("updated_at")
+  status         ConversationStatus        @default(ACTIVE) @map("status")
+  participants   ConversationParticipant[]
+  messages       Message[]
+  job            Job?                     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@index([employerUserId])
+  @@index([consultantId])
+  @@index([jobId])
+  @@index([lastMessageAt])
+  @@index([status])
+}
+
+model ConversationParticipant {
+  id               String          @id @default(uuid())
+  conversationId   String          @map("conversation_id")
+  participantType  ParticipantType @map("participant_type")
+  participantId    String          @map("participant_id")
+  participantEmail String          @map("participant_email")
+  displayName      String?
+  createdAt        DateTime        @default(now()) @map("created_at")
+  conversation     Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([participantId])
+  @@index([participantType])
+}
+
+model Message {
+  id                 String              @id @default(uuid())
+  conversationId     String              @map("conversation_id")
+  senderType         ParticipantType     @map("sender_type")
+  senderId           String              @map("sender_id")
+  senderEmail        String              @map("sender_email")
+  content            String
+  contentType        MessageContentType  @default(TEXT) @map("content_type")
+  inReplyToMessageId String?             @map("in_reply_to_message_id")
+  readBy             String[]            @default([]) @map("read_by")
+  deliveredAt        DateTime?           @map("delivered_at")
+  readAt             DateTime?           @map("read_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  conversation       Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  attachments        MessageAttachment[]
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@index([senderId])
+}
+
+model MessageAttachment {
+  id        String   @id @default(uuid())
+  messageId String   @map("message_id")
+  fileName  String   @map("file_name")
+  fileUrl   String   @map("file_url")
+  mimeType  String   @map("mime_type")
+  size      Int
+  createdAt DateTime @default(now()) @map("created_at")
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
 }
 
 model CandidateResume {
@@ -791,21 +867,27 @@ model Consultant {
 }
 
 model ConsultantJobAssignment {
-  id               String            @id @default(uuid())
-  consultantId     String            @map("consultant_id")
-  jobId            String            @map("job_id")
-  assignedAt       DateTime          @default(now()) @map("assigned_at")
-  assignedBy       String?           @map("assigned_by")
-  status           String            @default("ACTIVE")
-  notes            String?
-  assignmentSource AssignmentSource? @map("assignment_source")
-  consultant       Consultant        @relation(fields: [consultantId], references: [id], onDelete: Cascade)
-  job              Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id                  String            @id @default(uuid())
+  consultantId        String            @map("consultant_id")
+  jobId               String            @map("job_id")
+  assignedAt          DateTime          @default(now()) @map("assigned_at")
+  assignedBy          String?           @map("assigned_by")
+  status              String            @default("ACTIVE")
+  notes               String?
+  assignmentSource    AssignmentSource? @map("assignment_source")
+  pipeline_note       String?
+  pipeline_progress   Int               @default(0)
+  pipeline_stage      PipelineStage     @default(INTAKE)
+  pipeline_updated_at DateTime?
+  pipeline_updated_by String?
+  consultant          Consultant        @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  job                 Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([consultantId, jobId])
   @@index([consultantId])
   @@index([jobId])
   @@index([status])
+  @@index([pipeline_stage])
 }
 
 model ConsultantSession {
@@ -1510,4 +1592,41 @@ enum ScoringMethod {
   AVERAGE
   WEIGHTED
   CONSENSUS
+}
+
+enum ConversationChannelType {
+  CANDIDATE_EMPLOYER
+  CANDIDATE_CONSULTANT
+  SYSTEM
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  CLOSED
+}
+
+enum ParticipantType {
+  CANDIDATE
+  EMPLOYER
+  CONSULTANT
+  SYSTEM
+}
+
+enum MessageContentType {
+  TEXT
+  FILE
+  SYSTEM
+}
+
+enum PipelineStage {
+  INTAKE
+  SOURCING
+  SCREENING
+  SHORTLIST_SENT
+  INTERVIEW
+  OFFER
+  PLACED
+  ON_HOLD
+  CLOSED
 }

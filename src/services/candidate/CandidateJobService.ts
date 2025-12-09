@@ -247,6 +247,7 @@ export class CandidateJobService {
      */
     static async processJobAlerts(job: any) {
         const { prisma } = await import('../../lib/prisma');
+        const { CandidateNotificationPreferencesService } = await import('../candidate/CandidateNotificationPreferencesService');
 
         console.log('🔔 processJobAlerts called for job:', {
             id: job.id,
@@ -257,6 +258,13 @@ export class CandidateJobService {
         });
 
         try {
+            // Re-fetch job with company info for richer notifications
+            const jobWithCompany = await prisma.job.findUnique({
+                where: { id: job.id },
+                include: { company: true },
+            });
+            const jobData = jobWithCompany || job;
+
             // Get all active job alerts
             const activeAlerts = await prisma.jobAlert.findMany({
                 where: { isActive: true },
@@ -278,16 +286,28 @@ export class CandidateJobService {
                 console.log(`🔍 Checking alert "${alert.name}" (ID: ${alert.id})`);
                 console.log(`   Criteria:`, alert.criteria);
 
-                if (this.jobMatchesAlert(job, alert.criteria)) {
+                if (this.jobMatchesAlert(jobData, alert.criteria)) {
                     console.log(`✅ Job matches alert ${alert.id} for candidate ${alert.candidate.email}`);
 
-                    // Send notifications based on channels
-                    if (alert.channels.includes('EMAIL')) {
-                        await this.sendEmailNotification(alert.candidate, job);
+                    // Respect candidate preferences
+                    const allowEmail = await CandidateNotificationPreferencesService.shouldSendNotification(
+                        alert.candidate.id,
+                        'JOB_ALERT',
+                        'email'
+                    );
+                    const allowInApp = await CandidateNotificationPreferencesService.shouldSendNotification(
+                        alert.candidate.id,
+                        'JOB_ALERT',
+                        'inApp'
+                    );
+
+                    // Send notifications based on channels + preferences
+                    if (alert.channels.includes('EMAIL') && allowEmail) {
+                        await this.sendEmailNotification(alert.candidate, jobData);
                     }
 
-                    if (alert.channels.includes('IN_APP')) {
-                        await this.createInAppNotification(alert.candidateId, job);
+                    if (alert.channels.includes('IN_APP') && allowInApp) {
+                        await this.createInAppNotification(alert.candidateId, jobData);
                     }
                 } else {
                     console.log(`❌ Job does NOT match alert ${alert.id}`);
@@ -378,8 +398,20 @@ export class CandidateJobService {
      */
     private static async createInAppNotification(candidateId: string, job: any) {
         const { prisma } = await import('../../lib/prisma');
+        const { CandidateNotificationPreferencesService } = await import('../candidate/CandidateNotificationPreferencesService');
 
         try {
+            const shouldSend = await CandidateNotificationPreferencesService.shouldSendNotification(
+                candidateId,
+                'JOB_ALERT',
+                'inApp'
+            );
+
+            if (!shouldSend) {
+                console.log(`⏭️ In-app job alert skipped by preferences for candidate ${candidateId}`);
+                return;
+            }
+
             const notification = await prisma.notification.create({
                 data: {
                     candidateId,
@@ -389,7 +421,7 @@ export class CandidateJobService {
                     data: {
                         jobId: job.id,
                         jobTitle: job.title,
-                        company: job.company?.name || 'Company',
+                        companyName: job.company?.name || job.companyName || 'Company',
                         location: job.location,
                         workArrangement: job.workArrangement,
                         employmentType: job.employmentType

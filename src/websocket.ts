@@ -6,83 +6,9 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
 import { authenticateWebSocket } from './utils/websocketAuth';
-// import { ConversationModel } from './models/Conversation';
-// import { MessageModel } from './models/Message';
+import { ConversationService } from './services/messaging/ConversationService';
+import { ParticipantType } from '@prisma/client';
 import { ClientConnection, WSMessage } from './types';
-
-// TODO: Re-implement conversation/messaging when Conversation and Message models are added back to schema
-// Stub implementations to prevent compilation errors
-const ConversationModel = {
-  findById: async (_id: string): Promise<{
-    id: string;
-    jobId: string;
-    candidateId: string;
-    participants: string[];
-    lastMessageId?: string;
-    createdAt: Date;
-    updatedAt: Date;
-  } | null> => {
-    console.warn('ConversationModel.findById called but model is disabled');
-    return null;
-  },
-  updateLastMessage: async (_conversationId: string, _lastMessageId: string): Promise<{
-    id: string;
-    jobId: string;
-    candidateId: string;
-    participants: string[];
-    lastMessageId?: string;
-    createdAt: Date;
-    updatedAt: Date;
-  }> => {
-    console.warn('ConversationModel.updateLastMessage called but model is disabled');
-    throw new Error('Conversation model not available');
-  },
-};
-
-const MessageModel = {
-  findByConversationId: async (_conversationId: string): Promise<{
-    id: string;
-    conversationId: string;
-    senderEmail: string;
-    senderType: string;
-    senderId?: string;
-    content: string;
-    type: string;
-    isRead: boolean;
-    readAt?: Date;
-    createdAt: Date;
-    updatedAt: Date;
-  }[]> => {
-    console.warn('MessageModel.findByConversationId called but model is disabled');
-    return [];
-  },
-  create: async (_messageData: {
-    conversationId: string;
-    senderEmail: string;
-    senderType: string;
-    senderId?: string;
-    content: string;
-    type?: string;
-  }): Promise<{
-    id: string;
-    conversationId: string;
-    senderEmail: string;
-    senderType: string;
-    senderId?: string;
-    content: string;
-    type: string;
-    isRead: boolean;
-    readAt?: Date;
-    createdAt: Date;
-    updatedAt: Date;
-  }> => {
-    console.warn('MessageModel.create called but model is disabled');
-    throw new Error('Message model not available');
-  },
-  markMultipleAsRead: async (_conversationId: string, _userEmail: string): Promise<void> => {
-    console.warn('MessageModel.markMultipleAsRead called but model is disabled');
-  },
-};
 
 console.log('🚀 Starting WebSocket server initialization...');
 
@@ -92,6 +18,11 @@ const conversationRooms = new Map<string, Set<string>>();
 
 const buildConnectionKey = (userType: 'USER' | 'CANDIDATE', userId: string) =>
   `${userType}:${userId}`;
+
+const resolveParticipantType = (userType: 'USER' | 'CANDIDATE'): ParticipantType => {
+  if (userType === 'USER') return ParticipantType.EMPLOYER;
+  return ParticipantType.CANDIDATE;
+};
 
 const describeConnectionKey = (connectionKey: string) => {
   const connection = connections.get(connectionKey);
@@ -302,7 +233,7 @@ const getConversationMessages = async (conversationId: string) => {
   console.log(`💬 Fetching messages for conversation ${conversationId}`);
 
   try {
-    const messages = await MessageModel.findByConversationId(conversationId);
+    const messages = await ConversationService.listMessages(conversationId, 50);
     console.log(
       `✅ Found ${messages.length} messages for conversation ${conversationId}`
     );
@@ -526,9 +457,7 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
                 );
 
               // Fetch conversation from database
-              const conversation = await ConversationModel.findById(
-                conversationId
-              );
+              const conversation = await ConversationService.getConversation(conversationId);
 
               if (!conversation) {
                 console.log(`❌ Conversation not found: ${conversationId}`);
@@ -539,18 +468,16 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
               console.log(`✅ Conversation found: ${conversation.id}`);
               console.log(
                 `👥 Conversation participants:`,
-                conversation.participants
+                conversation.participants.map((p) => `${p.participantType}:${p.participantEmail}`)
               );
 
-              // Check if user is participant
-              if (
-                !conversation.participants.includes(currentConnection.userEmail)
-              ) {
+              const isParticipant = conversation.participants.some(
+                (p) => p.participantId === currentConnection.userId
+              );
+
+              if (!isParticipant) {
                 console.log(
                   `🚫 Access denied - ${currentConnection.userEmail} not in participants list`
-                );
-                console.log(
-                  `🧾 Conversation participants: ${conversation.participants.join(', ')}`
                 );
                 sendError(ws, 'Access denied to this conversation', 4003);
                 return;
@@ -586,9 +513,7 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
               console.log(
                 `💬 Loading conversation messages for ${conversationId}`
               );
-              const conversationMessages = await getConversationMessages(
-                conversationId
-              );
+              const conversationMessages = await getConversationMessages(conversationId);
               console.log(
                 `📤 Sending ${conversationMessages.length} messages to ${currentConnection.userEmail}`
               );
@@ -600,7 +525,7 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
                     conversationId,
                     messages: conversationMessages.map((msg) => ({
                       ...msg,
-                      isOwn: msg.senderEmail === currentConnection!.userEmail,
+                      isOwn: msg.senderId === currentConnection!.userId,
                     })),
                   },
                 })
@@ -615,11 +540,10 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
                 `👁️ Marking messages as read for ${currentConnection.userEmail} in conversation ${conversationId}`
               );
 
-              const updateResult =
-                await MessageModel.markMultipleAsRead(
-                  conversationId,
-                  currentConnection.userEmail
-                );
+              const updateResult = await ConversationService.markMessagesAsRead(
+                conversationId,
+                currentConnection.userId
+              );
               console.log(`✅ Marked ${updateResult} messages as read`);
 
               // Notify others in the room that user joined
@@ -692,23 +616,16 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
               );
 
               // Verify conversation exists and user has access
-              const msgConversation = await ConversationModel.findById(
-                msgConvId
-              );
+              const msgConversation = await ConversationService.getConversation(msgConvId);
 
               if (
                 !msgConversation ||
-                !msgConversation.participants.includes(
-                  currentConnection.userEmail
+                !msgConversation.participants.some(
+                  (p) => p.participantId === currentConnection.userId
                 )
               ) {
                 console.log(
                   `🚫 Access denied to conversation ${msgConvId} for user ${currentConnection.userEmail}`
-                );
-                console.log(
-                  `🧾 Conversation participants: ${
-                    msgConversation?.participants.join(', ') || '<none>'
-                  }`
                 );
                 sendError(ws, 'Access denied to this conversation', 4003);
                 return;
@@ -717,39 +634,24 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
               console.log(`✅ Conversation access verified for ${msgConvId}`);
               console.log(
                 `👥 Conversation participants:`,
-                msgConversation.participants
+                msgConversation.participants.map((p) => `${p.participantType}:${p.participantEmail}`)
               );
               logRoomState(msgConvId);
 
               // Create message in database
               console.log(`💾 Creating message in database...`);
 
-              const newMessage = await MessageModel.create({
+              const newMessage = await ConversationService.createMessage({
                 conversationId: msgConvId,
                 senderEmail: currentConnection.userEmail,
-                senderType:
-                  currentConnection.userType === 'USER' 
-                    ? 'USER' 
-                    : 'CANDIDATE',
+                senderType: resolveParticipantType(currentConnection.userType),
                 senderId: currentConnection.userId,
                 content: content.trim(),
-                type: 'TEXT',
               });
 
               console.log(
                 `✅ Message created in database with ID: ${newMessage.id}`
               );
-
-              // Update conversation's lastMessage and updatedAt
-              console.log(
-                `🔄 Updating conversation lastMessage for ${msgConvId}`
-              );
-
-              await ConversationModel.updateLastMessage(
-                msgConvId,
-                newMessage.id
-              );
-              console.log(`✅ Conversation updated successfully`);
 
               // Broadcast message to all participants in the conversation
               console.log(

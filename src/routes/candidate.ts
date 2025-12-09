@@ -157,6 +157,7 @@ router.delete('/job-alerts/:id', CandidateJobController.deleteJobAlert);
 
 // Notifications
 import { CandidateNotificationController } from '../controllers/candidate/CandidateNotificationController';
+import { CandidateMessageController } from '../controllers/candidate/CandidateMessageController';
 
 router.get('/notifications', CandidateNotificationController.getNotifications);
 router.get('/notifications/unread-count', CandidateNotificationController.getUnreadCount);
@@ -166,6 +167,14 @@ router.delete('/notifications/:id', CandidateNotificationController.deleteNotifi
 router.get('/notifications/preferences', CandidateNotificationController.getPreferences);
 router.put('/notifications/preferences', CandidateNotificationController.updatePreferences);
 router.get('/notifications/upcoming-interviews', CandidateNotificationController.getUpcomingInterviews);
+
+// Messaging (conversations)
+router.get('/messages/conversations', CandidateMessageController.listConversations);
+router.get('/messages/conversations/:id', CandidateMessageController.getConversationMessages);
+router.post('/messages/conversations', CandidateMessageController.createConversation);
+router.post('/messages/conversations/:id/messages', CandidateMessageController.sendMessage);
+router.put('/messages/conversations/:id/read', CandidateMessageController.markRead);
+router.get('/messages/unread-count', CandidateMessageController.unreadCount);
 
 export default router;
 
