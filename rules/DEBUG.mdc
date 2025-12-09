@@ -1,0 +1,468 @@
+# Backend Testing & Debugging Guide
+
+This guide explains how to test and debug backend functionality using the testing scripts and tools provided.
+
+## Overview
+
+When debugging broken flows or verifying backend functionality, follow this systematic approach:
+
+1. **Database Query** - First verify the data state in the database
+2. **Backend API Test** - Then test the backend endpoint with proper authentication
+3. **Analysis** - Compare results to identify issues
+
+## Quick Start
+
+### Prerequisites
+
+- Backend server running in development mode (`npm run dev` or `pnpm dev`)
+- Frontend running in development mode (`npm run dev` or `pnpm dev`)
+- User logged in (consultant, candidate, HRM8 user, or regular user)
+
+### Testing Flow
+
+```
+1. Identify the broken flow/endpoint
+   ↓
+2. Query database to verify data state
+   ↓
+3. Get session cookie from Developer Tools
+   ↓
+4. Test backend endpoint with curl script
+   ↓
+5. Analyze results and fix issues
+```
+
+---
+
+## Step 1: Database Query Testing
+
+### Purpose
+Verify the current state of data in the database before testing backend endpoints.
+
+### Usage
+
+**Option A: Edit the template file (Recommended)**
+```bash
+cd backend
+# Edit test-scripts/db-query-template.ts with your query
+npx ts-node test-scripts/db-query-template.ts
+```
+
+**Option B: Use the helper script**
+```bash
+cd backend
+./test-scripts/run-test.sh db
+```
+
+### Example: Query Consultant Job Assignments
+
+Edit `test-scripts/db-query-template.ts`:
+
+```typescript
+// Example: Get active assignments for a consultant
+const consultantId = 'cf449fef-003e-454b-bc0f-ea74489bd402';
+
+const assignments = await prisma.consultantJobAssignment.findMany({
+  where: {
+    consultantId,
+    status: 'ACTIVE',
+  },
+  select: {
+    jobId: true,
+  },
+});
+
+const jobIds = assignments.map(a => a.jobId);
+console.log('Job IDs from assignments:', jobIds.length);
+
+const jobs = await prisma.job.findMany({
+  where: {
+    id: { in: jobIds },
+  },
+  select: {
+    id: true,
+    title: true,
+    status: true,
+  },
+});
+
+console.log('\nJobs found:', jobs.length);
+jobs.forEach(j => console.log(`  - ${j.title}: status=${j.status}`));
+```
+
+### Key Points for Cursor AI
+
+- **Reusable File**: Edit `db-query-template.ts` instead of writing inline commands
+- **No Repeated Imports**: Prisma is already imported, just edit the query section
+- **Always Disconnect**: The template handles `prisma.$disconnect()` automatically
+- **Error Handling**: Template includes try/catch for better error messages
+
+---
+
+## Step 2: Get Session Cookie
+
+### Purpose
+Obtain the authentication cookie needed to test protected backend endpoints.
+
+### Method: Developer Tools (Recommended)
+
+1. **Log in** to the frontend application (as consultant, candidate, HRM8 user, or regular user)
+2. **Navigate** to the profile page:
+   - Consultants: `/consultant/profile`
+   - Candidates: `/candidate/profile`
+   - Company users: `/company-profile`
+   - Regular users: `/profile`
+3. **Scroll down** to the "Developer Tools" section
+4. **Copy** the session cookie string (it will be automatically displayed)
+
+The Developer Tools component:
+- ✅ Automatically fetches httpOnly cookies from the backend
+- ✅ Shows all session cookies (consultantSessionId, sessionId, hrm8SessionId, candidateSessionId)
+- ✅ Provides one-click copy functionality
+- ✅ Only visible in development mode
+
+### Session Cookie Types
+
+| User Type | Cookie Name | Example Endpoint |
+|-----------|-------------|------------------|
+| Consultant | `consultantSessionId` | `/api/consultant/auth/me` |
+| Regular User | `sessionId` | `/api/auth/me` |
+| HRM8 User | `hrm8SessionId` | `/api/hrm8/auth/me` |
+| Candidate | `candidateSessionId` | `/api/candidate/auth/me` |
+
+---
+
+## Step 3: Backend API Testing
+
+### Purpose
+Test backend endpoints with proper authentication to verify they work correctly.
+
+### Usage
+
+**Basic GET request:**
+```bash
+cd backend
+npx ts-node test-scripts/curl-test-template.ts \
+  --cookie "consultantSessionId=your-cookie-value" \
+  --endpoint "/api/consultant/auth/me" \
+  --method GET
+```
+
+**POST request with body:**
+```bash
+cd backend
+npx ts-node test-scripts/curl-test-template.ts \
+  --cookie "consultantSessionId=your-cookie-value" \
+  --endpoint "/api/consultant/jobs" \
+  --method POST \
+  --body '{"title":"Test Job","description":"Test description"}'
+```
+
+**With custom headers:**
+```bash
+cd backend
+npx ts-node test-scripts/curl-test-template.ts \
+  --cookie "consultantSessionId=your-cookie-value" \
+  --endpoint "/api/consultant/jobs" \
+  --method GET \
+  --header "X-Request-ID: 12345"
+```
+
+**Using helper script:**
+```bash
+cd backend
+./test-scripts/run-test.sh curl "consultantSessionId=your-cookie-value"
+```
+
+### Command-Line Options
+
+| Option | Short | Description | Example |
+|--------|-------|-------------|---------|
+| `--cookie` | `-c` | Session cookie string (required) | `--cookie "sessionId=abc123"` |
+| `--endpoint` | `-e` | API endpoint path | `--endpoint "/api/auth/me"` |
+| `--method` | `-m` | HTTP method | `--method GET` (default: GET) |
+| `--body` | `-b` | Request body (JSON string) | `--body '{"key":"value"}'` |
+| `--header` | `-H` | Custom header (can use multiple times) | `--header "X-Custom: value"` |
+| `--base-url` | `-u` | Override API base URL | `--base-url "http://localhost:3000"` |
+| `--help` | `-h` | Show help message | `--help` |
+
+### Editing the Template for Multiple Requests
+
+If you need to test multiple endpoints, edit `test-scripts/curl-test-template.ts`:
+
+```typescript
+// In the runTest() function, add multiple executeCurl calls:
+
+// Test 1: Get current user
+executeCurl('GET', '/api/consultant/auth/me');
+
+// Test 2: Get jobs
+executeCurl('GET', '/api/consultant/jobs');
+
+// Test 3: Create a job
+executeCurl('POST', '/api/consultant/jobs', {
+  body: {
+    title: 'Test Job',
+    description: 'Test description',
+  }
+});
+```
+
+### Key Points for Cursor AI
+
+- **Cookie Format**: Use `cookieName=value` format, or `cookieName=value; otherCookie=value` for multiple
+- **Endpoint Path**: Always start with `/` (e.g., `/api/consultant/auth/me`)
+- **JSON Body**: Must be valid JSON string (use single quotes for shell)
+- **Reusable File**: Edit `curl-test-template.ts` for repeated tests
+- **Verbose Output**: Script shows full curl output including headers and response
+
+---
+
+## Debugging Workflow for Cursor AI
+
+### When Debugging a Broken Flow:
+
+1. **Understand the Issue**
+   - What endpoint is failing?
+   - What error is the user seeing?
+   - What should the endpoint do?
+
+2. **Check Database State**
+   ```bash
+   # Edit db-query-template.ts with relevant query
+   cd backend && npx ts-node test-scripts/db-query-template.ts
+   ```
+   - Verify data exists
+   - Check relationships
+   - Confirm data integrity
+
+3. **Get Authentication Cookie**
+   - User logs in to frontend
+   - Navigate to profile → Developer Tools
+   - Copy session cookie
+
+4. **Test Backend Endpoint**
+   ```bash
+   cd backend
+   npx ts-node test-scripts/curl-test-template.ts \
+     --cookie "<copied-cookie>" \
+     --endpoint "/api/endpoint/path" \
+     --method GET
+   ```
+
+5. **Analyze Results**
+   - Compare database state vs API response
+   - Check HTTP status codes
+   - Review error messages
+   - Verify authentication is working
+
+6. **Fix and Re-test**
+   - Make code changes
+   - Re-run database query
+   - Re-test API endpoint
+   - Verify fix
+
+### Common Debugging Scenarios
+
+#### Scenario 1: "User not authenticated" Error
+
+**Check:**
+1. Is the cookie correct? (Check Developer Tools)
+2. Is the cookie expired? (Try logging in again)
+3. Is the cookie name correct? (consultantSessionId vs sessionId)
+
+**Test:**
+```bash
+# Test auth endpoint first
+npx ts-node test-scripts/curl-test-template.ts \
+  --cookie "consultantSessionId=value" \
+  --endpoint "/api/consultant/auth/me" \
+  --method GET
+```
+
+#### Scenario 2: "Data not found" Error
+
+**Check:**
+1. Query database to verify data exists
+2. Check if user has permission to access data
+3. Verify relationships (foreign keys, etc.)
+
+**Test:**
+```bash
+# First check database
+npx ts-node test-scripts/db-query-template.ts
+
+# Then test API
+npx ts-node test-scripts/curl-test-template.ts \
+  --cookie "sessionId=value" \
+  --endpoint "/api/jobs/123" \
+  --method GET
+```
+
+#### Scenario 3: "Validation Error" on POST/PUT
+
+**Check:**
+1. Review request body structure
+2. Check required fields
+3. Verify data types
+
+**Test:**
+```bash
+# Test with minimal body first
+npx ts-node test-scripts/curl-test-template.ts \
+  --cookie "sessionId=value" \
+  --endpoint "/api/jobs" \
+  --method POST \
+  --body '{"title":"Test"}'
+```
+
+---
+
+## File Structure
+
+```
+backend/test-scripts/
+├── README.md                    # This file
+├── db-query-template.ts         # Database query template (edit this)
+├── curl-test-template.ts       # API testing template (edit this)
+└── run-test.sh                 # Helper script for running tests
+```
+
+---
+
+## Environment Variables
+
+### Backend
+
+- `API_BASE_URL` - Default: `http://localhost:3000`
+- `NODE_ENV` - Must be `development` for dev routes to work
+
+### Frontend
+
+- `VITE_API_URL` - Default: `http://localhost:3000`
+- Development mode automatically enabled when running `npm run dev`
+
+---
+
+## Tips for Cursor AI
+
+1. **Always Start with Database Query**
+   - Understand the data state before testing APIs
+   - Use Prisma queries to verify relationships
+
+2. **Use Reusable Files**
+   - Edit template files instead of writing inline commands
+   - Saves tokens and makes iteration faster
+
+3. **Copy Cookies from Developer Tools**
+   - Don't manually extract from browser DevTools
+   - Use the Developer Tools component in profile pages
+
+4. **Test Incrementally**
+   - Start with simple GET requests
+   - Then test POST/PUT with minimal data
+   - Build up complexity gradually
+
+5. **Check Both Success and Error Cases**
+   - Test with valid data
+   - Test with invalid data
+   - Test with missing data
+
+6. **Use Verbose Output**
+   - The curl script shows full request/response
+   - Check HTTP headers for clues
+   - Review response body structure
+
+---
+
+## Example: Complete Debugging Session
+
+Let's say a consultant can't see their assigned jobs:
+
+```bash
+# Step 1: Check database - are there assignments?
+# Edit db-query-template.ts:
+const consultantId = 'cf449fef-003e-454b-bc0f-ea74489bd402';
+const assignments = await prisma.consultantJobAssignment.findMany({
+  where: { consultantId, status: 'ACTIVE' }
+});
+console.log('Assignments:', assignments);
+
+# Run:
+cd backend && npx ts-node test-scripts/db-query-template.ts
+# Output: Found 3 active assignments ✅
+
+# Step 2: Get session cookie
+# User goes to /consultant/profile → Developer Tools
+# Copies: consultantSessionId=abc123def456
+
+# Step 3: Test API endpoint
+cd backend
+npx ts-node test-scripts/curl-test-template.ts \
+  --cookie "consultantSessionId=abc123def456" \
+  --endpoint "/api/consultant/jobs" \
+  --method GET
+
+# Step 4: Analyze
+# If returns empty array but DB has data → Check filtering logic
+# If returns 401 → Check authentication
+# If returns 500 → Check server logs
+```
+
+---
+
+## Troubleshooting
+
+### Issue: "No session cookies found" in Developer Tools
+
+**Solution:**
+- Make sure you're logged in
+- Refresh the page
+- Check that backend is running in development mode
+- Verify `/api/dev/session-info` endpoint is accessible
+
+### Issue: "401 Unauthorized" when testing API
+
+**Solution:**
+- Verify cookie is correct (copy again from Developer Tools)
+- Check cookie hasn't expired (try logging in again)
+- Ensure you're using the correct cookie name for user type
+- Verify backend is running and accessible
+
+### Issue: "Cannot find module" errors
+
+**Solution:**
+- Make sure you're in the `backend` directory
+- Run `npm install` or `pnpm install`
+- Check that `ts-node` is installed
+
+### Issue: Database connection errors
+
+**Solution:**
+- Verify database is running
+- Check `DATABASE_URL` in `.env` file
+- Ensure Prisma client is generated: `npx prisma generate`
+
+---
+
+## Best Practices
+
+1. **Always verify database state first** - Don't assume data exists
+2. **Use proper authentication** - Always test with real session cookies
+3. **Test incrementally** - Start simple, add complexity
+4. **Document findings** - Note what works and what doesn't
+5. **Clean up test data** - Remove test records after debugging
+6. **Use version control** - Commit working test scripts
+
+---
+
+## Additional Resources
+
+- Backend API routes: `backend/src/routes/`
+- Database schema: `backend/prisma/schema.prisma`
+- Frontend API client: `frontend/src/lib/api.ts`
+- Developer Tools component: `frontend/src/components/dev/DeveloperTools.tsx`
+
+---
+
+**Last Updated:** December 2025

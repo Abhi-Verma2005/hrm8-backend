@@ -114,8 +114,11 @@ export class JobModel {
       if ((jobData as any).assignmentMode !== undefined) {
         prismaData.assignmentMode = (jobData as any).assignmentMode;
       }
-      if ((jobData as any).regionId !== undefined) {
-        prismaData.regionId = (jobData as any).regionId || null;
+      if ((jobData as any).regionId !== undefined && (jobData as any).regionId !== null) {
+        prismaData.regionId = (jobData as any).regionId;
+        console.log('✅ Setting regionId in prismaData:', prismaData.regionId);
+      } else {
+        console.log('⚠️ regionId is undefined or null, not setting in prismaData');
       }
       
       console.log('💾 Calling prisma.job.create with:', {

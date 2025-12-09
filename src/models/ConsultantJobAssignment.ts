@@ -4,7 +4,7 @@
  */
 
 import prisma from '../lib/prisma';
-import { AssignmentSource } from '@prisma/client';
+import { AssignmentSource, PipelineStage } from '@prisma/client';
 
 export interface ConsultantJobAssignmentData {
   id: string;
@@ -15,6 +15,11 @@ export interface ConsultantJobAssignmentData {
   status: string;
   notes: string | null;
   assignmentSource?: AssignmentSource | null;
+  pipelineStage: PipelineStage;
+  pipelineProgress: number;
+  pipelineNote: string | null;
+  pipelineUpdatedAt: Date | null;
+  pipelineUpdatedBy: string | null;
 }
 
 export class ConsultantJobAssignmentModel {
@@ -37,6 +42,8 @@ export class ConsultantJobAssignmentModel {
         status: assignmentData.status || 'ACTIVE',
         notes: assignmentData.notes || null,
         assignmentSource: assignmentData.assignmentSource || null,
+        pipelineStage: 'INTAKE' as PipelineStage,
+        pipelineProgress: 0,
       },
     });
 
@@ -113,6 +120,11 @@ export class ConsultantJobAssignmentModel {
         ...(data.status !== undefined && { status: data.status }),
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(data.assignmentSource !== undefined && { assignmentSource: data.assignmentSource }),
+        ...(data.pipelineStage !== undefined && { pipelineStage: data.pipelineStage }),
+        ...(data.pipelineProgress !== undefined && { pipelineProgress: data.pipelineProgress }),
+        ...(data.pipelineNote !== undefined && { pipelineNote: data.pipelineNote }),
+        ...(data.pipelineUpdatedAt !== undefined && { pipelineUpdatedAt: data.pipelineUpdatedAt }),
+        ...(data.pipelineUpdatedBy !== undefined && { pipelineUpdatedBy: data.pipelineUpdatedBy }),
       },
     });
 
@@ -166,6 +178,11 @@ export class ConsultantJobAssignmentModel {
     status: string;
     notes: string | null;
     assignmentSource?: AssignmentSource | null;
+    pipelineStage: string;
+    pipelineProgress: number;
+    pipelineNote: string | null;
+    pipelineUpdatedAt: Date | null;
+    pipelineUpdatedBy: string | null;
   }): ConsultantJobAssignmentData {
     return {
       id: prismaAssignment.id,
@@ -176,6 +193,11 @@ export class ConsultantJobAssignmentModel {
       status: prismaAssignment.status,
       notes: prismaAssignment.notes,
       assignmentSource: prismaAssignment.assignmentSource || null,
+      pipelineStage: prismaAssignment.pipelineStage,
+      pipelineProgress: prismaAssignment.pipelineProgress,
+      pipelineNote: prismaAssignment.pipelineNote,
+      pipelineUpdatedAt: prismaAssignment.pipelineUpdatedAt,
+      pipelineUpdatedBy: prismaAssignment.pipelineUpdatedBy,
     };
   }
 }

@@ -6,6 +6,8 @@
 import { Response } from 'express';
 import { ConsultantService } from '../../services/consultant/ConsultantService';
 import { ConsultantAuthenticatedRequest } from '../../middleware/consultantAuth';
+import { JobAllocationService } from '../../services/hrm8/JobAllocationService';
+import { PipelineStage } from '../../types';
 
 export class ConsultantController {
   /**
@@ -115,17 +117,104 @@ export class ConsultantController {
         return;
       }
 
-      const jobIds = await ConsultantService.getAssignedJobs(req.consultant.id);
+      const jobs = await ConsultantService.getAssignedJobs(req.consultant.id);
 
       res.json({
         success: true,
-        data: { jobIds },
+        data: { jobs },
       });
     } catch (error) {
       console.error('Get consultant jobs error:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch jobs',
+      });
+    }
+  }
+
+  /**
+   * Get pipeline status for a job assigned to the consultant
+   * GET /api/consultant/jobs/:id/pipeline
+   */
+  static async getJobPipeline(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.consultant) {
+        res.status(401).json({
+          success: false,
+          error: 'Not authenticated',
+        });
+        return;
+      }
+
+      const { id: jobId } = req.params;
+      if (!jobId) {
+        res.status(400).json({ success: false, error: 'Job ID is required' });
+        return;
+      }
+
+      const pipeline = await JobAllocationService.getPipelineForConsultantJob(req.consultant.id, jobId);
+      if (!pipeline) {
+        res.status(404).json({ success: false, error: 'Pipeline not found for this job' });
+        return;
+      }
+
+      res.json({ success: true, data: { pipeline } });
+    } catch (error) {
+      console.error('Get consultant job pipeline error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch job pipeline',
+      });
+    }
+  }
+
+  /**
+   * Update pipeline status for a job assigned to the consultant
+   * PATCH /api/consultant/jobs/:id/pipeline
+   */
+  static async updateJobPipeline(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.consultant) {
+        res.status(401).json({
+          success: false,
+          error: 'Not authenticated',
+        });
+        return;
+      }
+
+      const { id: jobId } = req.params;
+      const { stage, progress, note } = req.body || {};
+
+      if (!jobId) {
+        res.status(400).json({ success: false, error: 'Job ID is required' });
+        return;
+      }
+
+      if (!stage) {
+        res.status(400).json({ success: false, error: 'Stage is required' });
+        return;
+      }
+
+      const pipelineStage = stage as PipelineStage;
+
+      const result = await JobAllocationService.updatePipelineForConsultantJob(req.consultant.id, jobId, {
+        stage: pipelineStage,
+        progress,
+        note,
+        updatedBy: req.consultant.id,
+      });
+
+      if (!result.success) {
+        res.status(400).json({ success: false, error: result.error || 'Failed to update pipeline' });
+        return;
+      }
+
+      res.json({ success: true, data: { pipeline: result.pipeline } });
+    } catch (error) {
+      console.error('Update consultant job pipeline error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update job pipeline',
       });
     }
   }

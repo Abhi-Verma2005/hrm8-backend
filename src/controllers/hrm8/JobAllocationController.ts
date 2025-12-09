@@ -225,6 +225,7 @@ export class JobAllocationController {
       }
 
       const consultants = await JobAllocationService.getJobConsultants(jobId);
+      const pipeline = await JobAllocationService.getPipelineForJob(jobId, job.assignedConsultantId || undefined);
 
       res.json({
         success: true,
@@ -238,6 +239,7 @@ export class JobAllocationController {
             regionId: job.regionId,
           },
           consultants,
+          ...(pipeline && { pipeline }),
         },
       });
     } catch (error) {
