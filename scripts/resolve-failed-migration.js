@@ -1,6 +1,9 @@
 /**
  * JavaScript version of resolve-failed-migration script
  * Can be run directly with node (no compilation needed)
+ * 
+ * This script checks if failed migrations are already applied in the database.
+ * If they are, it marks them as completed. If not, it marks them as rolled back.
  */
 
 const { PrismaClient } = require('@prisma/client');
@@ -13,7 +16,7 @@ async function resolveFailedMigration() {
   try {
     // Check if _prisma_migrations table exists and find the failed migration
     const failedMigrations = await prisma.$queryRawUnsafe(`
-      SELECT migration_name, finished_at, rolled_back_at
+      SELECT migration_name, finished_at, rolled_back_at, started_at
       FROM "_prisma_migrations"
       WHERE migration_name LIKE '%add_job_assignment_fields%'
       AND finished_at IS NULL
@@ -29,21 +32,65 @@ async function resolveFailedMigration() {
     failedMigrations.forEach(m => console.log(`  - ${m.migration_name}`));
     console.log('');
 
-    // Mark all failed migrations as rolled back
-    console.log('Marking failed migrations as rolled back...');
-    for (const failedMigration of failedMigrations) {
-      // Escape single quotes in migration name for SQL
-      const escapedName = failedMigration.migration_name.replace(/'/g, "''");
-      await prisma.$executeRawUnsafe(`
-        UPDATE "_prisma_migrations"
-        SET rolled_back_at = NOW()
-        WHERE migration_name = '${escapedName}'
-        AND finished_at IS NULL
+    // Check if the migration changes are already applied
+    console.log('Checking if migration changes are already applied...');
+    
+    let migrationAlreadyApplied = false;
+    try {
+      // Check if the enum types exist (they were created in the migration)
+      const enumCheck = await prisma.$queryRawUnsafe(`
+        SELECT EXISTS (
+          SELECT 1 FROM pg_type WHERE typname = 'JobAssignmentMode'
+        ) as exists
       `);
-      console.log(`  ✅ Marked ${failedMigration.migration_name} as rolled back`);
+      
+      if (enumCheck && enumCheck[0] && enumCheck[0].exists) {
+        // Check if columns exist
+        const columnCheck = await prisma.$queryRawUnsafe(`
+          SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'Company' AND column_name = 'job_assignment_mode'
+          ) as exists
+        `);
+        
+        if (columnCheck && columnCheck[0] && columnCheck[0].exists) {
+          migrationAlreadyApplied = true;
+          console.log('  ✅ Migration changes are already applied in the database\n');
+        }
+      }
+    } catch (checkError) {
+      console.log('  ⚠️  Could not verify if migration is applied, marking as rolled back\n');
     }
 
-    console.log('\n✅ All failed migrations marked as rolled back.\n');
+    // Mark migrations based on whether they're already applied
+    for (const failedMigration of failedMigrations) {
+      const escapedName = failedMigration.migration_name.replace(/'/g, "''");
+      
+      if (migrationAlreadyApplied) {
+        // Mark as successfully completed since changes are already in DB
+        console.log(`Marking ${failedMigration.migration_name} as completed (changes already exist)...`);
+        await prisma.$executeRawUnsafe(`
+          UPDATE "_prisma_migrations"
+          SET finished_at = NOW(),
+              rolled_back_at = NULL
+          WHERE migration_name = '${escapedName}'
+          AND finished_at IS NULL
+        `);
+        console.log(`  ✅ Marked ${failedMigration.migration_name} as completed\n`);
+      } else {
+        // Mark as rolled back if changes don't exist
+        console.log(`Marking ${failedMigration.migration_name} as rolled back...`);
+        await prisma.$executeRawUnsafe(`
+          UPDATE "_prisma_migrations"
+          SET rolled_back_at = NOW()
+          WHERE migration_name = '${escapedName}'
+          AND finished_at IS NULL
+        `);
+        console.log(`  ✅ Marked ${failedMigration.migration_name} as rolled back\n`);
+      }
+    }
+
+    console.log('✅ Migration resolution complete.\n');
     console.log('You can now run: pnpm run db:deploy\n');
 
   } catch (error) {
