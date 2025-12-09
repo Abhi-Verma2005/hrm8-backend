@@ -45,6 +45,10 @@ export class AutoAssignmentService {
         return { consultantId: null, score: 0, reason: 'Job not found' };
       }
 
+      if (job.status !== 'OPEN') {
+        return { consultantId: null, score: 0, reason: 'Job not open' };
+      }
+
       if (!job.regionId) {
         return { consultantId: null, score: 0, reason: 'Job has no region assigned' };
       }

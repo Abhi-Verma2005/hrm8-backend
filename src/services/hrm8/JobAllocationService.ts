@@ -10,7 +10,9 @@ import { ConsultantJobAssignmentModel } from '../../models/ConsultantJobAssignme
 import { JobModel } from '../../models/Job';
 import { Job, JobStatus, HiringMode, WorkArrangement, EmploymentType } from '../../types';
 import { AutoAssignmentService } from './AutoAssignmentService';
-import { AssignmentSource, ConsultantRole, AvailabilityStatus } from '@prisma/client';
+import { PackageService } from './PackageService';
+import { CommissionService } from './CommissionService';
+import { AssignmentSource, ConsultantRole, AvailabilityStatus, PipelineStage } from '@prisma/client';
 
 export class JobAllocationService {
   /**
@@ -18,6 +20,20 @@ export class JobAllocationService {
    */
   static async autoAssignJob(jobId: string): Promise<{ success: boolean; consultantId?: string; error?: string }> {
     try {
+      // Check if company has paid package before allowing consultant assignment
+      const job = await JobModel.findById(jobId);
+      if (!job) {
+        return { success: false, error: 'Job not found' };
+      }
+
+      const canOffload = await PackageService.canOffloadToConsultants(job.companyId);
+      if (!canOffload) {
+        return { 
+          success: false, 
+          error: 'Companies with free packages (ATS Lite) cannot assign jobs to consultants. Please upgrade to a paid subscription to use consultant services.' 
+        };
+      }
+
       const match = await AutoAssignmentService.findBestConsultantForJob(jobId);
       
       if (!match.consultantId) {
@@ -53,6 +69,19 @@ export class JobAllocationService {
     assignmentSource?: AssignmentSource
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // Get job to check company package
+      const job = await JobModel.findById(jobId);
+      if (!job) {
+        return { success: false, error: 'Job not found' };
+      }
+
+      // Validate that company has paid package before allowing consultant assignment
+      try {
+        await PackageService.validateConsultantAssignment(job.companyId);
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+
       // Get consultant
       const consultant = await ConsultantModel.findById(consultantId);
       if (!consultant || !consultant.regionId) {
@@ -113,6 +142,16 @@ export class JobAllocationService {
           where: { id: consultantId },
           data: { currentJobs: { increment: 1 } },
         });
+      }
+
+      // Create commission for consultant if job has paid recruitment service
+      // Only create commission if this is a new assignment (not reassignment)
+      if (!oldConsultantIds.has(consultantId)) {
+        await CommissionService.createCommissionForJobAssignment(
+          jobId,
+          consultantId,
+          consultant.regionId
+        );
       }
 
       return { success: true };
@@ -230,6 +269,115 @@ export class JobAllocationService {
   }
 
   /**
+   * Get pipeline status for a consultant's assigned job
+   */
+  static async getPipelineForConsultantJob(
+    consultantId: string,
+    jobId: string
+  ): Promise<{
+    consultantId: string;
+    jobId: string;
+    stage: PipelineStage;
+    progress: number;
+    note: string | null;
+    updatedAt: Date | null;
+    updatedBy: string | null;
+  } | null> {
+    const assignment = await ConsultantJobAssignmentModel.findByConsultantAndJob(consultantId, jobId);
+    if (!assignment) return null;
+
+    return {
+      consultantId: assignment.consultantId,
+      jobId: assignment.jobId,
+      stage: assignment.pipelineStage as PipelineStage,
+      progress: assignment.pipelineProgress,
+      note: assignment.pipelineNote,
+      updatedAt: assignment.pipelineUpdatedAt,
+      updatedBy: assignment.pipelineUpdatedBy,
+    };
+  }
+
+  /**
+   * Update pipeline status for a consultant's assigned job
+   */
+  static async updatePipelineForConsultantJob(
+    consultantId: string,
+    jobId: string,
+    payload: {
+      stage: PipelineStage;
+      progress?: number;
+      note?: string | null;
+      updatedBy?: string;
+    }
+  ): Promise<{ success: boolean; error?: string; pipeline?: {
+    consultantId: string;
+    jobId: string;
+    stage: PipelineStage;
+    progress: number;
+    note: string | null;
+    updatedAt: Date | null;
+    updatedBy: string | null;
+  } | null }> {
+    const assignment = await ConsultantJobAssignmentModel.findByConsultantAndJob(consultantId, jobId);
+    if (!assignment) {
+      return { success: false, error: 'Assignment not found' };
+    }
+
+    const updated = await ConsultantJobAssignmentModel.update(assignment.id, {
+      pipelineStage: payload.stage,
+      pipelineProgress: payload.progress ?? assignment.pipelineProgress,
+      pipelineNote: payload.note ?? assignment.pipelineNote,
+      pipelineUpdatedAt: new Date(),
+      pipelineUpdatedBy: payload.updatedBy || consultantId,
+    });
+
+    const pipeline = {
+      consultantId: updated.consultantId,
+      jobId: updated.jobId,
+      stage: updated.pipelineStage as PipelineStage,
+      progress: updated.pipelineProgress,
+      note: updated.pipelineNote,
+      updatedAt: updated.pipelineUpdatedAt,
+      updatedBy: updated.pipelineUpdatedBy,
+    };
+
+    return { success: true, pipeline };
+  }
+
+  /**
+   * Get pipeline status for a job (prefers the assigned consultant if present)
+   */
+  static async getPipelineForJob(
+    jobId: string,
+    preferredConsultantId?: string
+  ): Promise<{
+    consultantId: string;
+    jobId: string;
+    stage: PipelineStage;
+    progress: number;
+    note: string | null;
+    updatedAt: Date | null;
+    updatedBy: string | null;
+  } | null> {
+    const assignments = await ConsultantJobAssignmentModel.findByJobId(jobId, true);
+    if (!assignments || assignments.length === 0) return null;
+
+    const primary =
+      assignments.find((a) => preferredConsultantId && a.consultantId === preferredConsultantId) ||
+      assignments[0];
+
+    return {
+      consultantId: primary.consultantId,
+      jobId: primary.jobId,
+      stage: primary.pipelineStage as PipelineStage,
+      progress: primary.pipelineProgress,
+      note: primary.pipelineNote,
+      updatedAt: primary.pipelineUpdatedAt,
+      updatedBy: primary.pipelineUpdatedBy,
+    };
+  }
+
+  /**
    * Get unassigned jobs (jobs without assignedConsultantId)
    */
   static async getUnassignedJobs(filters?: {
@@ -241,6 +389,9 @@ export class JobAllocationService {
     try {
       const where: any = {
         assignedConsultantId: null,
+        status: {
+          in: [JobStatus.OPEN, JobStatus.ON_HOLD], // Only show OPEN and ON_HOLD jobs
+        },
       };
 
       if (filters?.regionId) {
@@ -361,19 +512,38 @@ export class JobAllocationService {
       });
 
       // Apply additional filters
+      const searchLower = filters.search?.trim().toLowerCase();
+      const languageLower = filters.language?.trim().toLowerCase();
       let filteredConsultants = allConsultants.filter(c => {
         if (filters.availability && c.availability !== filters.availability) {
           return false;
         }
-        if (filters.industry && (!c.industryExpertise || !c.industryExpertise.includes(filters.industry))) {
-          return false;
+        if (filters.industry) {
+          const industryMatch = c.industryExpertise?.some(
+            (industry) => industry?.toLowerCase() === filters.industry?.toLowerCase()
+          );
+          if (!industryMatch) {
+            return false;
+          }
         }
-        if (filters.search) {
-          const searchLower = filters.search.toLowerCase();
-          const matchesSearch = 
-            c.firstName?.toLowerCase().includes(searchLower) ||
-            c.lastName?.toLowerCase().includes(searchLower) ||
-            c.email?.toLowerCase().includes(searchLower);
+        if (languageLower) {
+          const languageMatch = c.languages?.some(
+            (lang) => (lang.language || '').toLowerCase() === languageLower
+          );
+          if (!languageMatch) {
+            return false;
+          }
+        }
+        if (searchLower) {
+          const first = (c.firstName || '').toLowerCase();
+          const last = (c.lastName || '').toLowerCase();
+          const fullName = `${first} ${last}`.trim();
+          const email = (c.email || '').toLowerCase();
+          const matchesSearch =
+            first.includes(searchLower) ||
+            last.includes(searchLower) ||
+            fullName.includes(searchLower) ||
+            email.includes(searchLower);
           if (!matchesSearch) {
             return false;
           }

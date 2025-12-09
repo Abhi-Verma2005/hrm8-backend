@@ -582,7 +582,6 @@ export class ApplicationService {
       // Step 4: Parse resume if provided
       let parsedResumeData: any = null;
       let resumeUrl = applicationData.resumeUrl;
-      let resumeDocumentId: string | undefined;
 
       if (applicationData.resumeFile) {
         console.log('📄 Resume file provided for parsing:', {
@@ -597,6 +596,7 @@ export class ApplicationService {
           console.log('📖 Parsing document with mime type:', applicationData.resumeFile.mimetype);
           
           // Create a file-like object for parseDocument
+          const { Readable } = await import('stream');
           const fileForParsing: Express.Multer.File = {
             fieldname: 'resume',
             originalname: applicationData.resumeFile.originalname,
@@ -604,6 +604,7 @@ export class ApplicationService {
             mimetype: applicationData.resumeFile.mimetype,
             buffer: applicationData.resumeFile.buffer,
             size: applicationData.resumeFile.size,
+            stream: Readable.from(applicationData.resumeFile.buffer),
             destination: '',
             filename: applicationData.resumeFile.originalname,
             path: '',
@@ -895,12 +896,11 @@ export class ApplicationService {
             applicationData.resumeFile.size,
             applicationData.resumeFile.mimetype
           );
-          resumeDocumentId = resumeDoc.id;
           
           // Set as default if it's the first resume
           const { prisma } = await import('../../lib/prisma');
           const resumeCount = await prisma.candidateResume.count({
-            where: { candidateId: candidate.id },
+            where: { candidate_id: candidate.id },
           });
           if (resumeCount === 1) {
             await CandidateDocumentService.setDefaultResume(candidate.id, resumeDoc.id);

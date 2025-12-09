@@ -3,7 +3,7 @@
  * Handles interview reminders for candidates
  */
 
-import { NotificationType } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { CandidateNotificationPreferencesService } from '../candidate/CandidateNotificationPreferencesService';
 
 export class InterviewReminderService {
@@ -76,18 +76,18 @@ export class InterviewReminderService {
         );
 
         // Check if reminder should be sent based on preference
-        if (hoursUntilInterview <= preferences.reminderHoursBefore && hoursUntilInterview > 0) {
+        if (hoursUntilInterview <= preferences.reminder_hours_before && hoursUntilInterview > 0) {
           // Check if reminder was already sent
           const existingReminder = await prisma.notification.findFirst({
             where: {
-              candidateId: application.candidateId,
+              candidate_id: application.candidateId,
               type: 'INTERVIEW_SCHEDULED',
               data: {
                 path: ['videoInterviewId'],
                 equals: videoInterview.id,
               },
-              createdAt: {
-                gte: new Date(now.getTime() - preferences.reminderHoursBefore * 60 * 60 * 1000),
+              created_at: {
+                gte: new Date(now.getTime() - preferences.reminder_hours_before * 60 * 60 * 1000),
               },
             },
           });
@@ -112,7 +112,8 @@ export class InterviewReminderService {
 
               await prisma.notification.create({
                 data: {
-                  candidateId: application.candidateId,
+                  id: randomUUID(),
+                  candidate_id: application.candidateId,
                   type: 'INTERVIEW_SCHEDULED',
                   title: 'Interview Reminder',
                   message: `Reminder: You have an interview for ${application.job.title} at ${application.job.company?.name || 'the company'} scheduled for ${formattedDate}.`,
@@ -145,8 +146,9 @@ export class InterviewReminderService {
 
       // Process legacy application-based interviews
       for (const application of applications) {
-        // Check if interview data exists
-        const interviewData = application.data as any;
+        // Check if interview data exists (stored in questionnaireData or customAnswers)
+        const appData = application as any;
+        const interviewData = appData.questionnaireData || appData.customAnswers || appData.data || {};
         if (!interviewData?.interviewDate) {
           continue;
         }
@@ -160,18 +162,18 @@ export class InterviewReminderService {
         );
 
         // Check if reminder should be sent based on preference
-        if (hoursUntilInterview <= preferences.reminderHoursBefore && hoursUntilInterview > 0) {
+        if (hoursUntilInterview <= preferences.reminder_hours_before && hoursUntilInterview > 0) {
           // Check if reminder was already sent
           const existingReminder = await prisma.notification.findFirst({
             where: {
-              candidateId: application.candidateId,
+              candidate_id: application.candidateId,
               type: 'INTERVIEW_SCHEDULED',
               data: {
                 path: ['applicationId'],
                 equals: application.id,
               },
-              createdAt: {
-                gte: new Date(now.getTime() - preferences.reminderHoursBefore * 60 * 60 * 1000),
+              created_at: {
+                gte: new Date(now.getTime() - preferences.reminder_hours_before * 60 * 60 * 1000),
               },
             },
           });
@@ -196,7 +198,8 @@ export class InterviewReminderService {
 
               await prisma.notification.create({
                 data: {
-                  candidateId: application.candidateId,
+                  id: randomUUID(),
+                  candidate_id: application.candidateId,
                   type: 'INTERVIEW_SCHEDULED',
                   title: 'Interview Reminder',
                   message: `Reminder: You have an interview for ${application.job.title} at ${application.job.company?.name || 'the company'} scheduled for ${formattedDate}.`,
@@ -315,7 +318,8 @@ export class InterviewReminderService {
     });
 
     for (const application of applications) {
-      const interviewData = application.data as any;
+      const appData = application as any;
+      const interviewData = appData.questionnaireData || appData.customAnswers || appData.data || {};
       if (interviewData?.interviewDate) {
         const interviewDate = new Date(interviewData.interviewDate);
         if (interviewDate >= now && interviewDate <= futureDate) {

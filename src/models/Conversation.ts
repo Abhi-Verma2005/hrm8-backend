@@ -24,11 +24,13 @@ export class ConversationModel {
     candidateId: string;
     participants: string[];
   }): Promise<ConversationData> {
+    const { randomUUID } = await import('crypto');
     const conversation = await prisma.conversation.create({
       data: {
+        id: randomUUID(),
         jobId: conversationData.jobId,
         candidateId: conversationData.candidateId,
-        participants: conversationData.participants,
+        updated_at: new Date(),
       },
     });
 
@@ -41,6 +43,9 @@ export class ConversationModel {
   static async findById(id: string): Promise<ConversationData | null> {
     const conversation = await prisma.conversation.findUnique({
       where: { id },
+      include: {
+        ConversationParticipant: true,
+      },
     });
 
     return conversation ? this.mapPrismaToConversation(conversation) : null;
@@ -53,12 +58,13 @@ export class ConversationModel {
     jobId: string,
     candidateId: string
   ): Promise<ConversationData | null> {
-    const conversation = await prisma.conversation.findUnique({
+    const conversation = await prisma.conversation.findFirst({
       where: {
-        jobId_candidateId: {
-          jobId,
-          candidateId,
-        },
+        jobId,
+        candidateId,
+      },
+      include: {
+        ConversationParticipant: true,
       },
     });
 
@@ -73,24 +79,21 @@ export class ConversationModel {
   ): Promise<ConversationData[]> {
     const conversations = await prisma.conversation.findMany({
       where: {
-        participants: {
-          has: email,
+        ConversationParticipant: {
+          some: {
+            participant_email: email,
+          },
         },
       },
+      include: {
+        ConversationParticipant: true,
+      },
       orderBy: {
-        updatedAt: 'desc',
+        updated_at: 'desc',
       },
     });
 
-    return conversations.map((conv: {
-      id: string;
-      jobId: string;
-      candidateId: string;
-      participants: string[];
-      lastMessageId: string | null;
-      createdAt: Date;
-      updatedAt: Date;
-    }) => this.mapPrismaToConversation(conv));
+    return conversations.map((conv: any) => this.mapPrismaToConversation(conv));
   }
 
   /**
@@ -103,8 +106,12 @@ export class ConversationModel {
     const conversation = await prisma.conversation.update({
       where: { id: conversationId },
       data: {
-        lastMessageId,
-        updatedAt: new Date(),
+        last_message_id: lastMessageId,
+        last_message_at: new Date(),
+        updated_at: new Date(),
+      },
+      include: {
+        ConversationParticipant: true,
       },
     });
 
@@ -114,23 +121,21 @@ export class ConversationModel {
   /**
    * Map Prisma conversation to ConversationData interface
    */
-  private static mapPrismaToConversation(prismaConversation: {
-    id: string;
-    jobId: string;
-    candidateId: string;
-    participants: string[];
-    lastMessageId: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): ConversationData {
+  private static mapPrismaToConversation(prismaConversation: any): ConversationData {
+    // Fetch participants from ConversationParticipant relation
+    const participants: string[] = [];
+    if (prismaConversation.ConversationParticipant) {
+      participants.push(...prismaConversation.ConversationParticipant.map((p: any) => p.participant_email));
+    }
+    
     return {
       id: prismaConversation.id,
-      jobId: prismaConversation.jobId,
-      candidateId: prismaConversation.candidateId,
-      participants: prismaConversation.participants,
-      lastMessageId: prismaConversation.lastMessageId || undefined,
-      createdAt: prismaConversation.createdAt,
-      updatedAt: prismaConversation.updatedAt,
+      jobId: prismaConversation.jobId || prismaConversation.job_id || '',
+      candidateId: prismaConversation.candidateId || prismaConversation.candidate_id || '',
+      participants,
+      lastMessageId: prismaConversation.last_message_id || prismaConversation.lastMessageId || undefined,
+      createdAt: prismaConversation.created_at ? new Date(prismaConversation.created_at) : new Date(prismaConversation.createdAt),
+      updatedAt: prismaConversation.updated_at ? new Date(prismaConversation.updated_at) : new Date(prismaConversation.updatedAt),
     };
   }
 }

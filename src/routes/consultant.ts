@@ -26,6 +26,8 @@ router.put('/profile', ConsultantController.updateProfile);
 
 // Job routes
 router.get('/jobs', ConsultantController.getJobs);
+router.get('/jobs/:id/pipeline', ConsultantController.getJobPipeline);
+router.patch('/jobs/:id/pipeline', ConsultantController.updateJobPipeline);
 
 // Commission routes
 router.get('/commissions', ConsultantController.getCommissions);

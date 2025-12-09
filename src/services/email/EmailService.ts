@@ -1433,7 +1433,7 @@ The HRM8 Team
         text: this.getAccountCreationText(data),
       };
 
-      const result = await transporter.sendMail(mailOptions);
+      await transporter.sendMail(mailOptions);
       
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
@@ -1476,8 +1476,6 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
-      const result = await transporter.sendMail(mailOptions);
       
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
