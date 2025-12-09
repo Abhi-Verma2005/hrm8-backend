@@ -58,7 +58,7 @@ export class CloudinaryService {
 
       const uploadStream = cloudinary.uploader.upload_stream(
         uploadOptions,
-        (error, result) => {
+        (error: any, result: any) => {
           if (error) {
             reject(new Error(`Cloudinary upload failed: ${error.message}`));
             return;
@@ -108,7 +108,7 @@ export class CloudinaryService {
    */
   static async deleteFile(publicId: string, resourceType: 'image' | 'video' | 'raw' = 'raw'): Promise<void> {
     return new Promise((resolve, reject) => {
-      cloudinary.uploader.destroy(publicId, { resource_type: resourceType }, (error) => {
+      cloudinary.uploader.destroy(publicId, { resource_type: resourceType }, (error: any) => {
         if (error) {
           reject(new Error(`Failed to delete file: ${error.message}`));
           return;

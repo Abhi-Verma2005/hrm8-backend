@@ -102,7 +102,7 @@ export class JobService {
       if (company) {
         const companyData = await prisma.company.findUnique({
           where: { id: companyId },
-          select: { 
+          select: {
             regionId: true,
             jobAssignmentMode: true,
           },
@@ -139,6 +139,11 @@ export class JobService {
         // Don't throw - job creation should succeed even if auto-assignment fails
       }
 
+      // Process job alerts asynchronously (don't wait for it)
+      this.processJobAlertsAsync(job).catch(err => {
+        console.error('Failed to process job alerts:', err);
+      });
+
       // Fetch the job again to get updated assignment info
       const updatedJob = await JobModel.findById(job.id);
       return updatedJob || job;
@@ -149,6 +154,18 @@ export class JobService {
         stack: error instanceof Error ? error.stack : 'No stack trace',
       });
       throw error;
+    }
+  }
+
+  /**
+   * Process job alerts asynchronously
+   */
+  private static async processJobAlertsAsync(job: any) {
+    try {
+      const { CandidateJobService } = await import('../candidate/CandidateJobService');
+      await CandidateJobService.processJobAlerts(job);
+    } catch (error) {
+      console.error('Error in processJobAlertsAsync:', error);
     }
   }
 
@@ -258,7 +275,7 @@ export class JobService {
     // Verify all jobs belong to company
     const jobs = await JobModel.findByCompanyId(companyId);
     const validJobIds = jobs.filter(job => jobIds.includes(job.id)).map(job => job.id);
-    
+
     if (validJobIds.length === 0) {
       throw new Error('No valid jobs found for deletion');
     }

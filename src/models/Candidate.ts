@@ -21,14 +21,27 @@ export interface CandidateData {
   country?: string;
   visaStatus?: string;
   workEligibility?: string;
+  requiresSponsorship?: boolean;
   jobTypePreference: string[];
+  expectedSalaryMin?: string;
+  expectedSalaryMax?: string;
+  salaryCurrency?: string;
   salaryPreference?: {
     min?: number;
     max?: number;
     currency?: string;
   };
   relocationWilling?: boolean;
+  preferredLocations?: string;
   remotePreference?: string;
+  resumeUrl?: string | null;
+
+  // Privacy & Visibility
+  profileVisibility?: string;
+  showContactInfo?: boolean;
+  showSalaryExpectations?: boolean;
+  allowRecruiterContact?: boolean;
+
   emailVerified: boolean;
   status: CandidateStatus;
   lastLoginAt?: Date;
@@ -213,10 +226,23 @@ export class CandidateModel {
       country: prismaCandidate.country,
       visaStatus: prismaCandidate.visaStatus,
       workEligibility: prismaCandidate.workEligibility,
+      requiresSponsorship: prismaCandidate.requiresSponsorship,
       jobTypePreference: prismaCandidate.jobTypePreference || [],
+      expectedSalaryMin: prismaCandidate.expectedSalaryMin,
+      expectedSalaryMax: prismaCandidate.expectedSalaryMax,
+      salaryCurrency: prismaCandidate.salaryCurrency,
       salaryPreference: prismaCandidate.salaryPreference as any,
       relocationWilling: prismaCandidate.relocationWilling,
+      preferredLocations: prismaCandidate.preferredLocations,
       remotePreference: prismaCandidate.remotePreference,
+      resumeUrl: prismaCandidate.resumeUrl,
+
+      // Privacy & Visibility
+      profileVisibility: prismaCandidate.profileVisibility,
+      showContactInfo: prismaCandidate.showContactInfo,
+      showSalaryExpectations: prismaCandidate.showSalaryExpectations,
+      allowRecruiterContact: prismaCandidate.allowRecruiterContact,
+
       emailVerified: prismaCandidate.emailVerified,
       status: prismaCandidate.status,
       lastLoginAt: prismaCandidate.lastLoginAt,
