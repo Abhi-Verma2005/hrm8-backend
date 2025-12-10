@@ -40,10 +40,13 @@ export class CloudinaryService {
     options: UploadOptions = {}
   ): Promise<UploadResult> {
     return new Promise((resolve, reject) => {
+      // Clean filename: remove extension and trim whitespace (Cloudinary doesn't allow trailing whitespace)
+      const cleanFileName = fileName.replace(/\.[^/.]+$/, '').trim();
+      
       const uploadOptions: any = {
-        folder: options.folder || 'hrm8/applications',
+        folder: (options.folder || 'hrm8/applications').trim(), // Also trim folder path
         resource_type: options.resourceType || 'auto',
-        public_id: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
+        public_id: cleanFileName || 'file', // Use 'file' as fallback if name becomes empty
         overwrite: false,
         unique_filename: true,
       };

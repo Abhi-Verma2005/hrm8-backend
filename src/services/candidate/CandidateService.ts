@@ -103,9 +103,11 @@ export class CandidateService {
    */
   static async addWorkExperience(candidateId: string, data: any) {
     const { prisma } = await import('../../lib/prisma');
+    const { randomUUID } = await import('crypto');
     return await prisma.candidateWorkExperience.create({
       data: {
-        candidate_id: candidateId,
+        id: randomUUID(),
+        candidateId,
         ...data,
       },
     });
@@ -119,7 +121,7 @@ export class CandidateService {
 
     // Verify ownership
     const experience = await prisma.candidateWorkExperience.findFirst({
-      where: { id: experienceId, candidate_id: candidateId },
+      where: { id: experienceId, candidateId },
     });
 
     if (!experience) {
@@ -140,7 +142,7 @@ export class CandidateService {
 
     // Verify ownership
     const experience = await prisma.candidateWorkExperience.findFirst({
-      where: { id: experienceId, candidate_id: candidateId },
+      where: { id: experienceId, candidateId },
     });
 
     if (!experience) {
@@ -163,7 +165,7 @@ export class CandidateService {
     return await prisma.$transaction(async (tx) => {
       // Delete existing skills
       await tx.candidateSkill.deleteMany({
-        where: { candidate_id: candidateId },
+        where: { candidateId },
       });
 
       // Create new skills
@@ -172,7 +174,7 @@ export class CandidateService {
         await tx.candidateSkill.createMany({
           data: skills.map(skill => ({
             id: randomUUID(),
-            candidate_id: candidateId,
+            candidateId,
             name: skill.name,
             level: skill.level,
           })),
@@ -180,7 +182,7 @@ export class CandidateService {
       }
 
       return await tx.candidateSkill.findMany({
-        where: { candidate_id: candidateId },
+        where: { candidateId },
       });
     });
   }
@@ -191,8 +193,8 @@ export class CandidateService {
   static async getWorkHistory(candidateId: string) {
     const { prisma } = await import('../../lib/prisma');
     return await prisma.candidateWorkExperience.findMany({
-      where: { candidate_id: candidateId },
-      orderBy: { start_date: 'desc' },
+      where: { candidateId },
+      orderBy: { startDate: 'desc' },
     });
   }
 
@@ -202,7 +204,7 @@ export class CandidateService {
   static async getSkills(candidateId: string) {
     const { prisma } = await import('../../lib/prisma');
     return await prisma.candidateSkill.findMany({
-      where: { candidate_id: candidateId },
+      where: { candidateId },
       orderBy: { name: 'asc' },
     });
   }
@@ -213,7 +215,7 @@ export class CandidateService {
   static async deleteAllWorkExperience(candidateId: string) {
     const { prisma } = await import('../../lib/prisma');
     return await prisma.candidateWorkExperience.deleteMany({
-      where: { candidate_id: candidateId },
+      where: { candidateId },
     });
   }
 
@@ -223,7 +225,7 @@ export class CandidateService {
   static async deleteAllSkills(candidateId: string) {
     const { prisma } = await import('../../lib/prisma');
     return await prisma.candidateSkill.deleteMany({
-      where: { candidate_id: candidateId },
+      where: { candidateId },
     });
   }
 }

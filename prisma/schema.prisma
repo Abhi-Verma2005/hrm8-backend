@@ -1056,83 +1056,83 @@ model VideoInterview {
 }
 
 model CandidateCertification {
-  id              String    @id
-  candidate_id    String
+  id              String    @id @default(uuid())
+  candidateId     String    @map("candidate_id")
   name            String
-  issuing_org     String
-  issue_date      DateTime?
-  expiry_date     DateTime?
-  credential_id   String?
-  credential_url  String?
-  does_not_expire Boolean   @default(false)
-  created_at      DateTime  @default(now())
-  updated_at      DateTime
-  Candidate       Candidate @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
+  issuingOrg      String    @map("issuing_org")
+  issueDate       DateTime? @map("issue_date")
+  expiryDate      DateTime? @map("expiry_date")
+  credentialId    String?   @map("credential_id")
+  credentialUrl   String?   @map("credential_url")
+  doesNotExpire   Boolean   @default(false) @map("does_not_expire")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
-  @@index([candidate_id])
-  @@index([expiry_date])
+  @@index([candidateId])
+  @@index([expiryDate])
 }
 
 model CandidateEducation {
-  id           String    @id
-  candidate_id String
+  id           String    @id @default(uuid())
+  candidateId  String    @map("candidate_id")
   institution  String
   degree       String
   field        String
-  start_date   DateTime?
-  end_date     DateTime?
+  startDate    DateTime? @map("start_date")
+  endDate      DateTime? @map("end_date")
   current      Boolean   @default(false)
   grade        String?
   description  String?
-  created_at   DateTime  @default(now())
-  updated_at   DateTime
-  Candidate    Candidate @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  candidate    Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
-  @@index([candidate_id])
+  @@index([candidateId])
 }
 
 model CandidateSkill {
-  id           String    @id
-  candidate_id String
+  id           String    @id @default(uuid())
+  candidateId  String    @map("candidate_id")
   name         String
   level        String?
-  created_at   DateTime  @default(now())
-  Candidate    Candidate @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  candidate    Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
-  @@index([candidate_id])
+  @@index([candidateId])
 }
 
 model CandidateTraining {
-  id              String    @id
-  candidate_id    String
-  course_name     String
-  provider        String
-  completed_date  DateTime?
-  duration        String?
-  description     String?
-  certificate_url String?
-  created_at      DateTime  @default(now())
-  updated_at      DateTime
-  Candidate       Candidate @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
+  id             String    @id @default(uuid())
+  candidateId    String    @map("candidate_id")
+  courseName     String    @map("course_name")
+  provider       String
+  completedDate  DateTime? @map("completed_date")
+  duration       String?
+  description    String?
+  certificateUrl String?   @map("certificate_url")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  candidate      Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
-  @@index([candidate_id])
+  @@index([candidateId])
 }
 
 model CandidateWorkExperience {
-  id           String    @id
-  candidate_id String
+  id           String    @id @default(uuid())
+  candidateId  String    @map("candidate_id")
   company      String
   role         String
-  start_date   DateTime
-  end_date     DateTime?
+  startDate    DateTime  @map("start_date")
+  endDate      DateTime? @map("end_date")
   current      Boolean   @default(false)
   description  String?
   location     String?
-  created_at   DateTime  @default(now())
-  updated_at   DateTime
-  Candidate    Candidate @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  candidate    Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
-  @@index([candidate_id])
+  @@index([candidateId])
 }
 
 model ApplicationRoundProgress {
