@@ -12,3 +12,6 @@ SELECT migration_name, started_at, finished_at, rolled_back_at
 FROM "_prisma_migrations"
 WHERE migration_name LIKE '%add_job_assignment_fields%'
 ORDER BY started_at DESC;
+
+
+

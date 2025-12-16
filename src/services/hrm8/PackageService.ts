@@ -5,7 +5,16 @@
 
 import prisma from '../../lib/prisma';
 
-export type SubscriptionTier = 'ats-lite' | 'payg' | 'small' | 'medium' | 'large' | 'enterprise';
+export type SubscriptionTier =
+  | 'ats-lite'
+  | 'payg'
+  | 'small'
+  | 'medium'
+  | 'large'
+  | 'enterprise'
+  | 'shortlisting'
+  | 'full_service'
+  | 'executive_search';
 
 export class PackageService {
   /**

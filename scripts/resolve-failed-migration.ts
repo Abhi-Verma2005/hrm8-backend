@@ -73,3 +73,6 @@ resolveFailedMigration()
     console.error('⚠️  Script encountered an error (continuing anyway):', error.message);
     process.exit(0); // Exit with 0 to allow deployment to continue
   });
+
+
+

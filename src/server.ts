@@ -9,6 +9,7 @@ import cors from 'cors';
 import path from 'path';
 // Trigger restart for Prisma changes
 import routes from './routes';
+import paymentsRouter, { stripeWebhookHandler } from './routes/payments';
 import { wss } from './websocket';
 
 // Memory monitoring
@@ -71,9 +72,13 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
+app.use(cookieParser()); // Parse cookies
+
+// Stripe webhook must use raw body for signature verification
+app.post('/api/payments/stripe-webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser()); // Parse cookies
 
 // Basic route
 app.get('/', (_req: Request, res: Response) => {
@@ -103,6 +108,7 @@ app.get('/health/memory', (_req: Request, res: Response) => {
 });
 
 // API Routes
+app.use('/api/payments', paymentsRouter);
 app.use('/', routes);
 
 // Serve uploaded files locally (fallback for when Cloudinary is not configured)
