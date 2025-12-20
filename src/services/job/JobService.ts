@@ -9,6 +9,7 @@ import { CompanyModel } from '../../models/Company';
 import { JobAllocationService } from '../hrm8/JobAllocationService';
 import { JobPaymentService } from '../payments/JobPaymentService';
 import { prisma } from '../../lib/prisma';
+import { PaymentStatus } from '@prisma/client';
 
 export interface CreateJobRequest {
   title: string;
@@ -122,7 +123,7 @@ export class JobService {
       // Determine service package and payment status
       const servicePackage = jobData.servicePackage || 'self-managed';
       const requiresPayment = JobPaymentService.requiresPayment(servicePackage as any);
-      const paymentStatus = requiresPayment ? undefined : 'PAID'; // Free packages are automatically PAID
+      const paymentStatus = requiresPayment ? undefined : PaymentStatus.PAID; // Free packages are automatically PAID
 
       // Add assignmentMode, regionId, and payment fields to job data
       // Note: regionId must be set here so JobModel.create can save it

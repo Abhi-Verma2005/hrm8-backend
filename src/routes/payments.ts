@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response, type Router as RouterType } from 'express';
 import Stripe from 'stripe';
 import { StripeUpgradeService, type UpgradeTier } from '../services/payments/StripeUpgradeService';
 import { JobPaymentService } from '../services/payments/JobPaymentService';
@@ -11,7 +11,7 @@ if (!stripeSecretKey) {
 
 const stripe = new Stripe(stripeSecretKey);
 
-const paymentsRouter = Router();
+const paymentsRouter: RouterType = Router();
 
 const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:8080';
 const getBackendUrl = () => process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`;
@@ -130,17 +130,19 @@ paymentsRouter.post('/upgrade-checkout', async (req: Request, res: Response) => 
   }
 });
 
-export const stripeWebhookHandler = async (req: Request, res: Response) => {
+export const stripeWebhookHandler = async (req: Request, res: Response): Promise<void> => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const signature = req.headers['stripe-signature'];
 
   if (!webhookSecret) {
     console.error('STRIPE_WEBHOOK_SECRET not configured');
-    return res.status(500).send('Webhook secret not configured');
+    res.status(500).send('Webhook secret not configured');
+    return;
   }
 
   if (!signature) {
-    return res.status(400).send('Missing Stripe signature header');
+    res.status(400).send('Missing Stripe signature header');
+    return;
   }
 
   let event: Stripe.Event;
@@ -149,7 +151,8 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
     event = stripe.webhooks.constructEvent(req.body, signature as string, webhookSecret);
   } catch (err: any) {
     console.error('Stripe webhook signature verification failed', err?.message);
-    return res.status(400).send(`Webhook Error: ${err?.message}`);
+    res.status(400).send(`Webhook Error: ${err?.message}`);
+    return;
   }
 
   try {
