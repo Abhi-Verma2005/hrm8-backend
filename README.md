@@ -94,6 +94,8 @@ CLOUDINARY_API_SECRET=your-api-secret
 
 For detailed endpoint documentation, see the route files in `src/routes/`.
 
+"stripe listen --forward-to localhost:3000/api/payments/stripe-webhook"
+
 ## Pending Verification Flow
 
 - `POST /api/auth/resend-verification` allows pending company admins to request a new verification email. Provide the registered email in the body (`{ "email": "admin@corp.com" }`). The backend re-issues a token (24h expiry) only if the account is still awaiting verification.

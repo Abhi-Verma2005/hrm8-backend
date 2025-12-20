@@ -25,6 +25,7 @@ import {
   AssignmentMode,
   AssignmentSource,
   PipelineStage,
+  PaymentStatus,
 } from '@prisma/client';
 
 export {
@@ -47,6 +48,7 @@ export {
   AssignmentMode,
   AssignmentSource,
   PipelineStage,
+  PaymentStatus,
 };
 
 // ============================================================================
@@ -450,6 +452,15 @@ export interface Job {
   assignedConsultantId?: string;
   assignedConsultantName?: string;
   pipeline?: JobPipelineStatus;
+  // Payment fields
+  paymentStatus?: PaymentStatus;
+  servicePackage?: string;
+  paymentAmount?: number;
+  paymentCurrency?: string;
+  stripeSessionId?: string;
+  stripePaymentIntentId?: string;
+  paymentCompletedAt?: Date;
+  paymentFailedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

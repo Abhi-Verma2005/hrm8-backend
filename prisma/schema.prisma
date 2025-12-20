@@ -26,19 +26,34 @@ model Company {
   regionId             String?                   @map("region_id")
   jobAssignmentMode    JobAssignmentMode         @default(AUTO_RULES_ONLY) @map("job_assignment_mode")
   preferredRecruiterId String?                   @map("preferred_recruiter_id")
+  created_by           String?
+  licensee_id          String?
+  referred_by          String?
+  region_owner_type    RegionOwnerType           @default(HRM8)
+  commission_status    CommissionStatus          @default(PENDING)
+  AccountTeam          AccountTeam[]
+  Activity             Activity[]
+  Bill                 Bill[]
   region               Region?                   @relation(fields: [regionId], references: [id])
   profile              CompanyProfile?
   CompanySettings      CompanySettings?
+  Contact              Contact[]
+  Integration          Integration[]
   invitations          Invitation[]
   jobs                 Job[]
   JobTemplate          JobTemplate[]
+  Lead                 Lead[]
+  Opportunity          Opportunity[]
   signupRequests       SignupRequest[]
+  Subscription         Subscription[]
   users                User[]
   verificationTokens   VerificationToken[]
 
   @@index([domain])
   @@index([verificationStatus])
   @@index([regionId])
+  @@index([created_by])
+  @@index([licensee_id])
 }
 
 model CompanyProfile {
@@ -74,6 +89,7 @@ model User {
   createdJobs            Job[]                @relation("JobCreator")
   sentJobInvitations     JobInvitation[]      @relation("JobInviter")
   JobTemplate            JobTemplate[]
+  OfferLetter            OfferLetter[]
   passwordResetTokens    PasswordResetToken[]
   ScreeningResult        ScreeningResult[]
   sessions               Session[]
@@ -230,6 +246,13 @@ model Job {
   savedAsTemplate                     Boolean                     @default(false) @map("saved_as_template")
   shareLink                           String?                     @map("share_link")
   templateId                          String?                     @map("template_id")
+  paymentStatus                       PaymentStatus?              @default(PENDING) @map("payment_status")
+  stripeSessionId                     String?                     @map("stripe_session_id")
+  stripePaymentIntentId               String?                     @map("stripe_payment_intent_id")
+  paymentAmount                       Float?                      @map("payment_amount")
+  paymentCurrency                     String?                     @map("payment_currency")
+  paymentCompletedAt                  DateTime?                   @map("payment_completed_at")
+  paymentFailedAt                     DateTime?                   @map("payment_failed_at")
   archived                            Boolean                     @default(false) @map("archived")
   archivedAt                          DateTime?                   @map("archived_at")
   archivedBy                          String?                     @map("archived_by")
@@ -241,6 +264,7 @@ model Job {
   assignedConsultantId                String?                     @map("assigned_consultant_id")
   assignmentMode                      AssignmentMode              @default(AUTO) @map("assignment_mode")
   assignmentSource                    AssignmentSource?           @map("assignment_source")
+  servicePackage                      String?                     @map("service_package")
   applications                        Application[]
   commissions                         Commission[]
   consultantAssignments               ConsultantJobAssignment[]
@@ -252,6 +276,7 @@ model Job {
   jobInvitations                      JobInvitation[]
   JobRound                            JobRound[]
   JobTemplate                         JobTemplate[]
+  OfferLetter                         OfferLetter[]
   PreInterviewQuestionnaire           PreInterviewQuestionnaire[]
   SavedJob                            SavedJob[]
   ScreeningCriteria                   ScreeningCriteria[]
@@ -304,6 +329,7 @@ model Candidate {
   JobInvitation           JobInvitation[]
   notifications           Notification[]
   notificationPreferences NotificationPreferences?
+  OfferLetter             OfferLetter[]
   savedJobs               SavedJob[]
   savedSearches           SavedSearch[]
 
@@ -575,6 +601,8 @@ model Application {
   ApplicationRoundProgress ApplicationRoundProgress[]
   Assessment               Assessment[]
   jobInvitation            JobInvitation?
+  OfferDocument            OfferDocument[]
+  OfferLetter              OfferLetter[]
   QuestionnaireResponse    QuestionnaireResponse[]
   ScreeningResult          ScreeningResult[]
   VideoInterview           VideoInterview[]
@@ -738,46 +766,53 @@ model Commission {
 }
 
 model Consultant {
-  id                    String                    @id @default(uuid())
-  email                 String                    @unique
-  passwordHash          String                    @map("password_hash")
-  firstName             String                    @map("first_name")
-  lastName              String                    @map("last_name")
-  phone                 String?
-  photo                 String?
-  role                  ConsultantRole
-  status                ConsultantStatus          @default(ACTIVE)
-  createdAt             DateTime                  @default(now()) @map("created_at")
-  updatedAt             DateTime                  @updatedAt @map("updated_at")
-  lastLoginAt           DateTime?                 @map("last_login_at")
-  address               String?
-  availability          AvailabilityStatus        @default(AVAILABLE)
-  averageDaysToFill     Float?                    @map("average_days_to_fill")
-  city                  String?
-  commissionStructure   String?                   @map("commission_structure")
-  country               String?
-  currentEmployers      Int                       @default(0) @map("current_employers")
-  currentJobs           Int                       @default(0) @map("current_jobs")
-  defaultCommissionRate Float?                    @map("default_commission_rate")
-  industryExpertise     String[]                  @default([]) @map("industry_expertise")
-  languages             Json?
-  maxEmployers          Int                       @default(10) @map("max_employers")
-  maxJobs               Int                       @default(20) @map("max_jobs")
-  paymentMethod         Json?                     @map("payment_method")
-  pendingCommissions    Float                     @default(0) @map("pending_commissions")
-  regionId              String                    @map("region_id")
-  resumeUrl             String?                   @map("resume_url")
-  stateProvince         String?                   @map("state_province")
-  successRate           Float                     @default(0) @map("success_rate")
-  taxInformation        Json?                     @map("tax_information")
-  totalCommissionsPaid  Float                     @default(0) @map("total_commissions_paid")
-  totalPlacements       Int                       @default(0) @map("total_placements")
-  totalRevenue          Float                     @default(0) @map("total_revenue")
-  commissions           Commission[]
-  region                Region                    @relation(fields: [regionId], references: [id])
-  jobAssignments        ConsultantJobAssignment[]
-  sessions              ConsultantSession[]
-  assignedJobs          Job[]
+  id                       String                     @id @default(uuid())
+  email                    String                     @unique
+  passwordHash             String                     @map("password_hash")
+  firstName                String                     @map("first_name")
+  lastName                 String                     @map("last_name")
+  phone                    String?
+  photo                    String?
+  role                     ConsultantRole
+  status                   ConsultantStatus           @default(ACTIVE)
+  createdAt                DateTime                   @default(now()) @map("created_at")
+  updatedAt                DateTime                   @updatedAt @map("updated_at")
+  lastLoginAt              DateTime?                  @map("last_login_at")
+  address                  String?
+  availability             AvailabilityStatus         @default(AVAILABLE)
+  averageDaysToFill        Float?                     @map("average_days_to_fill")
+  city                     String?
+  commissionStructure      String?                    @map("commission_structure")
+  country                  String?
+  currentEmployers         Int                        @default(0) @map("current_employers")
+  currentJobs              Int                        @default(0) @map("current_jobs")
+  defaultCommissionRate    Float?                     @map("default_commission_rate")
+  industryExpertise        String[]                   @default([]) @map("industry_expertise")
+  languages                Json?
+  maxEmployers             Int                        @default(10) @map("max_employers")
+  maxJobs                  Int                        @default(20) @map("max_jobs")
+  paymentMethod            Json?                      @map("payment_method")
+  pendingCommissions       Float                      @default(0) @map("pending_commissions")
+  regionId                 String                     @map("region_id")
+  resumeUrl                String?                    @map("resume_url")
+  stateProvince            String?                    @map("state_province")
+  successRate              Float                      @default(0) @map("success_rate")
+  taxInformation           Json?                      @map("tax_information")
+  totalCommissionsPaid     Float                      @default(0) @map("total_commissions_paid")
+  totalPlacements          Int                        @default(0) @map("total_placements")
+  totalRevenue             Float                      @default(0) @map("total_revenue")
+  current_leads            Int                        @default(0)
+  max_leads                Int                        @default(20)
+  AccountTeam              AccountTeam[]
+  commissions              Commission[]
+  region                   Region                     @relation(fields: [regionId], references: [id])
+  jobAssignments           ConsultantJobAssignment[]
+  ConsultantLeadAssignment ConsultantLeadAssignment[]
+  sessions                 ConsultantSession[]
+  assignedJobs             Job[]
+  Lead                     Lead[]
+  Opportunity              Opportunity[]
+  Subscription             Subscription[]
 
   @@index([email])
   @@index([regionId])
@@ -910,6 +945,7 @@ model Region {
   companies     Company[]
   consultants   Consultant[]
   jobs          Job[]
+  Lead          Lead[]
   licensee      RegionalLicensee? @relation(fields: [licenseeId], references: [id])
   revenue       RegionalRevenue[]
 
@@ -1268,6 +1304,349 @@ model InterviewFeedback {
   @@index([interviewer_id])
   @@index([submitted_at])
   @@index([video_interview_id])
+}
+
+model AccountTeam {
+  id            String          @id
+  company_id    String
+  consultant_id String?
+  role          AccountTeamRole
+  assigned_at   DateTime        @default(now())
+  assigned_by   String
+  notes         String?
+  created_at    DateTime        @default(now())
+  updated_at    DateTime
+  Company       Company         @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  Consultant    Consultant?     @relation(fields: [consultant_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, consultant_id, role])
+  @@index([company_id])
+  @@index([consultant_id])
+}
+
+model Activity {
+  id             String       @id
+  company_id     String
+  lead_id        String?
+  opportunity_id String?
+  type           ActivityType
+  subject        String
+  description    String?
+  created_by     String
+  actor_type     ActorType    @default(CONSULTANT)
+  scheduled_at   DateTime?
+  completed_at   DateTime?
+  due_date       DateTime?
+  email_subject  String?
+  email_body     String?
+  call_duration  Int?
+  meeting_link   String?
+  tags           String[]
+  attachments    Json?
+  created_at     DateTime     @default(now())
+  updated_at     DateTime
+  Company        Company      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  Lead           Lead?        @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  Opportunity    Opportunity? @relation(fields: [opportunity_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([created_by])
+  @@index([lead_id])
+  @@index([opportunity_id])
+  @@index([scheduled_at])
+  @@index([type])
+}
+
+model Bill {
+  id                String        @id
+  subscription_id   String?
+  company_id        String
+  bill_number       String        @unique
+  amount            Float
+  currency          String        @default("USD")
+  tax_amount        Float?        @default(0)
+  total_amount      Float
+  status            BillStatus    @default(PENDING)
+  due_date          DateTime
+  paid_at           DateTime?
+  payment_method    String?
+  payment_reference String?
+  line_items        Json?
+  accounting_ref    String?
+  synced_at         DateTime?
+  notes             String?
+  created_at        DateTime      @default(now())
+  updated_at        DateTime
+  Company           Company       @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  Subscription      Subscription? @relation(fields: [subscription_id], references: [id])
+
+  @@index([company_id])
+  @@index([due_date])
+  @@index([status])
+  @@index([subscription_id])
+}
+
+model ConsultantLeadAssignment {
+  id                String            @id
+  consultant_id     String
+  lead_id           String
+  assigned_at       DateTime          @default(now())
+  assigned_by       String?
+  status            String            @default("ACTIVE")
+  notes             String?
+  assignment_source AssignmentSource?
+  Consultant        Consultant        @relation(fields: [consultant_id], references: [id], onDelete: Cascade)
+  Lead              Lead              @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+
+  @@unique([consultant_id, lead_id])
+  @@index([consultant_id])
+  @@index([lead_id])
+  @@index([status])
+}
+
+model Contact {
+  id            String   @id
+  company_id    String
+  first_name    String
+  last_name     String
+  email         String
+  phone         String?
+  title         String?
+  department    String?
+  is_primary    Boolean  @default(false)
+  linked_in_url String?
+  notes         String?
+  created_at    DateTime @default(now())
+  updated_at    DateTime
+  Company       Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([email])
+}
+
+model Integration {
+  id            String            @id
+  company_id    String?
+  type          IntegrationType
+  name          String
+  status        IntegrationStatus @default(ACTIVE)
+  api_key       String?
+  api_secret    String?
+  login_url     String?
+  username      String?
+  password      String?
+  config        Json?
+  last_sync_at  DateTime?
+  sync_status   String?
+  error_message String?
+  created_at    DateTime          @default(now())
+  updated_at    DateTime
+  Company       Company?          @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([status])
+  @@index([type])
+}
+
+model Lead {
+  id                       String                     @id
+  company_name             String
+  email                    String
+  phone                    String?
+  website                  String?
+  country                  String
+  city                     String?
+  state_province           String?
+  region_id                String?
+  assigned_consultant_id   String?
+  assigned_at              DateTime?
+  assigned_by              String?
+  assignment_mode          AssignmentMode             @default(AUTO)
+  assignment_source        AssignmentSource?
+  created_by               String?
+  referred_by              String?
+  lead_source              LeadSource                 @default(WEBSITE)
+  status                   LeadStatus                 @default(NEW)
+  notes                    String?
+  tags                     String[]
+  validated_by             String?
+  validated_at             DateTime?
+  attribution_locked       Boolean                    @default(false)
+  converted_to_company_id  String?
+  converted_at             DateTime?
+  created_at               DateTime                   @default(now())
+  updated_at               DateTime
+  Activity                 Activity[]
+  ConsultantLeadAssignment ConsultantLeadAssignment[]
+  Consultant               Consultant?                @relation(fields: [assigned_consultant_id], references: [id])
+  Company                  Company?                   @relation(fields: [converted_to_company_id], references: [id])
+  Region                   Region?                    @relation(fields: [region_id], references: [id])
+
+  @@index([assigned_consultant_id])
+  @@index([assignment_source])
+  @@index([converted_to_company_id])
+  @@index([created_by])
+  @@index([region_id])
+  @@index([status])
+}
+
+model OfferDocument {
+  id             String           @id
+  offer_id       String
+  application_id String?
+  name           String
+  description    String?
+  category       DocumentCategory
+  status         DocumentStatus   @default(PENDING)
+  file_url       String?
+  file_name      String?
+  uploaded_date  DateTime?
+  uploaded_by    String?
+  reviewed_by    String?
+  reviewed_date  DateTime?
+  review_notes   String?
+  expiry_date    DateTime?
+  is_required    Boolean          @default(true)
+  template_url   String?
+  created_at     DateTime         @default(now())
+  updated_at     DateTime
+  Application    Application?     @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  OfferLetter    OfferLetter      @relation(fields: [offer_id], references: [id], onDelete: Cascade)
+
+  @@index([application_id])
+  @@index([category])
+  @@index([is_required])
+  @@index([offer_id])
+  @@index([status])
+}
+
+model OfferLetter {
+  id                  String             @id
+  application_id      String
+  candidate_id        String
+  job_id              String
+  template_id         String?
+  offer_type          String
+  salary              Float
+  salary_currency     String             @default("USD")
+  salary_period       String
+  start_date          DateTime
+  benefits            String[]           @default([])
+  bonus_structure     String?
+  equity_options      String?
+  work_location       String
+  work_arrangement    String
+  probation_period    Int?
+  vacation_days       Int?
+  custom_terms        Json?
+  status              OfferStatus        @default(DRAFT)
+  approval_workflow   Json?
+  sent_date           DateTime?
+  expiry_date         DateTime?
+  responded_date      DateTime?
+  decline_reason      String?
+  signed_document_url String?
+  generated_pdf_url   String?
+  custom_message      String?
+  created_by          String
+  created_at          DateTime           @default(now())
+  updated_at          DateTime
+  OfferDocument       OfferDocument[]
+  Application         Application        @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  Candidate           Candidate          @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
+  User                User               @relation(fields: [created_by], references: [id], onDelete: Cascade)
+  Job                 Job                @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  OfferNegotiation    OfferNegotiation[]
+
+  @@index([application_id])
+  @@index([candidate_id])
+  @@index([created_by])
+  @@index([expiry_date])
+  @@index([job_id])
+  @@index([sent_date])
+  @@index([status])
+}
+
+model OfferNegotiation {
+  id               String                 @id
+  offer_id         String
+  message_type     NegotiationMessageType
+  message          String
+  proposed_changes Json?
+  sender_id        String
+  sender_type      String
+  sender_name      String
+  sender_email     String?
+  responded        Boolean                @default(false)
+  response         String?
+  response_date    DateTime?
+  created_at       DateTime               @default(now())
+  updated_at       DateTime
+  OfferLetter      OfferLetter            @relation(fields: [offer_id], references: [id], onDelete: Cascade)
+
+  @@index([created_at])
+  @@index([message_type])
+  @@index([offer_id])
+  @@index([sender_id])
+}
+
+model Opportunity {
+  id                  String           @id
+  company_id          String
+  name                String
+  type                OpportunityType
+  stage               OpportunityStage @default(NEW)
+  amount              Float?
+  currency            String           @default("USD")
+  probability         Int              @default(0)
+  expected_close_date DateTime?
+  sales_agent_id      String?
+  referred_by         String?
+  description         String?
+  tags                String[]
+  lost_reason         String?
+  closed_at           DateTime?
+  created_at          DateTime         @default(now())
+  updated_at          DateTime
+  Activity            Activity[]
+  Company             Company          @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  Consultant          Consultant?      @relation(fields: [sales_agent_id], references: [id])
+
+  @@index([company_id])
+  @@index([sales_agent_id])
+  @@index([stage])
+  @@index([type])
+}
+
+model Subscription {
+  id               String               @id
+  company_id       String
+  name             String
+  planType         SubscriptionPlanType
+  status           SubscriptionStatus   @default(ACTIVE)
+  base_price       Float
+  currency         String               @default("USD")
+  billing_cycle    BillingCycle         @default(MONTHLY)
+  discount_percent Float?               @default(0)
+  custom_pricing   Json?
+  start_date       DateTime
+  end_date         DateTime?
+  renewal_date     DateTime?
+  cancelled_at     DateTime?
+  sales_agent_id   String?
+  referred_by      String?
+  usage_data       Json?
+  notes            String?
+  created_at       DateTime             @default(now())
+  updated_at       DateTime
+  Bill             Bill[]
+  Company          Company              @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  Consultant       Consultant?          @relation(fields: [sales_agent_id], references: [id])
+
+  @@index([company_id])
+  @@index([planType])
+  @@index([sales_agent_id])
+  @@index([status])
 }
 
 enum UserRole {
@@ -1629,4 +2008,154 @@ enum PipelineStage {
   PLACED
   ON_HOLD
   CLOSED
+}
+
+enum AccountTeamRole {
+  SALES_OWNER
+  RECRUITER_OWNER
+  REGION_OWNER
+}
+
+enum ActivityType {
+  EMAIL
+  CALL
+  MEETING
+  NOTE
+  TASK
+  FOLLOW_UP
+}
+
+enum ActorType {
+  CONSULTANT
+  HRM8_USER
+  SYSTEM
+}
+
+enum BillStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum DocumentCategory {
+  QUALIFICATION
+  BACKGROUND_CHECK
+  NDA
+  IDENTITY
+  TAX
+  CONTRACT
+  BANKING
+  COMPLIANCE
+  INSURANCE
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  REQUESTED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  REVISION_REQUIRED
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  PENDING_CONFIG
+}
+
+enum IntegrationType {
+  JOB_POSTING_PLATFORM
+  ASSESSMENT_TOOL
+  ACCOUNTING_SYSTEM
+  EMAIL_PROVIDER
+  CALENDAR
+  OTHER
+}
+
+enum LeadSource {
+  WEBSITE
+  MARKETING_CAMPAIGN
+  REFERRAL
+  PARTNER_IMPORT
+  MANUAL_ENTRY
+  EVENT
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  LOST
+  NURTURING
+}
+
+enum NegotiationMessageType {
+  EMPLOYER_PROPOSAL
+  CANDIDATE_COUNTER
+  EMPLOYER_REVISION
+  CANDIDATE_ACCEPTANCE
+  CANDIDATE_DECLINE
+}
+
+enum OfferStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  UNDER_NEGOTIATION
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum OpportunityStage {
+  NEW
+  QUALIFICATION
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum OpportunityType {
+  SUBSCRIPTION
+  RECRUITMENT_SERVICE
+  CUSTOM
+}
+
+enum SubscriptionPlanType {
+  FREE
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
 }

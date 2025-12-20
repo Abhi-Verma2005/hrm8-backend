@@ -53,6 +53,13 @@ router.post(
   JobController.bulkDeleteJobs
 );
 
+// Create payment checkout for job (requires job posting permission)
+router.post(
+  '/:id/create-payment',
+  requireJobPostingPermission,
+  JobController.createJobPayment
+);
+
 // Publish job (requires job posting permission)
 // Note: enforceCompanyIsolation removed - company check is done in service layer
 router.post(

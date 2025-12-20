@@ -7,6 +7,7 @@ import { Job, JobStatus, HiringMode, WorkArrangement, EmploymentType, HiringTeam
 import { JobModel } from '../../models/Job';
 import { CompanyModel } from '../../models/Company';
 import { JobAllocationService } from '../hrm8/JobAllocationService';
+import { JobPaymentService } from '../payments/JobPaymentService';
 import { prisma } from '../../lib/prisma';
 
 export interface CreateJobRequest {
@@ -39,12 +40,14 @@ export interface CreateJobRequest {
   videoInterviewingEnabled?: boolean;
   assignmentMode?: AssignmentMode;
   regionId?: string;
+  servicePackage?: string;
 }
 
 export interface UpdateJobRequest extends Partial<CreateJobRequest> {
   status?: JobStatus;
   closeDate?: Date;
   applicationForm?: any;
+  servicePackage?: string;
 }
 
 export class JobService {
@@ -116,12 +119,19 @@ export class JobService {
       // Priority: jobData.regionId (explicit) > company.regionId (default)
       const finalRegionId = jobData.regionId || companyRegionId;
 
-      // Add assignmentMode and regionId to job data
+      // Determine service package and payment status
+      const servicePackage = jobData.servicePackage || 'self-managed';
+      const requiresPayment = JobPaymentService.requiresPayment(servicePackage as any);
+      const paymentStatus = requiresPayment ? undefined : 'PAID'; // Free packages are automatically PAID
+
+      // Add assignmentMode, regionId, and payment fields to job data
       // Note: regionId must be set here so JobModel.create can save it
       const finalJobData = {
         ...jobModelData,
         assignmentMode: jobData.assignmentMode || AssignmentMode.AUTO,
         ...(finalRegionId && { regionId: finalRegionId }), // Only include if we have a value
+        servicePackage,
+        ...(paymentStatus && { paymentStatus }), // Only set if we have a value
       };
 
       const job = await JobModel.create(finalJobData);
@@ -292,6 +302,19 @@ export class JobService {
 
     if (job.status !== JobStatus.DRAFT) {
       throw new Error('Only draft jobs can be published');
+    }
+
+    // Check if payment is required and completed
+    const canPublish = await JobPaymentService.canPublishJob(jobId);
+    if (!canPublish) {
+      const prismaJob = await prisma.job.findUnique({
+        where: { id: jobId },
+        select: { servicePackage: true, paymentStatus: true },
+      });
+
+      if (prismaJob?.servicePackage && prismaJob.servicePackage !== 'self-managed') {
+        throw new Error('Payment is required before publishing this job. Please complete the payment first.');
+      }
     }
 
     // Set posting date if not already set

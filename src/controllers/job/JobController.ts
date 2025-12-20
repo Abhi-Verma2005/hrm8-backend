@@ -8,6 +8,7 @@ import { AuthenticatedRequest } from '../../types';
 import { JobService, CreateJobRequest, UpdateJobRequest } from '../../services/job/JobService';
 import { JobStatus } from '../../types';
 import { HiringTeamInvitationService } from '../../services/job/HiringTeamInvitationService';
+import { JobPaymentService } from '../../services/payments/JobPaymentService';
 
 export class JobController {
   /**
@@ -545,6 +546,54 @@ export class JobController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to send invitation',
+      });
+    }
+  }
+
+  /**
+   * Create payment checkout session for a job
+   * POST /api/jobs/:id/create-payment
+   */
+  static async createJobPayment(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      const { id: jobId } = req.params;
+      const { servicePackage, customerEmail } = req.body;
+
+      if (!servicePackage) {
+        res.status(400).json({ success: false, error: 'servicePackage is required' });
+        return;
+      }
+
+      const validPackages = ['self-managed', 'shortlisting', 'full-service', 'executive-search'];
+      if (!validPackages.includes(servicePackage)) {
+        res.status(400).json({ success: false, error: 'Invalid servicePackage' });
+        return;
+      }
+
+      // Verify job belongs to company
+      await JobService.getJobById(jobId, req.user.companyId);
+
+      const result = await JobPaymentService.createJobCheckoutSession({
+        jobId,
+        servicePackage: servicePackage as any,
+        companyId: req.user.companyId,
+        customerEmail,
+      });
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create payment checkout',
       });
     }
   }

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import Stripe from 'stripe';
 import { StripeUpgradeService, type UpgradeTier } from '../services/payments/StripeUpgradeService';
+import { JobPaymentService } from '../services/payments/JobPaymentService';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
@@ -8,14 +9,61 @@ if (!stripeSecretKey) {
   throw new Error('STRIPE_SECRET_KEY is required to initialize Stripe.');
 }
 
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2024-11-20',
-});
+const stripe = new Stripe(stripeSecretKey);
 
 const paymentsRouter = Router();
 
 const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:8080';
 const getBackendUrl = () => process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+paymentsRouter.post('/job-checkout', async (req: Request, res: Response) => {
+  try {
+    const { jobId, servicePackage, companyId, customerEmail } = req.body as {
+      jobId?: string;
+      servicePackage?: string;
+      companyId?: string;
+      customerEmail?: string;
+    };
+
+    if (!jobId) {
+      return res.status(400).json({ success: false, error: 'jobId is required' });
+    }
+
+    if (!servicePackage) {
+      return res.status(400).json({ success: false, error: 'servicePackage is required' });
+    }
+
+    if (!companyId) {
+      return res.status(400).json({ success: false, error: 'companyId is required' });
+    }
+
+    const validPackages: string[] = ['self-managed', 'shortlisting', 'full-service', 'executive-search'];
+    if (!validPackages.includes(servicePackage)) {
+      return res.status(400).json({ success: false, error: 'Invalid servicePackage' });
+    }
+
+    const result = await JobPaymentService.createJobCheckoutSession({
+      jobId,
+      servicePackage: servicePackage as any,
+      companyId,
+      customerEmail,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        checkoutUrl: result.checkoutUrl,
+        sessionId: result.sessionId,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating job checkout session', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create checkout session',
+    });
+  }
+});
 
 paymentsRouter.post('/upgrade-checkout', async (req: Request, res: Response) => {
   try {
@@ -107,23 +155,92 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
-      const tier = session.metadata?.tier as UpgradeTier | undefined;
-      const companyId = session.metadata?.companyId;
+      const metadata = session.metadata || {};
+      const paymentType = metadata.type;
 
-      if (session.payment_status === 'paid' && companyId && StripeUpgradeService.isValidTier(tier)) {
-        await StripeUpgradeService.recordSuccessfulUpgrade({
-          companyId,
-          tier,
-          amount: session.amount_total,
-          currency: session.currency,
-          stripeSessionId: session.id,
-        });
-      } else {
-        console.warn('Checkout session missing required metadata', {
-          companyId,
-          tier,
-          payment_status: session.payment_status,
-        });
+      // Handle job-specific payments
+      if (paymentType === 'job_payment') {
+        const jobId = metadata.jobId;
+        const companyId = metadata.companyId;
+        const servicePackage = metadata.servicePackage || 'shortlisting';
+
+        if (session.payment_status === 'paid' && jobId && companyId) {
+          // Get payment intent ID if available
+          const paymentIntentId = typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : (session.payment_intent as any)?.id;
+
+          try {
+            // 1. Record the payment
+            await JobPaymentService.recordJobPayment({
+              jobId,
+              stripeSessionId: session.id,
+              stripePaymentIntentId: paymentIntentId,
+              amount: (session.amount_total || 0) / 100, // Convert from cents
+              currency: session.currency || 'usd',
+            });
+
+            // 2. Double check and ensure job has correct service package and payment status in DB
+            // This ensures the job is ready for publishing regardless of initial state
+            const { prisma } = await import('../lib/prisma');
+            await prisma.job.update({
+              where: { id: jobId },
+              data: {
+                paymentStatus: 'PAID',
+                servicePackage,
+              }
+            });
+
+            // 3. Auto-publish the job after successful payment
+            const { JobService } = await import('../services/job/JobService');
+            try {
+              await JobService.publishJob(jobId, companyId);
+            } catch (publishError: any) {
+              // If already published or other non-fatal error, just log it
+              console.log(`ℹ️ Job ${jobId} publishing status: ${publishError.message}`);
+            }
+          } catch (error) {
+            console.error(`❌ Error processing payment for job ${jobId}:`, error);
+          }
+        } else {
+          console.warn('Job payment checkout session missing required metadata or not paid', {
+            jobId,
+            companyId,
+            payment_status: session.payment_status,
+          });
+        }
+      }
+      // Handle company-level upgrades (legacy)
+      else {
+        const tier = metadata.tier as UpgradeTier | undefined;
+        const companyId = metadata.companyId;
+
+        if (session.payment_status === 'paid' && companyId && StripeUpgradeService.isValidTier(tier)) {
+          await StripeUpgradeService.recordSuccessfulUpgrade({
+            companyId,
+            tier,
+            amount: session.amount_total,
+            currency: session.currency,
+            stripeSessionId: session.id,
+          });
+        } else {
+          console.warn('Checkout session missing required metadata', {
+            companyId,
+            tier,
+            payment_status: session.payment_status,
+          });
+        }
+      }
+    }
+
+    // Handle payment failures
+    if (event.type === 'checkout.session.async_payment_failed' || event.type === 'payment_intent.payment_failed') {
+      const session = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent;
+      const metadata = (session as any).metadata || {};
+      const paymentType = metadata.type;
+
+      if (paymentType === 'job_payment' && metadata.jobId) {
+        await JobPaymentService.recordJobPaymentFailure(metadata.jobId);
       }
     }
 
@@ -135,5 +252,14 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
 };
 
 export default paymentsRouter;
+
+
+
+
+
+
+
+
+
 
 
