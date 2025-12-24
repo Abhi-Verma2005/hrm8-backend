@@ -4,27 +4,12 @@
  */
 
 import prisma from '../lib/prisma';
-import { HRM8UserRole, HRM8UserStatus } from '@prisma/client';
-
-export interface HRM8UserData {
-  id: string;
-  email: string;
-  passwordHash: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  photo?: string;
-  role: HRM8UserRole;
-  status: HRM8UserStatus;
-  licenseeId?: string;
-  lastLoginAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { HRM8User, HRM8UserRole, HRM8UserStatus } from '../types';
 
 export class HRM8UserModel {
   /**
    * Create a new HRM8 user
+   * Role defaults to REGIONAL_LICENSEE if not provided
    */
   static async create(userData: {
     email: string;
@@ -33,10 +18,10 @@ export class HRM8UserModel {
     lastName: string;
     phone?: string;
     photo?: string;
-    role: HRM8UserRole;
+    role?: HRM8UserRole; // Optional - defaults to REGIONAL_LICENSEE
     status?: HRM8UserStatus;
     licenseeId?: string;
-  }): Promise<HRM8UserData> {
+  }): Promise<HRM8User> {
     const user = await prisma.hRM8User.create({
       data: {
         email: userData.email.toLowerCase().trim(),
@@ -45,7 +30,7 @@ export class HRM8UserModel {
         lastName: userData.lastName.trim(),
         phone: userData.phone?.trim(),
         photo: userData.photo,
-        role: userData.role,
+        role: userData.role || HRM8UserRole.REGIONAL_LICENSEE,
         status: userData.status || HRM8UserStatus.ACTIVE,
         licenseeId: userData.licenseeId,
       },
@@ -57,7 +42,7 @@ export class HRM8UserModel {
   /**
    * Find HRM8 user by ID
    */
-  static async findById(id: string): Promise<HRM8UserData | null> {
+  static async findById(id: string): Promise<HRM8User | null> {
     const user = await prisma.hRM8User.findUnique({
       where: { id },
     });
@@ -68,7 +53,7 @@ export class HRM8UserModel {
   /**
    * Find HRM8 user by email
    */
-  static async findByEmail(email: string): Promise<HRM8UserData | null> {
+  static async findByEmail(email: string): Promise<HRM8User | null> {
     const user = await prisma.hRM8User.findUnique({
       where: { email: email.toLowerCase().trim() },
     });
@@ -79,7 +64,7 @@ export class HRM8UserModel {
   /**
    * Update HRM8 user
    */
-  static async update(id: string, data: Partial<HRM8UserData>): Promise<HRM8UserData> {
+  static async update(id: string, data: Partial<HRM8User>): Promise<HRM8User> {
     const user = await prisma.hRM8User.update({
       where: { id },
       data: {
@@ -87,6 +72,7 @@ export class HRM8UserModel {
         ...(data.lastName !== undefined && { lastName: data.lastName }),
         ...(data.phone !== undefined && { phone: data.phone }),
         ...(data.photo !== undefined && { photo: data.photo }),
+        ...(data.role !== undefined && { role: data.role }),
         ...(data.status !== undefined && { status: data.status }),
         ...(data.licenseeId !== undefined && { licenseeId: data.licenseeId }),
       },
@@ -126,7 +112,7 @@ export class HRM8UserModel {
   }
 
   /**
-   * Map Prisma user to HRM8UserData interface
+   * Map Prisma user to HRM8User domain type
    */
   private static mapPrismaToUser(prismaUser: {
     id: string;
@@ -138,11 +124,11 @@ export class HRM8UserModel {
     photo: string | null;
     role: HRM8UserRole;
     status: HRM8UserStatus;
-    licenseeId: string | null;
+    licenseeId: string | null; // Prisma returns camelCase (maps to licensee_id in DB)
     lastLoginAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
-  }): HRM8UserData {
+  }): HRM8User {
     return {
       id: prismaUser.id,
       email: prismaUser.email,

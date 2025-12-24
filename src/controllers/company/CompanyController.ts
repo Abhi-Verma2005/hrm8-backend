@@ -7,7 +7,8 @@ import { Request, Response } from 'express';
 import { CompanyService } from '../../services/company/CompanyService';
 import { VerificationService } from '../../services/verification/VerificationService';
 import { CompanyProfileService } from '../../services/company/CompanyProfileService';
-import { UpdateCompanyProfileRequest, AuthenticatedRequest } from '../../types';
+import { UpdateCompanyProfileRequest, AuthenticatedRequest, JobAssignmentMode } from '../../types';
+import { CompanyModel } from '../../models/Company';
 
 export class CompanyController {
   /**
@@ -204,6 +205,61 @@ export class CompanyController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to complete profile',
+      });
+    }
+  }
+
+  /**
+   * Get job assignment settings
+   * GET /api/companies/:id/job-assignment-settings
+   */
+  static async getJobAssignmentSettings(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const settings = await CompanyModel.getJobAssignmentSettings(id);
+
+      res.json({
+        success: true,
+        data: settings,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch job assignment settings',
+      });
+    }
+  }
+
+  /**
+   * Update job assignment mode
+   * PUT /api/companies/:id/job-assignment-mode
+   */
+  static async updateJobAssignmentMode(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { mode } = req.body;
+
+      if (!mode || (mode !== 'AUTO_RULES_ONLY' && mode !== 'MANUAL_ONLY')) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid mode. Must be AUTO_RULES_ONLY or MANUAL_ONLY',
+        });
+        return;
+      }
+
+      const company = await CompanyModel.updateJobAssignmentMode(id, mode as JobAssignmentMode);
+
+      res.json({
+        success: true,
+        data: {
+          company,
+          message: 'Job assignment mode updated successfully',
+        },
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update job assignment mode',
       });
     }
   }

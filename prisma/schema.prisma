@@ -8,33 +8,33 @@ datasource db {
 }
 
 model Company {
-  id                     String                    @id @default(uuid())
-  name                   String
-  website                String
-  domain                 String                    @unique
-  countryOrRegion        String                    @default("") @map("country_or_region")
-  acceptedTerms          Boolean                   @default(false) @map("accepted_terms")
-  verificationStatus     CompanyVerificationStatus @default(PENDING)
-  verificationMethod     VerificationMethod?
-  verifiedAt             DateTime?
-  verifiedBy             String?
-  gstNumber              String?
-  registrationNumber     String?
-  linkedInUrl            String?
-  createdAt              DateTime                  @default(now())
-  updatedAt              DateTime                  @updatedAt
-  regionId               String?                   @map("region_id")
-  job_assignment_mode    JobAssignmentMode         @default(AUTO_RULES_ONLY)
-  preferred_recruiter_id String?
-  region                 Region?                   @relation(fields: [regionId], references: [id])
-  profile                CompanyProfile?
-  settings               CompanySettings?
-  invitations            Invitation[]
-  jobs                   Job[]
-  JobTemplate            JobTemplate[]
-  signupRequests         SignupRequest[]
-  users                  User[]
-  verificationTokens     VerificationToken[]
+  id                   String                    @id @default(uuid())
+  name                 String
+  website              String
+  domain               String                    @unique
+  countryOrRegion      String                    @default("") @map("country_or_region")
+  acceptedTerms        Boolean                   @default(false) @map("accepted_terms")
+  verificationStatus   CompanyVerificationStatus @default(PENDING)
+  verificationMethod   VerificationMethod?
+  verifiedAt           DateTime?
+  verifiedBy           String?
+  gstNumber            String?
+  registrationNumber   String?
+  linkedInUrl          String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  regionId             String?                   @map("region_id")
+  jobAssignmentMode    JobAssignmentMode         @default(AUTO_RULES_ONLY) @map("job_assignment_mode")
+  preferredRecruiterId String?                   @map("preferred_recruiter_id")
+  region               Region?                   @relation(fields: [regionId], references: [id])
+  profile              CompanyProfile?
+  settings             CompanySettings?
+  invitations          Invitation[]
+  jobs                 Job[]
+  JobTemplate          JobTemplate[]
+  signupRequests       SignupRequest[]
+  users                User[]
+  verificationTokens   VerificationToken[]
 
   @@index([domain])
   @@index([verificationStatus])
@@ -97,6 +97,7 @@ model User {
   roleAssigner           User?                @relation("RoleAssigner", fields: [assignedBy], references: [id])
   assignedUsers          User[]               @relation("RoleAssigner")
   company                Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdOffers          OfferLetter[]        @relation("OfferCreator")
 
   @@index([email])
   @@index([companyId])
@@ -254,13 +255,14 @@ model Job {
   screening_criteria                  Json?
   screening_enabled                   Boolean                     @default(false)
   regionId                            String?                     @map("region_id")
-  assigned_consultant_id              String?
-  assignment_mode                     AssignmentMode              @default(AUTO)
-  assignment_source                   AssignmentSource?
+  assignedConsultantId                String?                     @map("assigned_consultant_id")
+  assignmentMode                      AssignmentMode              @default(AUTO) @map("assignment_mode")
+  assignmentSource                    AssignmentSource?           @map("assignment_source")
   applications                        Application[]
   commissions                         Commission[]
   consultantAssignments               ConsultantJobAssignment[]
-  Consultant                          Consultant?                 @relation(fields: [assigned_consultant_id], references: [id])
+  Conversation                        Conversation[]
+  assignedConsultant                  Consultant?                 @relation(fields: [assignedConsultantId], references: [id])
   company                             Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   creator                             User                        @relation("JobCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   region                              Region?                     @relation(fields: [regionId], references: [id])
@@ -270,6 +272,7 @@ model Job {
   PreInterviewQuestionnaire           PreInterviewQuestionnaire[]
   SavedJob                            SavedJob[]
   ScreeningCriteria                   ScreeningCriteria[]
+  OfferLetter                         OfferLetter[]               @relation("OfferJob")
 
   @@index([companyId])
   @@index([createdBy])
@@ -277,8 +280,8 @@ model Job {
   @@index([hiringMode])
   @@index([expiryDate])
   @@index([regionId])
-  @@index([assigned_consultant_id])
-  @@index([assignment_source])
+  @@index([assignedConsultantId])
+  @@index([assignmentSource])
 }
 
 model Candidate {
@@ -318,7 +321,9 @@ model Candidate {
   JobAlert                JobAlert[]
   jobInvitations          JobInvitation[]
   Notification            Notification[]
+  NotificationPreferences NotificationPreferences?
   SavedJob                SavedJob[]
+  OfferLetter             OfferLetter[]             @relation("OfferCandidate")
   SavedSearch             SavedSearch[]
 
   @@index([email])
@@ -386,6 +391,8 @@ model Application {
   QuestionnaireResponse    QuestionnaireResponse[]
   ScreeningResult          ScreeningResult[]
   VideoInterview           VideoInterview[]
+  OfferLetter              OfferLetter[]
+  OfferDocument            OfferDocument[]            @relation("OfferDocumentApplication")
 
   @@unique([candidateId, jobId])
   @@index([candidateId])
@@ -585,7 +592,7 @@ model Consultant {
   region                Region                    @relation(fields: [regionId], references: [id])
   jobAssignments        ConsultantJobAssignment[]
   sessions              ConsultantSession[]
-  Job                   Job[]
+  assignedJobs          Job[]
 
   @@index([email])
   @@index([regionId])
@@ -595,21 +602,27 @@ model Consultant {
 }
 
 model ConsultantJobAssignment {
-  id                String            @id @default(uuid())
-  consultantId      String            @map("consultant_id")
-  jobId             String            @map("job_id")
-  assignedAt        DateTime          @default(now()) @map("assigned_at")
-  assignedBy        String?           @map("assigned_by")
-  status            String            @default("ACTIVE")
-  notes             String?
-  assignment_source AssignmentSource?
-  consultant        Consultant        @relation(fields: [consultantId], references: [id], onDelete: Cascade)
-  job               Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id                  String            @id @default(uuid())
+  consultantId        String            @map("consultant_id")
+  jobId               String            @map("job_id")
+  assignedAt          DateTime          @default(now()) @map("assigned_at")
+  assignedBy          String?           @map("assigned_by")
+  status              String            @default("ACTIVE")
+  notes               String?
+  assignmentSource    AssignmentSource? @map("assignment_source")
+  pipeline_note       String?
+  pipeline_progress   Int               @default(0)
+  pipeline_stage      PipelineStage     @default(INTAKE)
+  pipeline_updated_at DateTime?
+  pipeline_updated_by String?
+  consultant          Consultant        @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  job                 Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([consultantId, jobId])
   @@index([consultantId])
   @@index([jobId])
   @@index([status])
+  @@index([pipeline_stage])
 }
 
 model ConsultantSession {
@@ -818,41 +831,35 @@ model ScreeningResult {
 }
 
 model VideoInterview {
-  id             String             @id @default(uuid())
-  applicationId  String             @map("application_id")
-  candidateId    String             @map("candidate_id")
-  jobId          String             @map("job_id")
-  jobRoundId     String?            @map("job_round_id")
-  scheduledDate  DateTime           @map("scheduled_date")
-  duration       Int                @default(60)
-  meetingLink    String?            @map("meeting_link")
-  status         InterviewStatus    @default(SCHEDULED)
-  type           VideoInterviewType @default(VIDEO)
-  interviewerIds Json               @map("interviewer_ids")
-
-  // Rescheduling fields
-  isAutoScheduled    Boolean   @default(false) @map("is_auto_scheduled")
-  rescheduledFrom    String?   @map("rescheduled_from")
-  rescheduledAt      DateTime? @map("rescheduled_at")
-  rescheduledBy      String?   @map("rescheduled_by")
-  cancellationReason String?   @map("cancellation_reason")
-  noShowReason       String?   @map("no_show_reason")
-
-  // Scoring fields
+  id                   String                   @id @default(uuid())
+  applicationId        String                   @map("application_id")
+  candidateId          String                   @map("candidate_id")
+  jobId                String                   @map("job_id")
+  scheduledDate        DateTime                 @map("scheduled_date")
+  duration             Int                      @default(60)
+  meetingLink          String?                  @map("meeting_link")
+  status               InterviewStatus          @default(SCHEDULED)
+  type                 VideoInterviewType       @default(VIDEO)
+  interviewerIds       Json                     @map("interviewer_ids")
+  recordingUrl         String?                  @map("recording_url")
+  transcript           Json?
+  feedback             Json?
+  notes                String?
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+  cancellationReason   String?                  @map("cancellation_reason")
+  isAutoScheduled      Boolean                  @default(false) @map("is_auto_scheduled")
+  jobRoundId           String?                  @map("job_round_id")
+  noShowReason         String?                  @map("no_show_reason")
   overallScore         Float?                   @map("overall_score")
-  recommendation       InterviewRecommendation?
   ratingCriteriaScores Json?                    @map("rating_criteria_scores")
-
-  recordingUrl String?  @map("recording_url")
-  transcript   Json?
-  feedback     Json?
-  notes        String?
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  Application       Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  JobRound          JobRound?           @relation(fields: [jobRoundId], references: [id])
-  InterviewFeedback InterviewFeedback[]
+  recommendation       InterviewRecommendation?
+  rescheduledAt        DateTime?                @map("rescheduled_at")
+  rescheduledBy        String?                  @map("rescheduled_by")
+  rescheduledFrom      String?                  @map("rescheduled_from")
+  InterviewFeedback    InterviewFeedback[]
+  Application          Application              @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  JobRound             JobRound?                @relation(fields: [jobRoundId], references: [id])
 
   @@index([applicationId])
   @@index([candidateId])
@@ -887,9 +894,9 @@ model JobRound {
   updatedAt                DateTime                   @updatedAt @map("updated_at")
   ApplicationRoundProgress ApplicationRoundProgress[]
   AssessmentConfiguration  AssessmentConfiguration?
+  interviewConfiguration   InterviewConfiguration?
   Job                      Job                        @relation(fields: [jobId], references: [id], onDelete: Cascade)
   videoInterviews          VideoInterview[]
-  interviewConfiguration   InterviewConfiguration?
 
   @@index([jobId])
   @@index([order])
@@ -951,52 +958,38 @@ model AssessmentConfiguration {
 /// * Stores round-level settings for interview scheduling, format, rating criteria,
 /// * automated progression rules, and interview templates.
 model InterviewConfiguration {
-  id         String @id @default(uuid())
-  jobRoundId String @unique @map("job_round_id")
-
-  // Basic Settings
-  enabled                  Boolean @default(false)
-  autoSchedule             Boolean @default(true) @map("auto_schedule")
-  requireBeforeProgression Boolean @default(false) @map("require_before_progression")
-  requireAllInterviewers   Boolean @default(false) @map("require_all_interviewers")
-
-  // Interview Format
-  interviewFormat     InterviewFormat @default(LIVE_VIDEO) @map("interview_format")
-  defaultDuration     Int?            @default(60) @map("default_duration")
-  requiresInterviewer Boolean         @default(true) @map("requires_interviewer")
-
-  // Scheduling
-  autoScheduleWindowDays Int?    @map("auto_schedule_window_days")
-  availableTimeSlots     Json?   @map("available_time_slots")
-  bufferTimeMinutes      Int?    @map("buffer_time_minutes")
-  calendarIntegration    String? @map("calendar_integration")
-  autoRescheduleOnNoShow Boolean @default(false) @map("auto_reschedule_on_no_show")
-  autoRescheduleOnCancel Boolean @default(false) @map("auto_reschedule_on_cancel")
-
-  // Rating Criteria & Scoring
-  useCustomCriteria Boolean        @default(false) @map("use_custom_criteria")
-  ratingCriteria    Json?          @map("rating_criteria")
-  passThreshold     Float?         @map("pass_threshold")
-  scoringMethod     ScoringMethod? @map("scoring_method")
-
-  // Automated Progression
-  autoMoveOnPass       Boolean       @default(false) @map("auto_move_on_pass")
-  passCriteria         PassCriteria? @map("pass_criteria")
-  nextRoundOnPassId    String?       @map("next_round_on_pass_id")
-  autoRejectOnFail     Boolean       @default(false) @map("auto_reject_on_fail")
-  failCriteria         FailCriteria? @map("fail_criteria")
-  rejectRoundId        String?       @map("reject_round_id")
-  requiresManualReview Boolean       @default(true) @map("requires_manual_review")
-
-  // Template
-  templateId String? @map("template_id")
-  questions  Json?
-  agenda     String?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  JobRound JobRound @relation(fields: [jobRoundId], references: [id], onDelete: Cascade)
+  id                       String          @id @default(uuid())
+  jobRoundId               String          @unique @map("job_round_id")
+  enabled                  Boolean         @default(false)
+  autoSchedule             Boolean         @default(true) @map("auto_schedule")
+  requireBeforeProgression Boolean         @default(false) @map("require_before_progression")
+  requireAllInterviewers   Boolean         @default(false) @map("require_all_interviewers")
+  interviewFormat          InterviewFormat @default(LIVE_VIDEO) @map("interview_format")
+  defaultDuration          Int?            @default(60) @map("default_duration")
+  requiresInterviewer      Boolean         @default(true) @map("requires_interviewer")
+  autoScheduleWindowDays   Int?            @map("auto_schedule_window_days")
+  availableTimeSlots       Json?           @map("available_time_slots")
+  bufferTimeMinutes        Int?            @map("buffer_time_minutes")
+  calendarIntegration      String?         @map("calendar_integration")
+  autoRescheduleOnNoShow   Boolean         @default(false) @map("auto_reschedule_on_no_show")
+  autoRescheduleOnCancel   Boolean         @default(false) @map("auto_reschedule_on_cancel")
+  useCustomCriteria        Boolean         @default(false) @map("use_custom_criteria")
+  ratingCriteria           Json?           @map("rating_criteria")
+  passThreshold            Float?          @map("pass_threshold")
+  scoringMethod            ScoringMethod?  @map("scoring_method")
+  autoMoveOnPass           Boolean         @default(false) @map("auto_move_on_pass")
+  passCriteria             PassCriteria?   @map("pass_criteria")
+  nextRoundOnPassId        String?         @map("next_round_on_pass_id")
+  autoRejectOnFail         Boolean         @default(false) @map("auto_reject_on_fail")
+  failCriteria             FailCriteria?   @map("fail_criteria")
+  rejectRoundId            String?         @map("reject_round_id")
+  requiresManualReview     Boolean         @default(true) @map("requires_manual_review")
+  templateId               String?         @map("template_id")
+  questions                Json?
+  agenda                   String?
+  createdAt                DateTime        @default(now()) @map("created_at")
+  updatedAt                DateTime        @updatedAt @map("updated_at")
+  JobRound                 JobRound        @relation(fields: [jobRoundId], references: [id], onDelete: Cascade)
 
   @@index([jobRoundId])
 }
@@ -1006,30 +999,21 @@ model InterviewConfiguration {
 /// *
 /// * Stores structured feedback for each interviewer participating in a video interview.
 model InterviewFeedback {
-  id               String  @id @default(uuid())
-  videoInterviewId String  @map("video_interview_id")
-  interviewerId    String? @map("interviewer_id")
-  interviewerName  String  @map("interviewer_name")
-  interviewerEmail String? @map("interviewer_email")
-
-  // Rating criteria scores (JSON: { "technicalSkills": 4, "communication": 5, ... })
-  ratingCriteriaScores Json? @map("rating_criteria_scores")
-
-  // Overall rating and recommendation
-  overallRating  Float?                   @map("overall_rating")
-  recommendation InterviewRecommendation?
-
-  // Feedback text
-  strengths String?
-  concerns  String?
-  notes     String?
-
-  // Metadata
-  submittedAt DateTime @default(now()) @map("submitted_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  VideoInterview VideoInterview @relation(fields: [videoInterviewId], references: [id], onDelete: Cascade)
+  id                   String                   @id @default(uuid())
+  videoInterviewId     String                   @map("video_interview_id")
+  interviewerId        String?                  @map("interviewer_id")
+  interviewerName      String                   @map("interviewer_name")
+  interviewerEmail     String?                  @map("interviewer_email")
+  ratingCriteriaScores Json?                    @map("rating_criteria_scores")
+  overallRating        Float?                   @map("overall_rating")
+  recommendation       InterviewRecommendation?
+  strengths            String?
+  concerns             String?
+  notes                String?
+  submittedAt          DateTime                 @default(now()) @map("submitted_at")
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+  VideoInterview       VideoInterview           @relation(fields: [videoInterviewId], references: [id], onDelete: Cascade)
 
   @@index([videoInterviewId])
   @@index([interviewerId])
@@ -1229,10 +1213,212 @@ model CandidateResume {
   @@index([is_default])
 }
 
-/// Job round type – either an assessment round or an interview round
-enum JobRoundType {
-  ASSESSMENT
-  INTERVIEW
+model Conversation {
+  id                      String                    @id
+  subject                 String?
+  jobId                   String?
+  candidateId             String?
+  employerUserId          String?
+  consultantId            String?
+  channel_type            ConversationChannelType   @default(CANDIDATE_EMPLOYER)
+  last_message_id         String?
+  last_message_at         DateTime?
+  created_at              DateTime                  @default(now())
+  updated_at              DateTime
+  status                  ConversationStatus        @default(ACTIVE)
+  Job                     Job?                      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  ConversationParticipant ConversationParticipant[]
+  Message                 Message[]
+
+  @@index([candidateId])
+  @@index([consultantId])
+  @@index([employerUserId])
+  @@index([jobId])
+  @@index([last_message_at])
+  @@index([status])
+}
+
+model ConversationParticipant {
+  id                String          @id
+  conversation_id   String
+  participant_type  ParticipantType
+  participant_id    String
+  participant_email String
+  displayName       String?
+  created_at        DateTime        @default(now())
+  Conversation      Conversation    @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+
+  @@index([conversation_id])
+  @@index([participant_id])
+  @@index([participant_type])
+}
+
+model Message {
+  id                     String              @id
+  conversation_id        String
+  sender_type            ParticipantType
+  sender_id              String
+  sender_email           String
+  content                String
+  content_type           MessageContentType  @default(TEXT)
+  in_reply_to_message_id String?
+  read_by                String[]            @default([])
+  delivered_at           DateTime?
+  read_at                DateTime?
+  created_at             DateTime            @default(now())
+  updated_at             DateTime
+  Conversation           Conversation        @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  MessageAttachment      MessageAttachment[]
+
+  @@index([conversation_id])
+  @@index([created_at])
+  @@index([sender_id])
+}
+
+model MessageAttachment {
+  id         String   @id
+  message_id String
+  file_name  String
+  file_url   String
+  mime_type  String
+  size       Int
+  created_at DateTime @default(now())
+  Message    Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
+
+  @@index([message_id])
+}
+
+model NotificationPreferences {
+  id                         String    @id
+  candidate_id               String    @unique
+  application_status_changes Boolean   @default(true)
+  interview_reminders        Boolean   @default(true)
+  job_match_alerts           Boolean   @default(true)
+  messages                   Boolean   @default(true)
+  system_updates             Boolean   @default(true)
+  email_enabled              Boolean   @default(true)
+  in_app_enabled             Boolean   @default(true)
+  reminder_hours_before      Int       @default(24)
+  created_at                 DateTime  @default(now())
+  updated_at                 DateTime
+  Candidate                  Candidate @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
+
+  @@index([candidate_id])
+}
+
+/// *
+/// * Offer letter management for job applications.
+/// *
+/// * Tracks offer letters sent to candidates, including terms, status,
+/// * negotiation history, and acceptance/decline status.
+model OfferLetter {
+  id                String             @id @default(uuid())
+  applicationId     String             @map("application_id")
+  candidateId       String             @map("candidate_id")
+  jobId             String             @map("job_id")
+  templateId        String?            @map("template_id")
+  offerType         String             @map("offer_type") // full-time, part-time, contract, intern
+  salary            Float
+  salaryCurrency    String             @default("USD") @map("salary_currency")
+  salaryPeriod      String             @map("salary_period") // annual, hourly, monthly, weekly, daily
+  startDate         DateTime           @map("start_date")
+  benefits          String[]           @default([])
+  bonusStructure    String?            @map("bonus_structure")
+  equityOptions     String?            @map("equity_options")
+  workLocation      String             @map("work_location")
+  workArrangement   String             @map("work_arrangement") // on-site, remote, hybrid
+  probationPeriod   Int?               @map("probation_period")
+  vacationDays      Int?               @map("vacation_days")
+  customTerms       Json?              @map("custom_terms")
+  status            OfferStatus        @default(DRAFT)
+  approvalWorkflow  Json?              @map("approval_workflow")
+  sentDate          DateTime?          @map("sent_date")
+  expiryDate        DateTime?          @map("expiry_date")
+  respondedDate     DateTime?          @map("responded_date")
+  declineReason     String?            @map("decline_reason")
+  signedDocumentUrl String?            @map("signed_document_url")
+  generatedPdfUrl   String?            @map("generated_pdf_url")
+  customMessage     String?            @map("custom_message")
+  createdBy         String             @map("created_by")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  Application       Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  Candidate         Candidate          @relation("OfferCandidate", fields: [candidateId], references: [id], onDelete: Cascade)
+  Job               Job                @relation("OfferJob", fields: [jobId], references: [id], onDelete: Cascade)
+  Creator           User               @relation("OfferCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  OfferNegotiation  OfferNegotiation[]
+  OfferDocument     OfferDocument[]
+
+  @@index([applicationId])
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([status])
+  @@index([createdBy])
+  @@index([sentDate])
+  @@index([expiryDate])
+}
+
+/// *
+/// * Negotiation messages and counter-offers for offer letters.
+/// *
+/// * Tracks back-and-forth negotiation between employer and candidate,
+/// * including proposed changes, responses, and final acceptance.
+model OfferNegotiation {
+  id              String                 @id @default(uuid())
+  offerId         String                 @map("offer_id")
+  messageType     NegotiationMessageType @map("message_type")
+  message         String
+  proposedChanges Json?                  @map("proposed_changes")
+  senderId        String                 @map("sender_id")
+  senderType      String                 @map("sender_type") // employer, candidate
+  senderName      String                 @map("sender_name")
+  senderEmail     String?                @map("sender_email")
+  responded       Boolean                @default(false)
+  response        String?
+  responseDate    DateTime?              @map("response_date")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  OfferLetter     OfferLetter            @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+  @@index([messageType])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+/// *
+/// * Documents required from candidates before onboarding.
+/// *
+/// * Tracks document requests, uploads, and review status for
+/// * documents like qualifications, background checks, NDAs, etc.
+model OfferDocument {
+  id            String           @id @default(uuid())
+  offerId       String           @map("offer_id")
+  applicationId String?          @map("application_id")
+  name          String
+  description   String?
+  category      DocumentCategory
+  status        DocumentStatus   @default(PENDING)
+  fileUrl       String?          @map("file_url")
+  fileName      String?          @map("file_name")
+  uploadedDate  DateTime?        @map("uploaded_date")
+  uploadedBy    String?          @map("uploaded_by")
+  reviewedBy    String?          @map("reviewed_by")
+  reviewedDate  DateTime?        @map("reviewed_date")
+  reviewNotes   String?          @map("review_notes")
+  expiryDate    DateTime?        @map("expiry_date")
+  isRequired    Boolean          @default(true) @map("is_required")
+  templateUrl   String?          @map("template_url")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  OfferLetter   OfferLetter      @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  Application   Application?     @relation("OfferDocumentApplication", fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+  @@index([applicationId])
+  @@index([category])
+  @@index([status])
+  @@index([isRequired])
 }
 
 enum UserRole {
@@ -1486,6 +1672,11 @@ enum VideoInterviewStatus {
   RESCHEDULED
 }
 
+enum JobRoundType {
+  ASSESSMENT
+  INTERVIEW
+}
+
 enum VideoInterviewType {
   PHONE
   VIDEO
@@ -1537,6 +1728,11 @@ enum FailCriteria {
   COMBINATION
 }
 
+enum JobAssignmentMode {
+  AUTO_RULES_ONLY
+  MANUAL_ONLY
+}
+
 enum AssignmentMode {
   AUTO
   MANUAL
@@ -1549,7 +1745,81 @@ enum AssignmentSource {
   MANUAL_HRM8
 }
 
-enum JobAssignmentMode {
-  AUTO_RULES_ONLY
-  MANUAL_ONLY
+enum ConversationChannelType {
+  CANDIDATE_EMPLOYER
+  CANDIDATE_CONSULTANT
+  SYSTEM
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  CLOSED
+}
+
+enum MessageContentType {
+  TEXT
+  FILE
+  SYSTEM
+}
+
+enum ParticipantType {
+  CANDIDATE
+  EMPLOYER
+  CONSULTANT
+  SYSTEM
+}
+
+enum PipelineStage {
+  INTAKE
+  SOURCING
+  SCREENING
+  SHORTLIST_SENT
+  INTERVIEW
+  OFFER
+  PLACED
+  ON_HOLD
+  CLOSED
+}
+
+enum OfferStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  UNDER_NEGOTIATION
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum NegotiationMessageType {
+  EMPLOYER_PROPOSAL
+  CANDIDATE_COUNTER
+  EMPLOYER_REVISION
+  CANDIDATE_ACCEPTANCE
+  CANDIDATE_DECLINE
+}
+
+enum DocumentCategory {
+  QUALIFICATION
+  BACKGROUND_CHECK
+  NDA
+  IDENTITY
+  TAX
+  CONTRACT
+  BANKING
+  COMPLIANCE
+  INSURANCE
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  REQUESTED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  REVISION_REQUIRED
 }

@@ -19,6 +19,11 @@ import {
   WorkArrangement,
   EmploymentType,
   JobInvitationStatus,
+  HRM8UserRole,
+  HRM8UserStatus,
+  JobAssignmentMode,
+  AssignmentMode,
+  AssignmentSource,
 } from '@prisma/client';
 
 export {
@@ -35,6 +40,11 @@ export {
   WorkArrangement,
   EmploymentType,
   JobInvitationStatus,
+  HRM8UserRole,
+  HRM8UserStatus,
+  JobAssignmentMode,
+  AssignmentMode,
+  AssignmentSource,
 };
 
 // ============================================================================
@@ -57,6 +67,9 @@ export interface Company {
     registrationNumber?: string;
     linkedInUrl?: string;
   };
+  regionId?: string;
+  jobAssignmentMode?: JobAssignmentMode;
+  preferredRecruiterId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -182,6 +195,22 @@ export interface User {
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt?: Date;
+}
+
+export interface HRM8User {
+  id: string;
+  email: string;
+  passwordHash: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  photo?: string;
+  role: HRM8UserRole;
+  status: HRM8UserStatus;
+  licenseeId?: string;
+  lastLoginAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Invitation {
@@ -404,6 +433,10 @@ export interface Job {
   jobTargetBudgetSpent?: number;
   jobTargetStatus?: string;
   jobTargetApproved?: boolean;
+  regionId?: string;
+  assignmentMode?: AssignmentMode;
+  assignmentSource?: AssignmentSource;
+  assignedConsultantId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

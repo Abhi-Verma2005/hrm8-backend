@@ -5,6 +5,7 @@
 
 import { Response } from 'express';
 import { ConsultantManagementService } from '../../services/hrm8/ConsultantManagementService';
+import { EmailProvisioningService } from '../../services/email/EmailProvisioningService';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 import { ConsultantRole, ConsultantStatus } from '@prisma/client';
 
@@ -91,10 +92,10 @@ export class ConsultantManagementController {
       // Validate required fields
       if (!consultantData.email || !consultantData.password || 
           !consultantData.firstName || !consultantData.lastName || 
-          !consultantData.role) {
+          !consultantData.role || !consultantData.regionId) {
         res.status(400).json({
           success: false,
-          error: 'Email, password, firstName, lastName, and role are required',
+          error: 'Email, password, firstName, lastName, role, and regionId are required',
         });
         return;
       }
@@ -123,9 +124,21 @@ export class ConsultantManagementController {
         return;
       }
 
+      // Optionally provision mailbox in external provider (Google / Microsoft)
+      let emailProvisioning;
+      const idp = (process.env.EMAIL_IDP || '').toLowerCase();
+
+      if (idp === 'google' || idp === 'microsoft') {
+        emailProvisioning = await EmailProvisioningService.provisionEmail(
+          result.email,
+          result.firstName,
+          result.lastName
+        );
+      }
+
       res.status(201).json({
         success: true,
-        data: { consultant: result },
+        data: { consultant: result, emailProvisioning },
       });
     } catch (error) {
       console.error('Create consultant error:', error);
@@ -280,6 +293,49 @@ export class ConsultantManagementController {
       res.status(500).json({
         success: false,
         error: 'Failed to reactivate consultant',
+      });
+    }
+  }
+
+  /**
+   * Generate HRM8 email address for consultant
+   * POST /api/hrm8/consultants/generate-email
+   */
+  static async generateEmail(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { firstName, lastName, consultantId } = req.body;
+
+      if (!firstName || !lastName) {
+        res.status(400).json({
+          success: false,
+          error: 'First name and last name are required',
+        });
+        return;
+      }
+
+      const result = await ConsultantManagementService.generateEmail(
+        firstName,
+        lastName,
+        consultantId
+      );
+
+      if ('error' in result) {
+        res.status(result.status || 400).json({
+          success: false,
+          error: result.error,
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: { email: result.email },
+      });
+    } catch (error) {
+      console.error('Generate email error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate email address',
       });
     }
   }
