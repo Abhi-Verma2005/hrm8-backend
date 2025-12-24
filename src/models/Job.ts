@@ -112,10 +112,27 @@ export class JobModel {
       
       // Assignment fields
       if ((jobData as any).assignmentMode !== undefined) {
-        prismaData.assignmentMode = (jobData as any).assignmentMode;
+        updateData.assignmentMode = (jobData as any).assignmentMode;
       }
       if ((jobData as any).regionId !== undefined) {
-        prismaData.regionId = (jobData as any).regionId || null;
+        updateData.regionId = (jobData as any).regionId || null;
+      }
+      if ((jobData as any).assignedConsultantId !== undefined) {
+        updateData.assignedConsultantId = (jobData as any).assignedConsultantId || null;
+      }
+
+      // Screening fields
+      if ((jobData as any).screening_enabled !== undefined) {
+        updateData.screening_enabled = (jobData as any).screening_enabled;
+      }
+      if ((jobData as any).automated_screening_enabled !== undefined) {
+        updateData.automated_screening_enabled = (jobData as any).automated_screening_enabled;
+      }
+      if ((jobData as any).screening_criteria !== undefined) {
+        updateData.screening_criteria = (jobData as any).screening_criteria || null;
+      }
+      if ((jobData as any).pre_interview_questionnaire_enabled !== undefined) {
+        updateData.pre_interview_questionnaire_enabled = (jobData as any).pre_interview_questionnaire_enabled;
       }
       
       console.log('💾 Calling prisma.job.create with:', {

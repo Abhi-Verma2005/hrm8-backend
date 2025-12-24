@@ -34,14 +34,16 @@ class EmailService {
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: process.env.SMTP_SECURE === 'true',
       auth: process.env.SMTP_USER && process.env.SMTP_PASS ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: process.env.SMTP_USER.trim(),
+        pass: process.env.SMTP_PASS.trim().replace(/^["']|["']$/g, ''), // Remove quotes if present
       } : undefined,
     };
 
     // If no SMTP credentials, use a test account (for development)
     if (!emailConfig.auth) {
       console.log('📧 Email Service: Using development mode (console logging)');
+      console.log('📧 SMTP_USER:', process.env.SMTP_USER ? 'SET' : 'NOT SET');
+      console.log('📧 SMTP_PASS:', process.env.SMTP_PASS ? 'SET (length: ' + process.env.SMTP_PASS.length + ')' : 'NOT SET');
       this.transporter = nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
@@ -52,6 +54,7 @@ class EmailService {
       console.log('📧 SMTP Host:', emailConfig.host);
       console.log('📧 SMTP Port:', emailConfig.port);
       console.log('📧 SMTP User:', emailConfig.auth.user);
+      console.log('📧 SMTP Pass:', emailConfig.auth.pass ? `SET (length: ${emailConfig.auth.pass.length})` : 'NOT SET');
       this.transporter = nodemailer.createTransport({
         host: emailConfig.host,
         port: emailConfig.port,
@@ -1883,7 +1886,1200 @@ Best regards,
 HRM8 System
     `.trim();
   }
+
+  /**
+   * Send interview rescheduled email to candidate
+   */
+  async sendInterviewRescheduledEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    oldDate: Date;
+    newDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    meetingLink?: string;
+    reason?: string;
+    recruiterName?: string;
+    recruiterEmail?: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `Interview Rescheduled: ${data.jobTitle} at ${data.companyName}`,
+        html: this.getInterviewRescheduledTemplate(data),
+        text: this.getInterviewRescheduledText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Interview Rescheduled Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Old Date:', data.oldDate.toISOString());
+        console.log('New Date:', data.newDate.toISOString());
+        console.log('---');
+      } else {
+        console.log('✅ Interview Rescheduled Email sent successfully via SMTP');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+      }
+    } catch (error) {
+      console.error('Failed to send interview rescheduled email:', error);
+      throw new Error('Failed to send interview rescheduled email');
+    }
+  }
+
+  /**
+   * Get HTML template for interview rescheduled email
+   */
+  private getInterviewRescheduledTemplate(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    oldDate: Date;
+    newDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    meetingLink?: string;
+    reason?: string;
+    recruiterName?: string;
+    recruiterEmail?: string;
+  }): string {
+    const oldDateTime = data.oldDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    const newDateTime = data.newDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Interview Rescheduled</h1>
+            
+            <p>Hello ${data.candidateName},</p>
+            
+            <p>We need to reschedule your interview for the following position:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0; color: #7c3aed;">${data.jobTitle}</h2>
+              <p style="margin: 5px 0 0 0; color: #718096;">${data.companyName}</p>
+            </div>
+            
+            <h3 style="color: #4a5568; margin-top: 30px;">Schedule Change</h3>
+            
+            <div style="background-color: #fee2e2; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ef4444;">
+              <p style="margin: 5px 0;"><strong>Previous Date & Time:</strong></p>
+              <p style="margin: 5px 0; color: #991b1b;">${oldDateTime}</p>
+            </div>
+            
+            <div style="background-color: #d1fae5; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #10b981;">
+              <p style="margin: 5px 0;"><strong>New Date & Time:</strong></p>
+              <p style="margin: 5px 0; color: #065f46; font-weight: bold; font-size: 16px;">${newDateTime}</p>
+            </div>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 8px 0;"><strong>Duration:</strong> ${data.interviewDuration} minutes</p>
+              <p style="margin: 8px 0;"><strong>Type:</strong> ${data.interviewType.charAt(0) + data.interviewType.slice(1).toLowerCase().replace('_', ' ')}</p>
+              ${data.meetingLink ? `<p style="margin: 8px 0;"><strong>Meeting Link:</strong> <a href="${data.meetingLink}" style="color: #7c3aed;">${data.meetingLink}</a></p>` : ''}
+            </div>
+            
+            ${data.reason ? `
+            <div style="background-color: #fef3c7; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+              <p style="margin: 0;"><strong>Reason for Rescheduling:</strong></p>
+              <p style="margin: 8px 0 0 0;">${data.reason}</p>
+            </div>
+            ` : ''}
+            
+            ${data.meetingLink && data.interviewType === 'VIDEO' ? `
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.meetingLink}" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Join Video Interview
+              </a>
+            </div>
+            ` : ''}
+            
+            <p>We apologize for any inconvenience this may cause. Please confirm that the new time works for you by replying to this email.</p>
+            
+            <p>If the new time doesn't work for you, please let us know and we'll be happy to find an alternative time.</p>
+            
+            ${data.recruiterName || data.recruiterEmail ? `
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              ${data.recruiterName ? `Best regards,<br><strong>${data.recruiterName}</strong>` : 'Best regards,'}
+              ${data.recruiterEmail ? `<br>${data.recruiterEmail}` : ''}
+            </p>
+            ` : `
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The ${data.companyName} Hiring Team
+            </p>
+            `}
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of interview rescheduled email
+   */
+  private getInterviewRescheduledText(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    oldDate: Date;
+    newDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    meetingLink?: string;
+    reason?: string;
+    recruiterName?: string;
+    recruiterEmail?: string;
+  }): string {
+    const oldDateTime = data.oldDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    const newDateTime = data.newDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    return `
+Interview Rescheduled
+
+Hello ${data.candidateName},
+
+We need to reschedule your interview for the following position: ${data.jobTitle} at ${data.companyName}
+
+Schedule Change:
+Previous Date & Time: ${oldDateTime}
+New Date & Time: ${newDateTime}
+
+Interview Details:
+- Duration: ${data.interviewDuration} minutes
+- Type: ${data.interviewType.charAt(0) + data.interviewType.slice(1).toLowerCase().replace('_', ' ')}
+${data.meetingLink ? `- Meeting Link: ${data.meetingLink}` : ''}
+
+${data.reason ? `Reason for Rescheduling:\n${data.reason}\n\n` : ''}We apologize for any inconvenience this may cause. Please confirm that the new time works for you by replying to this email.
+
+If the new time doesn't work for you, please let us know and we'll be happy to find an alternative time.
+
+${data.recruiterName || data.recruiterEmail ? `Best regards,\n${data.recruiterName || ''}\n${data.recruiterEmail || ''}` : `Best regards,\nThe ${data.companyName} Hiring Team`}
+    `.trim();
+  }
+
+  /**
+   * Send interview cancelled email to candidate
+   */
+  async sendInterviewCancelledEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    originalDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    reason: string;
+    autoRescheduleEnabled?: boolean;
+    recruiterName?: string;
+    recruiterEmail?: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `Interview Cancelled: ${data.jobTitle} at ${data.companyName}`,
+        html: this.getInterviewCancelledTemplate(data),
+        text: this.getInterviewCancelledText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Interview Cancelled Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Original Date:', data.originalDate.toISOString());
+        console.log('Reason:', data.reason);
+        console.log('---');
+      } else {
+        console.log('✅ Interview Cancelled Email sent successfully via SMTP');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+      }
+    } catch (error) {
+      console.error('Failed to send interview cancelled email:', error);
+      throw new Error('Failed to send interview cancelled email');
+    }
+  }
+
+  /**
+   * Get HTML template for interview cancelled email
+   */
+  private getInterviewCancelledTemplate(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    originalDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    reason: string;
+    autoRescheduleEnabled?: boolean;
+    recruiterName?: string;
+    recruiterEmail?: string;
+  }): string {
+    const originalDateTime = data.originalDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Interview Cancelled</h1>
+            
+            <p>Hello ${data.candidateName},</p>
+            
+            <p>We're writing to inform you that the interview for the following position has been cancelled:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0; color: #7c3aed;">${data.jobTitle}</h2>
+              <p style="margin: 5px 0 0 0; color: #718096;">${data.companyName}</p>
+            </div>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 8px 0;"><strong>Cancelled Interview Date & Time:</strong> ${originalDateTime}</p>
+              <p style="margin: 8px 0;"><strong>Duration:</strong> ${data.interviewDuration} minutes</p>
+              <p style="margin: 8px 0;"><strong>Type:</strong> ${data.interviewType.charAt(0) + data.interviewType.slice(1).toLowerCase().replace('_', ' ')}</p>
+            </div>
+            
+            <div style="background-color: #fee2e2; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ef4444;">
+              <p style="margin: 0;"><strong>Reason for Cancellation:</strong></p>
+              <p style="margin: 8px 0 0 0;">${data.reason}</p>
+            </div>
+            
+            ${data.autoRescheduleEnabled ? `
+            <div style="background-color: #dbeafe; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+              <p style="margin: 0;"><strong>Automatic Rescheduling:</strong></p>
+              <p style="margin: 8px 0 0 0;">We will automatically reschedule your interview and send you a new invitation with updated details shortly.</p>
+            </div>
+            ` : `
+            <p>We apologize for any inconvenience this cancellation may cause. If you're still interested in this position, we'd be happy to reschedule at a more convenient time. Please reply to this email or contact us directly to arrange a new interview date.</p>
+            `}
+            
+            ${data.recruiterName || data.recruiterEmail ? `
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              ${data.recruiterName ? `Best regards,<br><strong>${data.recruiterName}</strong>` : 'Best regards,'}
+              ${data.recruiterEmail ? `<br>${data.recruiterEmail}` : ''}
+            </p>
+            ` : `
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The ${data.companyName} Hiring Team
+            </p>
+            `}
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of interview cancelled email
+   */
+  private getInterviewCancelledText(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    originalDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    reason: string;
+    autoRescheduleEnabled?: boolean;
+    recruiterName?: string;
+    recruiterEmail?: string;
+  }): string {
+    const originalDateTime = data.originalDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    return `
+Interview Cancelled
+
+Hello ${data.candidateName},
+
+We're writing to inform you that the interview for the following position has been cancelled: ${data.jobTitle} at ${data.companyName}
+
+Cancelled Interview Details:
+- Date & Time: ${originalDateTime}
+- Duration: ${data.interviewDuration} minutes
+- Type: ${data.interviewType.charAt(0) + data.interviewType.slice(1).toLowerCase().replace('_', ' ')}
+
+Reason for Cancellation:
+${data.reason}
+
+${data.autoRescheduleEnabled ? 'We will automatically reschedule your interview and send you a new invitation with updated details shortly.\n\n' : 'We apologize for any inconvenience this cancellation may cause. If you\'re still interested in this position, we\'d be happy to reschedule at a more convenient time. Please reply to this email or contact us directly to arrange a new interview date.\n\n'}${data.recruiterName || data.recruiterEmail ? `Best regards,\n${data.recruiterName || ''}\n${data.recruiterEmail || ''}` : `Best regards,\nThe ${data.companyName} Hiring Team`}
+    `.trim();
+  }
+
+  /**
+   * Send interview no-show email to candidate
+   */
+  async sendInterviewNoShowEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    originalDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    reason?: string;
+    autoRescheduleEnabled?: boolean;
+    recruiterName?: string;
+    recruiterEmail?: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `Interview No-Show: ${data.jobTitle} at ${data.companyName}`,
+        html: this.getInterviewNoShowTemplate(data),
+        text: this.getInterviewNoShowText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Interview No-Show Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Original Date:', data.originalDate.toISOString());
+        console.log('Reason:', data.reason || 'N/A');
+        console.log('---');
+      } else {
+        console.log('✅ Interview No-Show Email sent successfully via SMTP');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+      }
+    } catch (error) {
+      console.error('Failed to send interview no-show email:', error);
+      throw new Error('Failed to send interview no-show email');
+    }
+  }
+
+  /**
+   * Get HTML template for interview no-show email
+   */
+  private getInterviewNoShowTemplate(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    originalDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    reason?: string;
+    autoRescheduleEnabled?: boolean;
+    recruiterName?: string;
+    recruiterEmail?: string;
+  }): string {
+    const originalDateTime = data.originalDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Interview No-Show Notice</h1>
+            
+            <p>Hello ${data.candidateName},</p>
+            
+            <p>We noticed that you were unable to attend the scheduled interview for the following position:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0; color: #7c3aed;">${data.jobTitle}</h2>
+              <p style="margin: 5px 0 0 0; color: #718096;">${data.companyName}</p>
+            </div>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 8px 0;"><strong>Scheduled Date & Time:</strong> ${originalDateTime}</p>
+              <p style="margin: 8px 0;"><strong>Duration:</strong> ${data.interviewDuration} minutes</p>
+              <p style="margin: 8px 0;"><strong>Type:</strong> ${data.interviewType.charAt(0) + data.interviewType.slice(1).toLowerCase().replace('_', ' ')}</p>
+            </div>
+            
+            ${data.reason ? `
+            <div style="background-color: #fef3c7; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+              <p style="margin: 0;"><strong>Note:</strong></p>
+              <p style="margin: 8px 0 0 0;">${data.reason}</p>
+            </div>
+            ` : ''}
+            
+            ${data.autoRescheduleEnabled ? `
+            <div style="background-color: #dbeafe; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+              <p style="margin: 0;"><strong>Automatic Rescheduling:</strong></p>
+              <p style="margin: 8px 0 0 0;">We understand that unforeseen circumstances can arise. We will automatically reschedule your interview and send you a new invitation with updated details shortly.</p>
+            </div>
+            ` : `
+            <p>We understand that unforeseen circumstances can arise that prevent attendance at scheduled interviews. If you're still interested in this position, we'd be happy to reschedule at a more convenient time.</p>
+            
+            <p>Please reply to this email or contact us directly to arrange a new interview date. We're here to help find a time that works for both of us.</p>
+            `}
+            
+            ${data.recruiterName || data.recruiterEmail ? `
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              ${data.recruiterName ? `Best regards,<br><strong>${data.recruiterName}</strong>` : 'Best regards,'}
+              ${data.recruiterEmail ? `<br>${data.recruiterEmail}` : ''}
+            </p>
+            ` : `
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The ${data.companyName} Hiring Team
+            </p>
+            `}
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of interview no-show email
+   */
+  private getInterviewNoShowText(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    originalDate: Date;
+    interviewDuration: number;
+    interviewType: string;
+    reason?: string;
+    autoRescheduleEnabled?: boolean;
+    recruiterName?: string;
+    recruiterEmail?: string;
+  }): string {
+    const originalDateTime = data.originalDate.toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+    return `
+Interview No-Show Notice
+
+Hello ${data.candidateName},
+
+We noticed that you were unable to attend the scheduled interview for the following position: ${data.jobTitle} at ${data.companyName}
+
+Scheduled Interview Details:
+- Date & Time: ${originalDateTime}
+- Duration: ${data.interviewDuration} minutes
+- Type: ${data.interviewType.charAt(0) + data.interviewType.slice(1).toLowerCase().replace('_', ' ')}
+
+${data.reason ? `Note:\n${data.reason}\n\n` : ''}${data.autoRescheduleEnabled ? 'We understand that unforeseen circumstances can arise. We will automatically reschedule your interview and send you a new invitation with updated details shortly.\n\n' : 'We understand that unforeseen circumstances can arise that prevent attendance at scheduled interviews. If you\'re still interested in this position, we\'d be happy to reschedule at a more convenient time.\n\nPlease reply to this email or contact us directly to arrange a new interview date. We\'re here to help find a time that works for both of us.\n\n'}${data.recruiterName || data.recruiterEmail ? `Best regards,\n${data.recruiterName || ''}\n${data.recruiterEmail || ''}` : `Best regards,\nThe ${data.companyName} Hiring Team`}
+    `.trim();
+  }
+
+  /**
+   * Send offer email to candidate
+   */
+  async sendOfferEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    offerUrl: string;
+    expiryDate?: Date;
+    customMessage?: string;
+    // Detailed offer information
+    salary?: number;
+    salaryCurrency?: string;
+    salaryPeriod?: string;
+    workLocation?: string;
+    workArrangement?: string;
+    startDate?: Date;
+    benefits?: string[];
+    vacationDays?: number;
+    probationPeriod?: number;
+    bonusStructure?: string;
+    equityOptions?: string;
+    offerType?: string;
+    companyName?: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const subject = `🎉 Job Offer - ${data.jobTitle}`;
+      const expiryDateFormatted = data.expiryDate 
+        ? new Date(data.expiryDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        : null;
+      const expiryText = expiryDateFormatted
+        ? `Please review the offer details and respond by <strong>${expiryDateFormatted}</strong>.`
+        : 'Please review the offer details and respond at your earliest convenience.';
+      const expiryTextPlain = expiryDateFormatted
+        ? `Please review the offer details and respond by ${expiryDateFormatted}.`
+        : 'Please review the offer details and respond at your earliest convenience.';
+
+      // Format salary helper
+      const formatSalary = () => {
+        if (!data.salary) return null;
+        const currency = data.salaryCurrency || 'USD';
+        const currencySymbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency;
+        const formatted = new Intl.NumberFormat('en-US', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(data.salary);
+        const period = data.salaryPeriod === 'annual' ? '/year' : data.salaryPeriod === 'monthly' ? '/month' : data.salaryPeriod === 'weekly' ? '/week' : data.salaryPeriod === 'hourly' ? '/hour' : '';
+        return `${currencySymbol}${formatted}${period}`;
+      };
+
+      const formattedSalary = formatSalary();
+      const formattedStartDate = data.startDate ? new Date(data.startDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : null;
+      const workArrangementLabel = data.workArrangement === 'remote' ? 'Remote' : data.workArrangement === 'hybrid' ? 'Hybrid' : data.workArrangement === 'on-site' ? 'On-Site' : data.workArrangement || 'Not specified';
+      const offerTypeLabel = data.offerType === 'full-time' ? 'Full-Time' : data.offerType === 'part-time' ? 'Part-Time' : data.offerType === 'contract' ? 'Contract' : data.offerType === 'intern' ? 'Internship' : data.offerType || 'Full-Time';
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <style>
+              @media only screen and (max-width: 600px) {
+                .container { width: 100% !important; padding: 10px !important; }
+                .content-box { padding: 20px !important; }
+              }
+            </style>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; line-height: 1.6;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f5f7fa; padding: 20px 0;">
+              <tr>
+                <td align="center">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="container" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    
+                    <!-- Header with gradient -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+                        <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">
+                          🎉 Congratulations!
+                        </h1>
+                        <p style="margin: 10px 0 0; color: rgba(255, 255, 255, 0.95); font-size: 18px; font-weight: 400;">
+                          You've Received a Job Offer
+                        </p>
+                      </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                      <td class="content-box" style="padding: 40px 30px;">
+                        
+                        <!-- Greeting -->
+                        <p style="margin: 0 0 20px; color: #2d3748; font-size: 16px; line-height: 1.6;">
+                          Dear <strong>${data.candidateName}</strong>,
+                        </p>
+                        
+                        <p style="margin: 0 0 30px; color: #4a5568; font-size: 16px; line-height: 1.7;">
+                          We are thrilled to extend a job offer to you for the position of <strong style="color: #667eea;">${data.jobTitle}</strong>${data.companyName ? ` at ${data.companyName}` : ''}. We were impressed by your qualifications and believe you would be a valuable addition to our team.
+                        </p>
+
+                        <!-- Offer Details Card -->
+                        <div style="background: linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%); border: 2px solid #e2e8f0; border-radius: 12px; padding: 30px; margin: 30px 0;">
+                          
+                          <h2 style="margin: 0 0 25px; color: #2d3748; font-size: 24px; font-weight: 700; border-bottom: 2px solid #667eea; padding-bottom: 10px;">
+                            📋 Offer Details
+                          </h2>
+
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                            ${formattedSalary ? `
+                            <tr>
+                              <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="color: #4a5568; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Compensation</strong>
+                                <p style="margin: 5px 0 0; color: #2d3748; font-size: 28px; font-weight: 700; color: #667eea;">
+                                  ${formattedSalary}
+                                </p>
+                              </td>
+                            </tr>
+                            ` : ''}
+                            
+                            ${formattedStartDate ? `
+                            <tr>
+                              <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="color: #4a5568; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Start Date</strong>
+                                <p style="margin: 5px 0 0; color: #2d3748; font-size: 18px; font-weight: 600;">
+                                  📅 ${formattedStartDate}
+                                </p>
+                              </td>
+                            </tr>
+                            ` : ''}
+
+                            <tr>
+                              <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="color: #4a5568; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Employment Type</strong>
+                                <p style="margin: 5px 0 0; color: #2d3748; font-size: 18px; font-weight: 600;">
+                                  💼 ${offerTypeLabel}
+                                </p>
+                              </td>
+                            </tr>
+
+                            ${data.workLocation ? `
+                            <tr>
+                              <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="color: #4a5568; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Location & Work Arrangement</strong>
+                                <p style="margin: 5px 0 0; color: #2d3748; font-size: 18px; font-weight: 600;">
+                                  📍 ${data.workLocation} • ${workArrangementLabel}
+                                </p>
+                              </td>
+                            </tr>
+                            ` : ''}
+
+                            ${data.vacationDays ? `
+                            <tr>
+                              <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="color: #4a5568; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Vacation Days</strong>
+                                <p style="margin: 5px 0 0; color: #2d3748; font-size: 18px; font-weight: 600;">
+                                  🏖️ ${data.vacationDays} days per year
+                                </p>
+                              </td>
+                            </tr>
+                            ` : ''}
+
+                            ${data.probationPeriod ? `
+                            <tr>
+                              <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="color: #4a5568; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Probation Period</strong>
+                                <p style="margin: 5px 0 0; color: #2d3748; font-size: 18px; font-weight: 600;">
+                                  ⏱️ ${data.probationPeriod} months
+                                </p>
+                              </td>
+                            </tr>
+                            ` : ''}
+                          </table>
+                        </div>
+
+                        ${data.benefits && data.benefits.length > 0 ? `
+                        <!-- Benefits Section -->
+                        <div style="background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 25px; margin: 30px 0;">
+                          <h3 style="margin: 0 0 15px; color: #1e40af; font-size: 20px; font-weight: 700;">
+                            ✨ Benefits & Perks
+                          </h3>
+                          <ul style="margin: 0; padding-left: 20px; color: #1e3a8a;">
+                            ${data.benefits.map(benefit => `<li style="margin: 8px 0; font-size: 16px; line-height: 1.6;">${benefit}</li>`).join('')}
+                          </ul>
+                        </div>
+                        ` : ''}
+
+                        ${data.bonusStructure ? `
+                        <!-- Bonus Structure -->
+                        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                          <h3 style="margin: 0 0 10px; color: #92400e; font-size: 18px; font-weight: 700;">
+                            💰 Bonus Structure
+                          </h3>
+                          <p style="margin: 0; color: #78350f; font-size: 15px; line-height: 1.6;">
+                            ${data.bonusStructure}
+                          </p>
+                        </div>
+                        ` : ''}
+
+                        ${data.equityOptions ? `
+                        <!-- Equity Options -->
+                        <div style="background-color: #f3e8ff; border-left: 4px solid #9333ea; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                          <h3 style="margin: 0 0 10px; color: #6b21a8; font-size: 18px; font-weight: 700;">
+                            📈 Equity Options
+                          </h3>
+                          <p style="margin: 0; color: #581c87; font-size: 15px; line-height: 1.6;">
+                            ${data.equityOptions}
+                          </p>
+                        </div>
+                        ` : ''}
+
+                        ${data.customMessage ? `
+                        <!-- Custom Message -->
+                        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                          <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.7; font-style: italic;">
+                            "${data.customMessage}"
+                          </p>
+                        </div>
+                        ` : ''}
+
+                        <!-- Expiry Date -->
+                        ${data.expiryDate ? `
+                        <div style="background-color: #fff7ed; border: 2px solid #fb923c; border-radius: 8px; padding: 20px; margin: 30px 0; text-align: center;">
+                          <p style="margin: 0; color: #9a3412; font-size: 16px; font-weight: 600;">
+                            ⏰ ${expiryText}
+                          </p>
+                        </div>
+                        ` : ''}
+
+                        <!-- CTA Button -->
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 40px 0;">
+                          <tr>
+                            <td align="center">
+                              <a href="${data.offerUrl}" 
+                                 style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); transition: transform 0.2s;">
+                                View Complete Offer Details →
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+
+                        <p style="margin: 30px 0 0; color: #718096; font-size: 14px; line-height: 1.6; text-align: center;">
+                          You can view the full offer letter, accept, decline, or initiate negotiations by clicking the button above.
+                        </p>
+
+                      </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background-color: #f7fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                        <p style="margin: 0 0 10px; color: #4a5568; font-size: 16px; font-weight: 600;">
+                          Best regards,
+                        </p>
+                        <p style="margin: 0; color: #718096; font-size: 14px;">
+                          The Hiring Team${data.companyName ? ` at ${data.companyName}` : ''}
+                        </p>
+                        <p style="margin: 20px 0 0; color: #a0aec0; font-size: 12px;">
+                          This is an automated email. Please do not reply directly to this message.
+                        </p>
+                      </td>
+                    </tr>
+
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `;
+
+      const text = `
+🎉 Congratulations ${data.candidateName}!
+
+We are thrilled to extend a job offer to you for the position of ${data.jobTitle}${data.companyName ? ` at ${data.companyName}` : ''}. We were impressed by your qualifications and believe you would be a valuable addition to our team.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 OFFER DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${formattedSalary ? `Compensation: ${formattedSalary}` : 'Compensation: Not specified'}
+${formattedStartDate ? `Start Date: ${formattedStartDate}` : ''}
+Employment Type: ${offerTypeLabel}
+${data.workLocation ? `Location: ${data.workLocation} (${workArrangementLabel})` : ''}
+${data.vacationDays ? `Vacation Days: ${data.vacationDays} days per year` : ''}
+${data.probationPeriod ? `Probation Period: ${data.probationPeriod} months` : ''}
+
+${data.benefits && data.benefits.length > 0 ? `
+Benefits & Perks:
+${data.benefits.map(b => `  • ${b}`).join('\n')}
+` : ''}
+
+${data.bonusStructure ? `Bonus Structure: ${data.bonusStructure}\n` : ''}
+${data.equityOptions ? `Equity Options: ${data.equityOptions}\n` : ''}
+
+${data.customMessage ? `\n"${data.customMessage}"\n` : ''}
+
+${data.expiryDate ? `⏰ ${expiryTextPlain}\n` : ''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+View Complete Offer Details: ${data.offerUrl}
+
+You can view the full offer letter, accept, decline, or initiate negotiations by visiting the link above.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Best regards,
+The Hiring Team${data.companyName ? ` at ${data.companyName}` : ''}
+
+This is an automated email. Please do not reply directly to this message.
+      `.trim();
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject,
+        html,
+        text,
+      };
+
+      console.log('[EmailService.sendOfferEmail] Sending email via transporter...');
+      const result = await transporter.sendMail(mailOptions);
+      console.log('[EmailService.sendOfferEmail] Email sent successfully:', result.messageId || 'N/A');
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Offer Email (Development Mode - No SMTP configured):');
+        console.log('To:', data.to);
+        console.log('Subject:', subject);
+        console.log('Offer URL:', data.offerUrl);
+        console.log('Candidate Name:', data.candidateName);
+        console.log('Job Title:', data.jobTitle);
+        console.log('Expiry Date:', data.expiryDate?.toISOString() || 'Not set');
+        console.log('---');
+        console.log('⚠️  NOTE: Email is NOT actually being sent. Configure SMTP_USER and SMTP_PASS to send real emails.');
+        console.log('---');
+      } else {
+        console.log('📧 Offer Email sent via SMTP');
+        console.log('To:', data.to);
+        console.log('Subject:', subject);
+        console.log('Message ID:', result.messageId);
+      }
+    } catch (error: any) {
+      console.error('[EmailService.sendOfferEmail] Failed to send offer email:', error);
+      console.error('[EmailService.sendOfferEmail] Error details:', {
+        message: error?.message,
+        code: error?.code,
+        command: error?.command,
+        response: error?.response,
+        responseCode: error?.responseCode,
+        stack: error?.stack,
+      });
+      throw new Error(`Failed to send offer email: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Send negotiation update email
+   */
+  async sendNegotiationUpdateEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    negotiatorName: string;
+    message: string;
+    offerUrl: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const subject = `Negotiation Update - ${data.jobTitle}`;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+              <h1 style="color: #4a5568; margin-top: 0;">Negotiation Update</h1>
+              
+              <p>Hello ${data.candidateName},</p>
+              
+              <p>${data.negotiatorName} has responded to your negotiation for the position of <strong>${data.jobTitle}</strong>.</p>
+              
+              <div style="background-color: #ffffff; padding: 15px; border-left: 4px solid #7c3aed; margin: 20px 0;">
+                <p style="margin: 0;">${data.message}</p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${data.offerUrl}" 
+                   style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                  View Negotiation
+                </a>
+              </div>
+              
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+              
+              <p style="color: #718096; font-size: 14px;">
+                Best regards,<br>
+                The Hiring Team
+              </p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const text = `
+Negotiation Update
+
+Hello ${data.candidateName},
+
+${data.negotiatorName} has responded to your negotiation for the position of ${data.jobTitle}.
+
+${data.message}
+
+View Negotiation: ${data.offerUrl}
+
+Best regards,
+The Hiring Team
+      `.trim();
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject,
+        html,
+        text,
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Negotiation Update Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', subject);
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send negotiation update email:', error);
+      throw new Error('Failed to send negotiation update email');
+    }
+  }
+
+  /**
+   * Send document request email
+   */
+  async sendDocumentRequestEmail(data: {
+    to: string;
+    candidateName: string;
+    documentName: string;
+    documentUrl: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const subject = `Document Request: ${data.documentName}`;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+              <h1 style="color: #4a5568; margin-top: 0;">Document Request</h1>
+              
+              <p>Hello ${data.candidateName},</p>
+              
+              <p>We need you to upload the following document: <strong>${data.documentName}</strong></p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${data.documentUrl}" 
+                   style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                  Upload Document
+                </a>
+              </div>
+              
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+              
+              <p style="color: #718096; font-size: 14px;">
+                Best regards,<br>
+                The Hiring Team
+              </p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const text = `
+Document Request
+
+Hello ${data.candidateName},
+
+We need you to upload the following document: ${data.documentName}
+
+Upload Document: ${data.documentUrl}
+
+Best regards,
+The Hiring Team
+      `.trim();
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject,
+        html,
+        text,
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Document Request Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', subject);
+        console.log('Document:', data.documentName);
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send document request email:', error);
+      throw new Error('Failed to send document request email');
+    }
+  }
+
+  /**
+   * Send offer accepted confirmation email
+   */
+  async sendOfferAcceptedEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    startDate: Date;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const subject = `Offer Accepted - ${data.jobTitle}`;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+              <h1 style="color: #4a5568; margin-top: 0;">Thank you ${data.candidateName}!</h1>
+              
+              <p>We have received your acceptance of the job offer for <strong>${data.jobTitle}</strong>.</p>
+              
+              <p>We look forward to welcoming you to the team!</p>
+              
+              <p>Your start date is scheduled for <strong>${data.startDate.toLocaleDateString()}</strong>.</p>
+              
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+              
+              <p style="color: #718096; font-size: 14px;">
+                Best regards,<br>
+                The Hiring Team
+              </p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const text = `
+Thank you ${data.candidateName}!
+
+We have received your acceptance of the job offer for ${data.jobTitle}.
+
+We look forward to welcoming you to the team!
+
+Your start date is scheduled for ${data.startDate.toLocaleDateString()}.
+
+Best regards,
+The Hiring Team
+      `.trim();
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject,
+        html,
+        text,
+      };
+
+      await transporter.sendMail(mailOptions);
+      
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Offer Accepted Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', subject);
+        console.log('Start Date:', data.startDate.toLocaleDateString());
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send offer accepted email:', error);
+      throw new Error('Failed to send offer accepted email');
+    }
+  }
 }
 
 export const emailService = new EmailService();
-

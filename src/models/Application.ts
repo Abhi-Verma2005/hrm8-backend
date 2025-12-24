@@ -360,6 +360,18 @@ export class ApplicationModel {
   }
 
   /**
+   * Update application tags
+   */
+  static async updateTags(id: string, tags: string[]): Promise<ApplicationData> {
+    const application = await prisma.application.update({
+      where: { id },
+      data: { tags },
+    });
+
+    return this.mapPrismaToApplication(application);
+  }
+
+  /**
    * Update recruiter notes
    */
   static async updateNotes(

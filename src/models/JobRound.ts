@@ -33,6 +33,18 @@ export class JobRoundModel {
     return rounds;
   }
 
+  static async findByJobIdAndFixedKey(jobId: string, fixedKey: string): Promise<JobRoundData | null> {
+    const round = await prisma.jobRound.findFirst({
+      where: {
+        jobId,
+        isFixed: true,
+        fixedKey,
+      },
+    });
+
+    return round;
+  }
+
   static async create(data: {
     jobId: string;
     name: string;

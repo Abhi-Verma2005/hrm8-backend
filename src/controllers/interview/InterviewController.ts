@@ -163,15 +163,133 @@ export class InterviewController {
   }
 
   /**
+   * Create a new interview manually
+   * POST /api/interviews
+   */
+  static async createInterview(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const {
+        applicationId,
+        jobRoundId,
+        scheduledDate,
+        duration,
+        type,
+        meetingLink,
+        interviewerIds,
+        notes,
+      } = req.body;
+
+      if (!applicationId || !scheduledDate || !duration || !type) {
+        res.status(400).json({
+          success: false,
+          error: 'applicationId, scheduledDate, duration, and type are required',
+        });
+        return;
+      }
+
+      const interview = await InterviewService.createInterview({
+        applicationId,
+        jobRoundId,
+        scheduledDate: new Date(scheduledDate),
+        duration: parseInt(duration),
+        type,
+        scheduledBy: req.user.id,
+        meetingLink,
+        interviewerIds,
+        notes,
+      });
+
+      res.json({
+        success: true,
+        data: { interview },
+        message: 'Interview created successfully',
+      });
+    } catch (error) {
+      console.error('[InterviewController.createInterview] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create interview',
+      });
+    }
+  }
+
+  /**
+   * Update interview status (IN_PROGRESS, COMPLETED)
+   * PUT /api/interviews/:id/status
+   */
+  static async updateInterviewStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { status, overallScore, recommendation, ratingCriteriaScores, feedback, notes } = req.body;
+
+      if (!id || !status) {
+        res.status(400).json({
+          success: false,
+          error: 'Interview ID and status are required',
+        });
+        return;
+      }
+
+      if (!['IN_PROGRESS', 'COMPLETED'].includes(status)) {
+        res.status(400).json({
+          success: false,
+          error: 'Status must be IN_PROGRESS or COMPLETED',
+        });
+        return;
+      }
+
+      const interview = await InterviewService.updateInterviewStatus({
+        interviewId: id,
+        status,
+        updatedBy: req.user.id,
+        overallScore,
+        recommendation,
+        ratingCriteriaScores,
+        feedback,
+        notes,
+      });
+
+      res.json({
+        success: true,
+        data: { interview },
+        message: `Interview marked as ${status.toLowerCase()}`,
+      });
+    } catch (error) {
+      console.error('[InterviewController.updateInterviewStatus] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update interview status',
+      });
+    }
+  }
+
+  /**
    * Get all interviews (with optional filters)
    * GET /api/interviews
    */
   static async getInterviews(req: Request, res: Response): Promise<void> {
     try {
-      const { jobId, status, startDate, endDate } = req.query;
+      const { jobId, jobRoundId, status, startDate, endDate } = req.query;
 
       const interviews = await InterviewService.getCalendarInterviews({
         jobId: jobId as string,
+        jobRoundId: jobRoundId as string,
         status: status as string,
         startDate: startDate ? new Date(startDate as string) : undefined,
         endDate: endDate ? new Date(endDate as string) : undefined,
@@ -332,10 +450,11 @@ export class InterviewController {
    */
   static async getCalendarEvents(req: Request, res: Response): Promise<void> {
     try {
-      const { jobId, status, start, end } = req.query;
+      const { jobId, jobRoundId, status, start, end } = req.query;
 
       const interviews = await InterviewService.getCalendarInterviews({
         jobId: jobId as string,
+        jobRoundId: jobRoundId as string,
         status: status as string,
         startDate: start ? new Date(start as string) : undefined,
         endDate: end ? new Date(end as string) : undefined,
@@ -371,6 +490,62 @@ export class InterviewController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get calendar events',
+      });
+    }
+  }
+
+  /**
+   * Bulk reschedule interviews
+   * POST /api/interviews/bulk/reschedule
+   */
+  static async bulkRescheduleInterviews(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      // TODO: Implement bulk reschedule logic
+      res.status(501).json({
+        success: false,
+        error: 'Bulk reschedule not yet implemented',
+      });
+    } catch (error) {
+      console.error('[InterviewController.bulkRescheduleInterviews] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to bulk reschedule interviews',
+      });
+    }
+  }
+
+  /**
+   * Bulk cancel interviews
+   * POST /api/interviews/bulk/cancel
+   */
+  static async bulkCancelInterviews(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      // TODO: Implement bulk cancel logic
+      res.status(501).json({
+        success: false,
+        error: 'Bulk cancel not yet implemented',
+      });
+    } catch (error) {
+      console.error('[InterviewController.bulkCancelInterviews] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to bulk cancel interviews',
       });
     }
   }

@@ -498,6 +498,46 @@ export class ApplicationController {
   }
 
   /**
+   * Update application tags
+   * PUT /api/applications/:id/tags
+   */
+  static async updateTags(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { tags } = req.body;
+
+      if (!Array.isArray(tags)) {
+        res.status(400).json({
+          success: false,
+          error: 'Tags must be an array',
+        });
+        return;
+      }
+
+      const application = await ApplicationService.updateTags(id, tags);
+
+      res.json({
+        success: true,
+        data: { application },
+        message: 'Tags updated successfully',
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update tags',
+      });
+    }
+  }
+
+  /**
    * Shortlist candidate
    * POST /api/applications/:id/shortlist
    */
@@ -749,6 +789,7 @@ export class ApplicationController {
         res.status(404).json({
           success: false,
           error: 'Candidate not found',
+          code: 'CANDIDATE_NOT_FOUND',
         });
         return;
       }
@@ -773,6 +814,17 @@ export class ApplicationController {
         res.status(404).json({
           success: false,
           error: 'Job not found',
+          code: 'JOB_NOT_FOUND',
+        });
+        return;
+      }
+
+      // Check job status - only OPEN jobs can accept new candidates
+      if (job.status !== 'OPEN') {
+        res.status(400).json({
+          success: false,
+          error: `Job is not accepting applications. Current status: ${job.status}`,
+          code: 'JOB_NOT_ACCEPTING',
         });
         return;
       }
@@ -782,6 +834,16 @@ export class ApplicationController {
         res.status(404).json({
           success: false,
           error: 'Company not found',
+        });
+        return;
+      }
+
+      // Check user has permission to add candidates to this job (company match)
+      if (job.companyId !== req.user.companyId) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to add candidates to this job',
+          code: 'UNAUTHORIZED',
         });
         return;
       }
@@ -799,37 +861,100 @@ export class ApplicationController {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
-      // Create job invitation
+      // Wrap invitation creation in transaction for atomicity
+      const { prisma } = await import('../../lib/prisma');
       const { JobInvitationStatus } = await import('../../types');
-      const invitation = await JobInvitationModel.create({
-        jobId,
-        candidateId,
-        email: candidate.email,
-        token,
-        status: JobInvitationStatus.PENDING,
-        invitedBy: req.user.id,
-        expiresAt,
-      });
+      
+      let invitation;
+      try {
+        // Use transaction to ensure atomicity of invitation creation
+        invitation = await prisma.$transaction(async (tx) => {
+          // Double-check for race conditions within transaction
+          const existingInvitation = await tx.jobInvitation.findFirst({
+            where: {
+              email: candidate.email.toLowerCase(),
+              jobId,
+              status: JobInvitationStatus.PENDING,
+            },
+          });
+
+          if (existingInvitation) {
+            throw new Error('INVITATION_EXISTS');
+          }
+
+          // Create job invitation using transaction client
+          const created = await tx.jobInvitation.create({
+            data: {
+              jobId,
+              candidateId,
+              email: candidate.email.toLowerCase(),
+              token,
+              status: JobInvitationStatus.PENDING,
+              invitedBy: req.user.id,
+              expiresAt,
+            },
+          });
+
+          // Map to JobInvitationData format
+          return {
+            id: created.id,
+            jobId: created.jobId,
+            candidateId: created.candidateId || undefined,
+            email: created.email,
+            token: created.token,
+            status: created.status,
+            invitedBy: created.invitedBy,
+            expiresAt: created.expiresAt,
+            acceptedAt: created.acceptedAt || undefined,
+            applicationId: created.applicationId || undefined,
+            createdAt: created.createdAt,
+            updatedAt: created.updatedAt,
+          };
+        });
+      } catch (error: any) {
+        if (error.message === 'INVITATION_EXISTS') {
+          res.status(400).json({
+            success: false,
+            error: 'An invitation has already been sent to this candidate',
+            code: 'INVITATION_EXISTS',
+          });
+          return;
+        }
+        throw error; // Re-throw other errors
+      }
 
       // Generate invitation URL
       const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
       const invitationUrl = `${baseUrl}/candidate/accept-invitation?token=${token}`;
 
-      // Send invitation email
-      const { emailService } = await import('../../services/email/EmailService');
-      await emailService.sendJobInvitationEmail({
-        to: candidate.email,
-        jobTitle: job.title,
-        companyName: company.name,
-        jobUrl: invitationUrl,
-        recruiterName,
-      });
+      // Send invitation email (outside transaction - external service)
+      // If email fails, invitation is still created but we should log it
+      let emailSent = false;
+      try {
+        const { emailService } = await import('../../services/email/EmailService');
+        await emailService.sendJobInvitationEmail({
+          to: candidate.email,
+          jobTitle: job.title,
+          companyName: company.name,
+          jobUrl: invitationUrl,
+          recruiterName,
+        });
+        emailSent = true;
+      } catch (emailError) {
+        // Log email failure but don't fail the request
+        // The invitation is created, candidate can still access via direct link
+        console.error('Failed to send invitation email:', emailError);
+        // TODO: Queue email for retry or update invitation status
+      }
 
       res.status(201).json({
         success: true,
         data: { 
           invitationId: invitation.id,
-          message: 'Invitation sent to candidate successfully',
+          message: emailSent 
+            ? 'Invitation sent to candidate successfully'
+            : 'Invitation created but email delivery failed. The candidate can still access the invitation link.',
+          emailSent,
         },
       });
     } catch (error) {

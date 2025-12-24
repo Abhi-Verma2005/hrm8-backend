@@ -1,4 +1,10 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env from project root (parent directory) or from current directory
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config(); // Also try current directory as fallback
+
 import express, { Request, Response } from 'express';
 import { createServer } from 'http';
 import type { IncomingMessage } from 'http';
@@ -6,7 +12,6 @@ import type { Duplex } from 'stream';
 import { WebSocket } from 'ws';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import path from 'path';
 import routes from './routes';
 import { wss } from './websocket';
 

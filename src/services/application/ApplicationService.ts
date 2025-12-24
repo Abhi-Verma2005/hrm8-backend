@@ -9,8 +9,10 @@ import { JobModel } from '../../models/Job';
 import { ApplicationStatus, ApplicationStage, ManualScreeningStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { JobRoundModel } from '../../models/JobRound';
+import { JobRoundService } from '../job/JobRoundService';
 import { AssessmentService } from '../assessment/AssessmentService';
 import { InterviewService } from '../interview/InterviewService';
+import { CandidateScoringService } from '../ai/CandidateScoringService';
 import crypto from 'crypto';
 
 export interface SubmitApplicationRequest {
@@ -65,6 +67,41 @@ export class ApplicationService {
         customAnswers: applicationData.customAnswers,
         questionnaireData: applicationData.questionnaireData,
         tags: applicationData.tags,
+      });
+
+      // Automatically assign application to NEW round
+      try {
+        const newRound = await JobRoundModel.findByJobIdAndFixedKey(applicationData.jobId, 'NEW');
+        if (newRound) {
+          await prisma.applicationRoundProgress.upsert({
+            where: {
+              applicationId_jobRoundId: {
+                applicationId: application.id,
+                jobRoundId: newRound.id,
+              },
+            },
+            create: {
+              id: crypto.randomUUID(),
+              applicationId: application.id,
+              jobRoundId: newRound.id,
+              completed: false,
+            },
+            update: {
+              completed: false,
+              completedAt: null,
+            },
+          });
+        }
+      } catch (roundError) {
+        // Log error but don't fail application creation
+        console.error('Failed to assign application to NEW round:', roundError);
+      }
+
+      // Trigger auto-scoring in the background (non-blocking)
+      // Don't await - let it run asynchronously
+      this.autoScoreApplication(application.id, applicationData.jobId).catch((scoringError) => {
+        // Log error but don't fail application creation
+        console.error('Auto-scoring failed for application:', application.id, scoringError);
       });
 
       return application;
@@ -197,6 +234,41 @@ export class ApplicationService {
         addedBy,
       });
 
+      // Automatically assign application to NEW round
+      try {
+        const newRound = await JobRoundModel.findByJobIdAndFixedKey(jobId, 'NEW');
+        if (newRound) {
+          await prisma.applicationRoundProgress.upsert({
+            where: {
+              applicationId_jobRoundId: {
+                applicationId: application.id,
+                jobRoundId: newRound.id,
+              },
+            },
+            create: {
+              id: crypto.randomUUID(),
+              applicationId: application.id,
+              jobRoundId: newRound.id,
+              completed: false,
+            },
+            update: {
+              completed: false,
+              completedAt: null,
+            },
+          });
+        }
+      } catch (roundError) {
+        // Log error but don't fail application creation
+        console.error('Failed to assign application to NEW round:', roundError);
+      }
+
+      // Trigger auto-scoring in the background (non-blocking)
+      // Don't await - let it run asynchronously
+      this.autoScoreApplication(application.id, jobId).catch((scoringError) => {
+        // Log error but don't fail application creation
+        console.error('Auto-scoring failed for application:', application.id, scoringError);
+      });
+
       // Add notes if provided
       if (applicationData?.notes) {
         await ApplicationModel.updateNotes(application.id, applicationData.notes);
@@ -244,6 +316,18 @@ export class ApplicationService {
       throw new Error('Rank must be at least 1');
     }
     return await ApplicationModel.updateRank(applicationId, rank);
+  }
+
+  /**
+   * Update application tags
+   */
+  static async updateTags(applicationId: string, tags: string[]): Promise<ApplicationData> {
+    if (!Array.isArray(tags)) {
+      throw new Error('Tags must be an array');
+    }
+    // Validate tag strings (no empty strings, reasonable length)
+    const validTags = tags.filter(tag => typeof tag === 'string' && tag.trim().length > 0 && tag.length <= 50);
+    return await ApplicationModel.updateTags(applicationId, validTags);
   }
 
   /**
@@ -320,8 +404,36 @@ export class ApplicationService {
       throw new Error('Application not found');
     }
 
-    // Verify round exists and belongs to same job
-    const round = await JobRoundModel.findById(jobRoundId);
+    // Handle fallback round IDs (e.g., "fixed-OFFER-{jobId}")
+    // These are created by the frontend when fixed rounds don't exist in the database
+    let round = await JobRoundModel.findById(jobRoundId);
+    
+    if (!round && jobRoundId.startsWith('fixed-')) {
+      // Extract fixedKey from fallback ID format: "fixed-{FIXEDKEY}-{jobId}"
+      const parts = jobRoundId.split('-');
+      if (parts.length >= 2) {
+        const fixedKey = parts[1]; // e.g., "OFFER", "HIRED", "NEW", "REJECTED"
+        
+        // First, try to find the actual round (it might already exist)
+        round = await JobRoundModel.findByJobIdAndFixedKey(application.jobId, fixedKey);
+        
+        // If not found, ensure fixed rounds exist for this job
+        if (!round) {
+          await JobRoundService.initializeFixedRounds(application.jobId);
+          
+          // Try to find the actual round again
+          round = await JobRoundModel.findByJobIdAndFixedKey(application.jobId, fixedKey);
+        }
+        
+        if (!round) {
+          throw new Error(`Fixed round '${fixedKey}' not found for job`);
+        }
+        
+        // Update jobRoundId to use the actual round ID
+        jobRoundId = round.id;
+      }
+    }
+    
     if (!round) {
       throw new Error('Round not found');
     }
@@ -400,12 +512,48 @@ export class ApplicationService {
           scheduledBy: userId,
         });
       } catch (error) {
-        // Log error but don't fail the move operation
-        console.error('Failed to auto-schedule interview:', error);
+        // Log error with details for debugging
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`Failed to auto-schedule interview for application ${applicationId} in round ${jobRoundId}:`, errorMessage);
+        // Store error in application notes for visibility
+        const currentNotes = updatedApplication.recruiterNotes || '';
+        await ApplicationModel.updateNotes(
+          applicationId,
+          `${currentNotes}\n[Auto-schedule failed: ${errorMessage}]`.trim()
+        );
+        // Note: We don't throw here to allow the move operation to complete
+        // The error is logged and stored in notes for admin visibility
       }
     }
 
     return updatedApplication;
   }
-}
 
+  /**
+   * Auto-score application in the background
+   * This is called automatically when an application is submitted
+   */
+  private static async autoScoreApplication(applicationId: string, jobId: string): Promise<void> {
+    try {
+      console.log(`🤖 Starting auto-scoring for application ${applicationId}`);
+      
+      const scoringResult = await CandidateScoringService.scoreCandidate({
+        applicationId,
+        jobId,
+      });
+
+      // Update application with score and AI analysis
+      await ApplicationModel.updateScoreAndAnalysis(
+        applicationId,
+        scoringResult.scores.overall,
+        scoringResult
+      );
+
+      console.log(`✅ Auto-scoring completed for application ${applicationId}: ${scoringResult.scores.overall}/100`);
+    } catch (error) {
+      // Log error but don't throw - this is a background operation
+      console.error(`❌ Auto-scoring failed for application ${applicationId}:`, error);
+      // Optionally, you could store a flag indicating scoring failed for retry later
+    }
+  }
+}

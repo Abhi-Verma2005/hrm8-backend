@@ -41,6 +41,7 @@ router.post('/bulk-score', authenticate, ApplicationController.bulkScoreCandidat
 // Recruiter application management routes (must come after /:id to avoid conflicts)
 router.put('/:id/score', authenticate, ApplicationController.updateScore);
 router.put('/:id/rank', authenticate, ApplicationController.updateRank);
+router.put('/:id/tags', authenticate, ApplicationController.updateTags);
 router.post('/:id/shortlist', authenticate, ApplicationController.shortlistCandidate);
 router.post('/:id/unshortlist', authenticate, ApplicationController.unshortlistCandidate);
 router.put('/:id/stage', authenticate, ApplicationController.updateStage);

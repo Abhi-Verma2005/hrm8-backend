@@ -11,6 +11,13 @@ const router: RouterType = Router();
 // All interview routes require authentication
 router.use(authenticate);
 
+// Create interview manually
+router.post('/', InterviewController.createInterview);
+
+// Bulk operations
+router.post('/bulk/reschedule', InterviewController.bulkRescheduleInterviews);
+router.post('/bulk/cancel', InterviewController.bulkCancelInterviews);
+
 // Get all interviews (with optional filters)
 router.get('/', InterviewController.getInterviews);
 
@@ -19,6 +26,9 @@ router.get('/calendar/events', InterviewController.getCalendarEvents);
 
 // Get interview by ID
 router.get('/:id', InterviewController.getInterview);
+
+// Update interview status (IN_PROGRESS, COMPLETED)
+router.put('/:id/status', InterviewController.updateInterviewStatus);
 
 // Reschedule interview
 router.put('/:id/reschedule', InterviewController.rescheduleInterview);

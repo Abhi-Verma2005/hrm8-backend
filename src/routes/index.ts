@@ -19,6 +19,7 @@ import hrm8Routes from './hrm8';
 import consultantRoutes from './consultant';
 import assessmentRoutes from './assessment';
 import interviewRoutes from './interview';
+import offerRoutes from './offer';
 
 const router: RouterType = Router();
 
@@ -38,6 +39,7 @@ router.use('/api/hrm8', hrm8Routes);
 router.use('/api/consultant', consultantRoutes);
 router.use('/api/assessments', assessmentRoutes);
 router.use('/api/interviews', interviewRoutes);
+router.use('/api', offerRoutes);
 
 export default router;
 

@@ -20,48 +20,57 @@ export class JobRoundService {
    * This should be called when a job is created.
    */
   static async initializeFixedRounds(jobId: string): Promise<void> {
-    // Check if rounds already exist (idempotent)
-    const existingRounds = await JobRoundModel.findByJobId(jobId);
-    if (existingRounds.length > 0) {
-      return; // Already initialized
+    // Check if fixed rounds already exist (idempotent)
+    const existingFixedRounds = await JobRoundModel.findByJobId(jobId);
+    const fixedKeys = ['NEW', 'OFFER', 'HIRED', 'REJECTED'];
+    const existingFixedKeys = existingFixedRounds
+      .filter(r => r.isFixed && r.fixedKey)
+      .map(r => r.fixedKey!);
+    
+    // Only create fixed rounds that don't exist
+    if (!existingFixedKeys.includes('NEW')) {
+      await JobRoundModel.create({
+        jobId,
+        name: 'New',
+        type: 'ASSESSMENT' as JobRoundType, // New doesn't have a type, use ASSESSMENT as default
+        order: 1,
+        isFixed: true,
+        fixedKey: 'NEW',
+      });
     }
 
-    // Create the four fixed rounds in order
-    await JobRoundModel.create({
-      jobId,
-      name: 'New',
-      type: 'ASSESSMENT' as JobRoundType, // New doesn't have a type, use ASSESSMENT as default
-      order: 1,
-      isFixed: true,
-      fixedKey: 'NEW',
-    });
+    if (!existingFixedKeys.includes('OFFER')) {
+      await JobRoundModel.create({
+        jobId,
+        name: 'Offer',
+        type: 'ASSESSMENT' as JobRoundType, // Offer doesn't have a type, use ASSESSMENT as default
+        order: 999, // Place far in pipeline - will be adjusted when user adds rounds
+        isFixed: true,
+        fixedKey: 'OFFER',
+      });
+    }
 
-    await JobRoundModel.create({
-      jobId,
-      name: 'Offer',
-      type: 'ASSESSMENT' as JobRoundType, // Offer doesn't have a type, use ASSESSMENT as default
-      order: 999, // Place far in pipeline - will be adjusted when user adds rounds
-      isFixed: true,
-      fixedKey: 'OFFER',
-    });
+    if (!existingFixedKeys.includes('HIRED')) {
+      await JobRoundModel.create({
+        jobId,
+        name: 'Hired',
+        type: 'ASSESSMENT' as JobRoundType, // Hired doesn't have a type, use ASSESSMENT as default
+        order: 1000,
+        isFixed: true,
+        fixedKey: 'HIRED',
+      });
+    }
 
-    await JobRoundModel.create({
-      jobId,
-      name: 'Hired',
-      type: 'ASSESSMENT' as JobRoundType, // Hired doesn't have a type, use ASSESSMENT as default
-      order: 1000,
-      isFixed: true,
-      fixedKey: 'HIRED',
-    });
-
-    await JobRoundModel.create({
-      jobId,
-      name: 'Rejected',
-      type: 'ASSESSMENT' as JobRoundType, // Rejected doesn't have a type, use ASSESSMENT as default
-      order: 1001,
-      isFixed: true,
-      fixedKey: 'REJECTED',
-    });
+    if (!existingFixedKeys.includes('REJECTED')) {
+      await JobRoundModel.create({
+        jobId,
+        name: 'Rejected',
+        type: 'ASSESSMENT' as JobRoundType, // Rejected doesn't have a type, use ASSESSMENT as default
+        order: 1001,
+        isFixed: true,
+        fixedKey: 'REJECTED',
+      });
+    }
   }
 
   /**
