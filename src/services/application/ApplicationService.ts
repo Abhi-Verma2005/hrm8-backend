@@ -6,7 +6,7 @@
 import { ApplicationModel, ApplicationData } from '../../models/Application';
 import { CandidateModel } from '../../models/Candidate';
 import { JobModel } from '../../models/Job';
-import { ApplicationStatus, ApplicationStage, ManualScreeningStatus } from '@prisma/client';
+import { ApplicationStatus, ApplicationStage, ManualScreeningStatus, ParticipantType } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { JobRoundModel } from '../../models/JobRound';
 import { JobRoundService } from '../job/JobRoundService';
@@ -29,6 +29,49 @@ export interface SubmitApplicationRequest {
   }>;
   questionnaireData?: any;
   tags?: string[];
+}
+
+export interface AnonymousApplicationRequest {
+  // Account creation fields (required for anonymous users)
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  
+  // Application fields
+  jobId: string;
+  resumeUrl?: string;
+  coverLetterUrl?: string;
+  portfolioUrl?: string;
+  linkedInUrl?: string;
+  websiteUrl?: string;
+  customAnswers?: Array<{
+    questionId: string;
+    answer: string | string[];
+  }>;
+  questionnaireData?: any;
+  tags?: string[];
+  
+  // Resume file buffer for parsing (if provided)
+  resumeFile?: {
+    buffer: Buffer;
+    originalname: string;
+    mimetype: string;
+    size: number;
+  };
+  coverLetterFile?: {
+    buffer: Buffer;
+    originalname: string;
+    mimetype: string;
+    size: number;
+  };
+  portfolioFile?: {
+    buffer: Buffer;
+    originalname: string;
+    mimetype: string;
+    size: number;
+  };
 }
 
 export class ApplicationService {
@@ -104,6 +147,100 @@ export class ApplicationService {
         console.error('Auto-scoring failed for application:', application.id, scoringError);
       });
 
+      // Auto-create conversation for candidate ↔ job owner/consultant
+      try {
+        const existingConversation = await prisma.conversation.findFirst({
+          where: { jobId: job.id, candidateId: candidate.id },
+        });
+
+        if (!existingConversation) {
+          // Fetch owner/consultant details
+          const owner = job.createdBy
+            ? await prisma.user.findUnique({ where: { id: job.createdBy } })
+            : null;
+          const consultant = job.assignedConsultantId
+            ? await prisma.consultant.findUnique({ where: { id: job.assignedConsultantId } })
+            : null;
+
+          // Build participants array
+          const participants: Array<{
+            participantType: ParticipantType;
+            participantId: string;
+            participantEmail: string;
+            displayName: string;
+          }> = [
+            {
+              participantType: ParticipantType.CANDIDATE,
+              participantId: candidate.id,
+              participantEmail: candidate.email,
+              displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
+            },
+          ];
+
+          if (owner) {
+            participants.push({
+              participantType: ParticipantType.EMPLOYER,
+              participantId: owner.id,
+              participantEmail: owner.email,
+              displayName: owner.name || owner.email,
+            });
+          }
+
+          if (consultant) {
+            participants.push({
+              participantType: ParticipantType.CONSULTANT,
+              participantId: consultant.id,
+              participantEmail: consultant.email,
+              displayName: `${consultant.firstName} ${consultant.lastName}`.trim(),
+            });
+          }
+
+          // Only create conversation if we have at least one other participant (owner or consultant)
+          if (owner || consultant) {
+            console.log(`💬 Creating conversation for application - Job: ${job.id}, Candidate: ${candidate.id}, Owner: ${owner?.id || 'none'}, Consultant: ${consultant?.id || 'none'}`);
+            
+            const newConversation = await prisma.conversation.create({
+              data: {
+                jobId: job.id,
+                candidateId: candidate.id,
+                employerUserId: owner?.id,
+                consultantId: consultant?.id,
+                channelType: consultant ? 'CANDIDATE_CONSULTANT' : 'CANDIDATE_EMPLOYER',
+                status: 'ACTIVE',
+                participants: {
+                  create: participants,
+                },
+              },
+            });
+
+            console.log(`✅ Conversation created: ${newConversation.id}`);
+
+            // Create initial system message
+            try {
+              const { ConversationService } = await import('../messaging/ConversationService');
+              await ConversationService.createMessage({
+                conversationId: newConversation.id,
+                senderType: ParticipantType.SYSTEM,
+                senderId: 'system',
+                senderEmail: 'system@hrm8.com',
+                content: `Your application for "${job.title}" has been submitted successfully! 🎉\n\nYou can use this conversation to communicate with ${consultant ? 'your HRM8 consultant' : 'the employer'} about your application. We'll keep you updated on any status changes.`,
+              });
+              console.log(`✅ Initial system message created for conversation ${newConversation.id}`);
+            } catch (msgError) {
+              console.error('❌ Failed to create initial system message:', msgError);
+              // Don't fail the application submission if message creation fails
+            }
+          } else {
+            console.warn(`⚠️ Skipping conversation creation - no owner or consultant for job ${job.id}`);
+          }
+        } else {
+          console.log(`ℹ️ Conversation already exists for job ${job.id} and candidate ${candidate.id}`);
+        }
+      } catch (convError) {
+        console.error('❌ Failed to auto-create conversation on application submit:', convError);
+        // Do not block application submission on conversation failure
+      }
+
       return application;
     } catch (error: any) {
       if (error.message.includes('already exists')) {
@@ -164,7 +301,31 @@ export class ApplicationService {
     status: ApplicationStatus,
     stage?: ApplicationStage
   ): Promise<ApplicationData> {
-    return await ApplicationModel.updateStatus(applicationId, status, stage);
+    // Get current application to track status change
+    const currentApplication = await ApplicationModel.findById(applicationId);
+    if (!currentApplication) {
+      throw new Error('Application not found');
+    }
+
+    const oldStatus = currentApplication.status;
+    const updatedApplication = await ApplicationModel.updateStatus(applicationId, status, stage);
+
+    // Send notification if status changed
+    if (oldStatus !== status) {
+      const { ApplicationNotificationService } = await import('../notification/ApplicationNotificationService');
+      ApplicationNotificationService.notifyStatusChange(
+        applicationId,
+        updatedApplication.candidateId,
+        updatedApplication.jobId,
+        oldStatus,
+        status,
+        stage || updatedApplication.stage
+      ).catch((error) => {
+        console.error('Failed to send status change notification:', error);
+      });
+    }
+
+    return updatedApplication;
   }
 
   /**
@@ -178,11 +339,37 @@ export class ApplicationService {
    * Withdraw application
    */
   static async withdrawApplication(applicationId: string): Promise<ApplicationData> {
-    return await ApplicationModel.updateStatus(
+    const application = await ApplicationModel.updateStatus(
       applicationId,
       ApplicationStatus.WITHDRAWN,
       undefined // No stage for withdrawn applications
     );
+
+    // Archive the conversation associated with this application
+    try {
+      const { ConversationService } = await import('../messaging/ConversationService');
+      const conversation = await ConversationService.findConversationByJobAndCandidate(
+        application.jobId,
+        application.candidateId
+      );
+
+      if (conversation) {
+        const { JobModel } = await import('../../models/Job');
+        const job = await JobModel.findById(application.jobId);
+        const jobTitle = job?.title || 'the position';
+        
+        await ConversationService.archiveConversation(
+          conversation.id,
+          `This conversation has been archived because your application for "${jobTitle}" was withdrawn. You can no longer send messages in this conversation.`
+        );
+        console.log(`✅ Archived conversation ${conversation.id} for withdrawn application ${applicationId}`);
+      }
+    } catch (error) {
+      console.error('Failed to archive conversation on application withdrawal:', error);
+      // Don't fail the withdrawal if conversation archiving fails
+    }
+
+    return application;
   }
 
   /**
@@ -337,7 +524,20 @@ export class ApplicationService {
     applicationId: string,
     shortlistedBy: string
   ): Promise<ApplicationData> {
-    return await ApplicationModel.shortlist(applicationId, shortlistedBy);
+    const application = await ApplicationModel.shortlist(applicationId, shortlistedBy);
+
+    // Send notification
+    const { ApplicationNotificationService } = await import('../notification/ApplicationNotificationService');
+    ApplicationNotificationService.notifyShortlisted(
+      applicationId,
+      application.candidateId,
+      application.jobId,
+      shortlistedBy
+    ).catch((error) => {
+      console.error('Failed to send shortlist notification:', error);
+    });
+
+    return application;
   }
 
   /**
@@ -354,7 +554,31 @@ export class ApplicationService {
     applicationId: string,
     stage: ApplicationStage
   ): Promise<ApplicationData> {
-    return await ApplicationModel.updateStage(applicationId, stage);
+    // Get current application to track stage change
+    const currentApplication = await ApplicationModel.findById(applicationId);
+    if (!currentApplication) {
+      throw new Error('Application not found');
+    }
+
+    const oldStage = currentApplication.stage;
+    const updatedApplication = await ApplicationModel.updateStage(applicationId, stage);
+
+    // Send notification if stage changed
+    if (oldStage !== stage) {
+      const { ApplicationNotificationService } = await import('../notification/ApplicationNotificationService');
+      ApplicationNotificationService.notifyStageChange(
+        applicationId,
+        updatedApplication.candidateId,
+        updatedApplication.jobId,
+        oldStage,
+        stage,
+        updatedApplication.status
+      ).catch((error) => {
+        console.error('Failed to send stage change notification:', error);
+      });
+    }
+
+    return updatedApplication;
   }
 
   /**
@@ -387,6 +611,597 @@ export class ApplicationService {
    */
   static async hasApplication(candidateId: string, jobId: string): Promise<boolean> {
     return await ApplicationModel.hasApplication(candidateId, jobId);
+  }
+
+  /**
+   * Submit application as anonymous user (auto-creates account)
+   * This method handles:
+   * 1. Creating candidate account if email/password provided
+   * 2. Parsing resume and saving work history, skills, education, etc.
+   * 3. Saving documents (resume, cover letter, portfolio) to candidate documents
+   * 4. Creating application
+   * 5. Sending email notification with login details
+   */
+  static async submitAnonymousApplication(
+    applicationData: AnonymousApplicationRequest
+  ): Promise<{
+    application: ApplicationData;
+    candidate: { id: string; email: string; firstName: string; lastName: string };
+    sessionId?: string;
+    password: string; // Return password for email notification
+  } | { error: string; code?: string }> {
+    const { normalizeEmail } = await import('../../utils/email');
+    const { hashPassword, isPasswordStrong } = await import('../../utils/password');
+    const { CandidateAuthService } = await import('../candidate/CandidateAuthService');
+    const { CandidateService } = await import('../candidate/CandidateService');
+    const { CandidateQualificationsService } = await import('../candidate/CandidateQualificationsService');
+    const { CandidateDocumentService } = await import('../candidate/CandidateDocumentService');
+    const { DocumentParserService } = await import('../document/DocumentParserService');
+    const { ResumeParserService } = await import('../ai/ResumeParserService');
+    const { CloudinaryService } = await import('../storage/CloudinaryService');
+
+    try {
+      // Step 1: Validate email format
+      const { isValidEmail } = await import('../../utils/email');
+      const email = normalizeEmail(applicationData.email);
+      
+      if (!isValidEmail(email)) {
+        return { error: 'Invalid email address format', code: 'INVALID_EMAIL' };
+      }
+
+      // Step 2: Check if candidate already exists
+      let candidate = await CandidateAuthService.findByEmail(email);
+
+      if (candidate) {
+        // Candidate exists - they should login instead
+        return { error: 'An account with this email already exists. Please login to apply.', code: 'EMAIL_EXISTS' };
+      }
+
+      // Step 3: Validate password
+      if (!isPasswordStrong(applicationData.password)) {
+        return { error: 'Password must be at least 8 characters with uppercase, lowercase, and number', code: 'WEAK_PASSWORD' };
+      }
+
+      // Step 3: Verify job exists and is open
+      const job = await JobModel.findById(applicationData.jobId);
+      if (!job) {
+        return { error: 'Job not found', code: 'JOB_NOT_FOUND' };
+      }
+
+      if (job.status !== 'OPEN') {
+        return { error: 'Job is not accepting applications', code: 'JOB_NOT_ACCEPTING' };
+      }
+
+      // Step 4: Parse resume if provided
+      let parsedResumeData: any = null;
+      let resumeUrl = applicationData.resumeUrl;
+
+      if (applicationData.resumeFile) {
+        console.log('📄 Resume file provided for parsing:', {
+          fileName: applicationData.resumeFile.originalname,
+          mimeType: applicationData.resumeFile.mimetype,
+          size: applicationData.resumeFile.size,
+        });
+        
+        try {
+          // Use the same parseDocument method that logged-in users use
+          // This ensures consistency and handles all file types correctly
+          console.log('📖 Parsing document with mime type:', applicationData.resumeFile.mimetype);
+          
+          // Create a file-like object for parseDocument
+          const { Readable } = await import('stream');
+          const fileForParsing: Express.Multer.File = {
+            fieldname: 'resume',
+            originalname: applicationData.resumeFile.originalname,
+            encoding: '7bit',
+            mimetype: applicationData.resumeFile.mimetype,
+            buffer: applicationData.resumeFile.buffer,
+            size: applicationData.resumeFile.size,
+            stream: Readable.from(applicationData.resumeFile.buffer),
+            destination: '',
+            filename: applicationData.resumeFile.originalname,
+            path: '',
+          };
+          
+          const parsedDocument = await DocumentParserService.parseDocument(fileForParsing);
+
+          console.log('📝 Document parsed, text length:', parsedDocument.text?.length || 0);
+
+          // Extract structured data using AI
+          console.log('🤖 Extracting structured data from resume...');
+          parsedResumeData = await ResumeParserService.parseResume(parsedDocument);
+          console.log('✅ Resume parsed successfully:', {
+            workExperience: parsedResumeData.workExperience?.length || 0,
+            skills: parsedResumeData.skills?.length || 0,
+            education: parsedResumeData.education?.length || 0,
+            certifications: parsedResumeData.certifications?.length || 0,
+            training: parsedResumeData.training?.length || 0,
+          });
+
+          // Upload resume to Cloudinary
+          if (CloudinaryService.isConfigured()) {
+            const uploadResult = await CloudinaryService.uploadFile(
+              applicationData.resumeFile.buffer,
+              applicationData.resumeFile.originalname,
+              {
+                folder: `hrm8/applications/temp`,
+                resourceType: 'raw',
+              }
+            );
+            resumeUrl = uploadResult.secureUrl;
+            console.log('☁️ Resume uploaded to Cloudinary:', resumeUrl);
+          }
+        } catch (error: any) {
+          console.error('❌ Failed to parse resume:', {
+            error: error.message,
+            stack: error.stack,
+          });
+          // Continue without parsing - resume will still be saved
+        }
+      } else {
+        console.log('⚠️ No resume file provided for parsing');
+      }
+
+      // Step 5: Create candidate account
+      const passwordHash = await hashPassword(applicationData.password);
+      
+      // Extract name from parsed resume or use provided/default
+      const firstName = parsedResumeData?.firstName || applicationData.firstName || 'Candidate';
+      const lastName = parsedResumeData?.lastName || applicationData.lastName || 'User';
+      const phone = parsedResumeData?.phone || applicationData.phone;
+
+      candidate = await CandidateModel.create({
+        email,
+        passwordHash,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone?.trim(),
+      });
+
+      // Step 6: Save parsed resume data (work history, skills, education, etc.)
+      if (parsedResumeData) {
+        console.log('📄 Parsed resume data:', {
+          workExperience: parsedResumeData.workExperience?.length || 0,
+          skills: parsedResumeData.skills?.length || 0,
+          education: parsedResumeData.education?.length || 0,
+          certifications: parsedResumeData.certifications?.length || 0,
+          training: parsedResumeData.training?.length || 0,
+        });
+        
+        try {
+          // Save work experience
+          if (parsedResumeData.workExperience && parsedResumeData.workExperience.length > 0) {
+            console.log(`💼 Saving ${parsedResumeData.workExperience.length} work experience entries...`);
+            for (const exp of parsedResumeData.workExperience) {
+              try {
+                // Handle date conversion - dates come as ISO strings from parser
+                let startDate: Date;
+                if (exp.startDate) {
+                  startDate = new Date(exp.startDate);
+                  if (isNaN(startDate.getTime())) {
+                    console.warn('Invalid startDate:', exp.startDate, 'using current date');
+                    startDate = new Date();
+                  }
+                } else {
+                  console.warn('Missing startDate for work experience, using current date');
+                  startDate = new Date();
+                }
+
+                let endDate: Date | null = null;
+                if (exp.endDate) {
+                  endDate = new Date(exp.endDate);
+                  if (isNaN(endDate.getTime())) {
+                    endDate = null;
+                  }
+                }
+
+                await CandidateService.addWorkExperience(candidate.id, {
+                  company: exp.company || 'Unknown Company',
+                  role: exp.role || 'Unknown Role',
+                  startDate,
+                  endDate,
+                  current: exp.current || false,
+                  description: exp.description || undefined,
+                  location: exp.location || undefined,
+                });
+                console.log('✅ Saved work experience:', exp.company, exp.role);
+              } catch (error: any) {
+                console.error('❌ Failed to save work experience:', {
+                  company: exp.company,
+                  role: exp.role,
+                  error: error.message,
+                  stack: error.stack,
+                });
+              }
+            }
+          }
+
+          // Save skills
+          if (parsedResumeData.skills && parsedResumeData.skills.length > 0) {
+            console.log(`🎯 Saving ${parsedResumeData.skills.length} skills...`);
+            try {
+              const skillsToSave = parsedResumeData.skills.map((skill: any) => ({
+                name: typeof skill === 'string' ? skill : (skill.name || 'Unknown Skill'),
+                level: skill.level || 'intermediate',
+              }));
+              await CandidateService.updateSkills(candidate.id, skillsToSave);
+              console.log('✅ Saved skills:', skillsToSave.length);
+            } catch (error: any) {
+              console.error('❌ Failed to save skills:', {
+                error: error.message,
+                stack: error.stack,
+              });
+            }
+          }
+
+          // Save education
+          if (parsedResumeData.education && parsedResumeData.education.length > 0) {
+            console.log(`🎓 Saving ${parsedResumeData.education.length} education entries...`);
+            for (const edu of parsedResumeData.education) {
+              try {
+                // CandidateQualificationsService expects date strings, not Date objects
+                let startDate: string | undefined;
+                if (edu.startDate) {
+                  const date = new Date(edu.startDate);
+                  if (!isNaN(date.getTime())) {
+                    startDate = date.toISOString();
+                  }
+                }
+
+                let endDate: string | undefined;
+                if (edu.endDate) {
+                  const date = new Date(edu.endDate);
+                  if (!isNaN(date.getTime())) {
+                    endDate = date.toISOString();
+                  }
+                }
+
+                await CandidateQualificationsService.addEducation(candidate.id, {
+                  institution: edu.institution || 'Unknown Institution',
+                  degree: edu.degree || 'Unknown Degree',
+                  field: edu.field || 'Unknown Field',
+                  startDate,
+                  endDate,
+                  current: edu.current || false,
+                  grade: edu.grade || undefined,
+                  description: edu.description || undefined,
+                });
+                console.log('✅ Saved education:', edu.institution, edu.degree);
+              } catch (error: any) {
+                console.error('❌ Failed to save education:', {
+                  institution: edu.institution,
+                  degree: edu.degree,
+                  error: error.message,
+                  stack: error.stack,
+                });
+              }
+            }
+          }
+
+          // Save certifications
+          if (parsedResumeData.certifications && parsedResumeData.certifications.length > 0) {
+            console.log(`🏆 Saving ${parsedResumeData.certifications.length} certifications...`);
+            for (const cert of parsedResumeData.certifications) {
+              try {
+                // CandidateQualificationsService expects date strings, not Date objects
+                let issueDate: string | undefined;
+                if (cert.issueDate) {
+                  const date = new Date(cert.issueDate);
+                  if (!isNaN(date.getTime())) {
+                    issueDate = date.toISOString();
+                  }
+                }
+
+                let expiryDate: string | undefined;
+                if (cert.expiryDate) {
+                  const date = new Date(cert.expiryDate);
+                  if (!isNaN(date.getTime())) {
+                    expiryDate = date.toISOString();
+                  }
+                }
+
+                await CandidateQualificationsService.addCertification(candidate.id, {
+                  name: cert.name || 'Unknown Certification',
+                  issuingOrg: cert.issuingOrg || 'Unknown Organization',
+                  issueDate,
+                  expiryDate,
+                  credentialId: cert.credentialId || undefined,
+                  credentialUrl: cert.credentialUrl || undefined,
+                  doesNotExpire: cert.doesNotExpire || false,
+                });
+                console.log('✅ Saved certification:', cert.name);
+              } catch (error: any) {
+                console.error('❌ Failed to save certification:', {
+                  name: cert.name,
+                  error: error.message,
+                  stack: error.stack,
+                });
+              }
+            }
+          }
+
+          // Save training
+          if (parsedResumeData.training && parsedResumeData.training.length > 0) {
+            console.log(`📚 Saving ${parsedResumeData.training.length} training entries...`);
+            for (const train of parsedResumeData.training) {
+              try {
+                // CandidateQualificationsService expects date strings, not Date objects
+                let completedDate: string | undefined;
+                if (train.completedDate) {
+                  const date = new Date(train.completedDate);
+                  if (!isNaN(date.getTime())) {
+                    completedDate = date.toISOString();
+                  }
+                }
+
+                await CandidateQualificationsService.addTraining(candidate.id, {
+                  courseName: train.courseName || 'Unknown Course',
+                  provider: train.provider || 'Unknown Provider',
+                  completedDate,
+                  duration: train.duration || undefined,
+                  description: train.description || undefined,
+                  certificateUrl: train.certificateUrl || undefined,
+                });
+                console.log('✅ Saved training:', train.courseName);
+              } catch (error: any) {
+                console.error('❌ Failed to save training:', {
+                  courseName: train.courseName,
+                  error: error.message,
+                  stack: error.stack,
+                });
+              }
+            }
+          }
+          
+          console.log('✅ Successfully saved all parsed resume data');
+        } catch (error: any) {
+          console.error('❌ Failed to save parsed resume data:', {
+            error: error.message,
+            stack: error.stack,
+          });
+          // Continue even if parsing fails
+        }
+      } else {
+        console.log('⚠️ No parsed resume data to save');
+      }
+
+      // Step 7: Save documents to candidate documents
+      // Save resume
+      if (resumeUrl && applicationData.resumeFile) {
+        try {
+          // Re-upload to candidate's folder if we have the file
+          if (CloudinaryService.isConfigured() && applicationData.resumeFile) {
+            const uploadResult = await CloudinaryService.uploadFile(
+              applicationData.resumeFile.buffer,
+              applicationData.resumeFile.originalname,
+              {
+                folder: `hrm8/candidates/${candidate.id}/resumes`,
+                resourceType: 'raw',
+              }
+            );
+            resumeUrl = uploadResult.secureUrl;
+          }
+
+          const resumeDoc = await CandidateDocumentService.uploadResume(
+            candidate.id,
+            applicationData.resumeFile.originalname,
+            resumeUrl,
+            applicationData.resumeFile.size,
+            applicationData.resumeFile.mimetype
+          );
+          
+          // Set as default if it's the first resume
+          const { prisma } = await import('../../lib/prisma');
+          const resumeCount = await prisma.candidateResume.count({
+            where: { candidateId: candidate.id },
+          });
+          if (resumeCount === 1) {
+            await CandidateDocumentService.setDefaultResume(candidate.id, resumeDoc.id);
+          }
+        } catch (error) {
+          console.error('Failed to save resume to documents:', error);
+        }
+      }
+
+      // Save cover letter
+      if (applicationData.coverLetterFile && applicationData.coverLetterUrl) {
+        try {
+          if (CloudinaryService.isConfigured()) {
+            const uploadResult = await CloudinaryService.uploadFile(
+              applicationData.coverLetterFile.buffer,
+              applicationData.coverLetterFile.originalname,
+              {
+                folder: `hrm8/candidates/${candidate.id}/cover-letters`,
+                resourceType: 'raw',
+              }
+            );
+            await CandidateDocumentService.createCoverLetter(candidate.id, {
+              title: applicationData.coverLetterFile.originalname,
+              fileUrl: uploadResult.secureUrl,
+              fileName: applicationData.coverLetterFile.originalname,
+              fileSize: applicationData.coverLetterFile.size,
+              fileType: applicationData.coverLetterFile.mimetype,
+            });
+          }
+        } catch (error) {
+          console.error('Failed to save cover letter to documents:', error);
+        }
+      } else if (applicationData.coverLetterUrl && applicationData.questionnaireData?.coverLetterMarkdown) {
+        // Save cover letter as text content
+        try {
+          await CandidateDocumentService.createCoverLetter(candidate.id, {
+            title: 'Cover Letter',
+            content: applicationData.questionnaireData.coverLetterMarkdown,
+          });
+        } catch (error) {
+          console.error('Failed to save cover letter content:', error);
+        }
+      }
+
+      // Save portfolio
+      if (applicationData.portfolioFile && applicationData.portfolioUrl) {
+        try {
+          if (CloudinaryService.isConfigured()) {
+            const uploadResult = await CloudinaryService.uploadFile(
+              applicationData.portfolioFile.buffer,
+              applicationData.portfolioFile.originalname,
+              {
+                folder: `hrm8/candidates/${candidate.id}/portfolio`,
+                resourceType: 'raw',
+              }
+            );
+            await CandidateDocumentService.createPortfolioItem(candidate.id, {
+              title: applicationData.portfolioFile.originalname,
+              type: 'file',
+              fileUrl: uploadResult.secureUrl,
+              fileName: applicationData.portfolioFile.originalname,
+              fileSize: applicationData.portfolioFile.size,
+              fileType: applicationData.portfolioFile.mimetype,
+            });
+          }
+        } catch (error) {
+          console.error('Failed to save portfolio to documents:', error);
+        }
+      }
+
+      // Step 8: Create application
+      const application = await ApplicationModel.create({
+        candidateId: candidate.id,
+        jobId: applicationData.jobId,
+        resumeUrl: resumeUrl,
+        coverLetterUrl: applicationData.coverLetterUrl,
+        portfolioUrl: applicationData.portfolioUrl,
+        linkedInUrl: applicationData.linkedInUrl,
+        websiteUrl: applicationData.websiteUrl,
+        customAnswers: applicationData.customAnswers,
+        questionnaireData: applicationData.questionnaireData,
+        tags: applicationData.tags,
+      });
+
+      // Step 9: Create session for auto-login
+      const { generateSessionId, getSessionExpiration } = await import('../../utils/session');
+      const { CandidateSessionModel } = await import('../../models/CandidateSession');
+      const sessionId = generateSessionId();
+      const expiresAt = getSessionExpiration(24); // 24 hours
+
+      await CandidateSessionModel.create(
+        sessionId,
+        candidate.id,
+        candidate.email,
+        expiresAt
+      );
+
+      // Auto-create conversation for candidate ↔ job owner/consultant
+      try {
+        const { prisma } = await import('../../lib/prisma');
+        const existingConversation = await prisma.conversation.findFirst({
+          where: { jobId: job.id, candidateId: candidate.id },
+        });
+
+        if (!existingConversation) {
+          const owner = job.createdBy
+            ? await prisma.user.findUnique({ where: { id: job.createdBy } })
+            : null;
+          const consultant = job.assignedConsultantId
+            ? await prisma.consultant.findUnique({ where: { id: job.assignedConsultantId } })
+            : null;
+
+          // Build participants array
+          const participants: Array<{
+            participantType: ParticipantType;
+            participantId: string;
+            participantEmail: string;
+            displayName: string;
+          }> = [
+            {
+              participantType: ParticipantType.CANDIDATE,
+              participantId: candidate.id,
+              participantEmail: candidate.email,
+              displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
+            },
+          ];
+
+          if (owner) {
+            participants.push({
+              participantType: ParticipantType.EMPLOYER,
+              participantId: owner.id,
+              participantEmail: owner.email,
+              displayName: owner.name || owner.email,
+            });
+          }
+
+          if (consultant) {
+            participants.push({
+              participantType: ParticipantType.CONSULTANT,
+              participantId: consultant.id,
+              participantEmail: consultant.email,
+              displayName: `${consultant.firstName} ${consultant.lastName}`.trim(),
+            });
+          }
+
+          // Only create conversation if we have at least one other participant (owner or consultant)
+          if (owner || consultant) {
+            console.log(`💬 Creating conversation for anonymous application - Job: ${job.id}, Candidate: ${candidate.id}, Owner: ${owner?.id || 'none'}, Consultant: ${consultant?.id || 'none'}`);
+            
+            const newConversation = await prisma.conversation.create({
+              data: {
+                jobId: job.id,
+                candidateId: candidate.id,
+                employerUserId: owner?.id,
+                consultantId: consultant?.id,
+                channelType: consultant ? 'CANDIDATE_CONSULTANT' : 'CANDIDATE_EMPLOYER',
+                status: 'ACTIVE',
+                participants: {
+                  create: participants,
+                },
+              },
+            });
+
+            console.log(`✅ Conversation created: ${newConversation.id}`);
+
+            // Create initial system message
+            try {
+              const { ConversationService } = await import('../messaging/ConversationService');
+              await ConversationService.createMessage({
+                conversationId: newConversation.id,
+                senderType: ParticipantType.SYSTEM,
+                senderId: 'system',
+                senderEmail: 'system@hrm8.com',
+                content: `Your application for "${job.title}" has been submitted successfully! 🎉\n\nYou can use this conversation to communicate with ${consultant ? 'your HRM8 consultant' : 'the employer'} about your application. We'll keep you updated on any status changes.`,
+              });
+              console.log(`✅ Initial system message created for conversation ${newConversation.id}`);
+            } catch (msgError) {
+              console.error('❌ Failed to create initial system message:', msgError);
+              // Don't fail the application submission if message creation fails
+            }
+          } else {
+            console.warn(`⚠️ Skipping conversation creation - no owner or consultant for job ${job.id}`);
+          }
+        } else {
+          console.log(`ℹ️ Conversation already exists for job ${job.id} and candidate ${candidate.id}`);
+        }
+      } catch (convError) {
+        console.error('❌ Failed to auto-create conversation on anonymous application submit:', convError);
+      }
+
+      return {
+        application,
+        candidate: {
+          id: candidate.id,
+          email: candidate.email,
+          firstName: candidate.firstName,
+          lastName: candidate.lastName,
+        },
+        sessionId,
+        password: applicationData.password, // Return password for email notification
+      };
+    } catch (error: any) {
+      console.error('Failed to submit anonymous application:', error);
+      if (error.message.includes('already exists')) {
+        return { error: 'You have already applied to this job', code: 'APPLICATION_EXISTS' };
+      }
+      return { error: error.message || 'Failed to submit application', code: 'SUBMIT_FAILED' };
+    }
   }
 
   /**

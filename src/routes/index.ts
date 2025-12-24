@@ -20,6 +20,9 @@ import consultantRoutes from './consultant';
 import assessmentRoutes from './assessment';
 import interviewRoutes from './interview';
 import offerRoutes from './offer';
+import devRoutes from './dev';
+import { authenticateHrm8User } from '../middleware/hrm8Auth';
+import { JobAllocationController } from '../controllers/hrm8/JobAllocationController';
 
 const router: RouterType = Router();
 
@@ -35,11 +38,14 @@ router.use('/api/talent-pool', talentPoolRoutes);
 router.use('/api/public', publicRoutes);
 router.use('/api/job-templates', jobTemplateRoutes);
 router.use('/api/video-interviews', videoInterviewRoutes);
+// Explicit binding for consultants-for-assignment (debugging 404s)
+router.get('/api/hrm8/consultants/for-assignment', authenticateHrm8User, JobAllocationController.getConsultantsForAssignment);
 router.use('/api/hrm8', hrm8Routes);
 router.use('/api/consultant', consultantRoutes);
 router.use('/api/assessments', assessmentRoutes);
 router.use('/api/interviews', interviewRoutes);
 router.use('/api', offerRoutes);
+router.use('/', devRoutes); // Dev routes (only enabled in development)
 
 export default router;
 

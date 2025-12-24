@@ -112,39 +112,58 @@ export class JobModel {
       
       // Assignment fields
       if ((jobData as any).assignmentMode !== undefined) {
-        updateData.assignmentMode = (jobData as any).assignmentMode;
+        prismaData.assignmentMode = (jobData as any).assignmentMode;
       }
-      if ((jobData as any).regionId !== undefined) {
-        updateData.regionId = (jobData as any).regionId || null;
+      if ((jobData as any).regionId !== undefined && (jobData as any).regionId !== null) {
+        prismaData.regionId = (jobData as any).regionId;
       }
       if ((jobData as any).assignedConsultantId !== undefined) {
-        updateData.assignedConsultantId = (jobData as any).assignedConsultantId || null;
+        prismaData.assignedConsultantId = (jobData as any).assignedConsultantId || null;
       }
 
       // Screening fields
       if ((jobData as any).screening_enabled !== undefined) {
-        updateData.screening_enabled = (jobData as any).screening_enabled;
+        prismaData.screening_enabled = (jobData as any).screening_enabled;
       }
       if ((jobData as any).automated_screening_enabled !== undefined) {
-        updateData.automated_screening_enabled = (jobData as any).automated_screening_enabled;
+        prismaData.automated_screening_enabled = (jobData as any).automated_screening_enabled;
       }
       if ((jobData as any).screening_criteria !== undefined) {
-        updateData.screening_criteria = (jobData as any).screening_criteria || null;
+        prismaData.screening_criteria = (jobData as any).screening_criteria || null;
       }
       if ((jobData as any).pre_interview_questionnaire_enabled !== undefined) {
-        updateData.pre_interview_questionnaire_enabled = (jobData as any).pre_interview_questionnaire_enabled;
+        prismaData.pre_interview_questionnaire_enabled = (jobData as any).pre_interview_questionnaire_enabled;
       }
-      
-      console.log('💾 Calling prisma.job.create with:', {
-        ...prismaData,
-        description: prismaData.description?.substring(0, 100) + '...',
-      });
+
+      // Payment fields
+      if ((jobData as any).servicePackage !== undefined) {
+        prismaData.servicePackage = (jobData as any).servicePackage || null;
+      }
+      if ((jobData as any).paymentStatus !== undefined) {
+        prismaData.paymentStatus = (jobData as any).paymentStatus || null;
+      }
+      if ((jobData as any).paymentAmount !== undefined) {
+        prismaData.paymentAmount = (jobData as any).paymentAmount || null;
+      }
+      if ((jobData as any).paymentCurrency !== undefined) {
+        prismaData.paymentCurrency = (jobData as any).paymentCurrency || null;
+      }
+      if ((jobData as any).stripeSessionId !== undefined) {
+        prismaData.stripeSessionId = (jobData as any).stripeSessionId || null;
+      }
+      if ((jobData as any).stripePaymentIntentId !== undefined) {
+        prismaData.stripePaymentIntentId = (jobData as any).stripePaymentIntentId || null;
+      }
+      if ((jobData as any).paymentCompletedAt !== undefined) {
+        prismaData.paymentCompletedAt = (jobData as any).paymentCompletedAt || null;
+      }
+      if ((jobData as any).paymentFailedAt !== undefined) {
+        prismaData.paymentFailedAt = (jobData as any).paymentFailedAt || null;
+      }
 
       const job = await prisma.job.create({
         data: prismaData,
       });
-
-      console.log('✅ Prisma job created successfully:', job.id);
       return this.mapPrismaToJob(job);
     } catch (error) {
       console.error('❌ JobModel.create failed:', error);
@@ -576,6 +595,32 @@ export class JobModel {
         updateData.jobTargetApproved = (jobData as any).jobTargetApproved;
       }
 
+      // Payment fields
+      if ((jobData as any).servicePackage !== undefined) {
+        updateData.servicePackage = (jobData as any).servicePackage || null;
+      }
+      if ((jobData as any).paymentStatus !== undefined) {
+        updateData.paymentStatus = (jobData as any).paymentStatus || null;
+      }
+      if ((jobData as any).paymentAmount !== undefined) {
+        updateData.paymentAmount = (jobData as any).paymentAmount || null;
+      }
+      if ((jobData as any).paymentCurrency !== undefined) {
+        updateData.paymentCurrency = (jobData as any).paymentCurrency || null;
+      }
+      if ((jobData as any).stripeSessionId !== undefined) {
+        updateData.stripeSessionId = (jobData as any).stripeSessionId || null;
+      }
+      if ((jobData as any).stripePaymentIntentId !== undefined) {
+        updateData.stripePaymentIntentId = (jobData as any).stripePaymentIntentId || null;
+      }
+      if ((jobData as any).paymentCompletedAt !== undefined) {
+        updateData.paymentCompletedAt = (jobData as any).paymentCompletedAt || null;
+      }
+      if ((jobData as any).paymentFailedAt !== undefined) {
+        updateData.paymentFailedAt = (jobData as any).paymentFailedAt || null;
+      }
+
       const job = await prisma.job.update({
         where: { id },
         data: updateData,
@@ -661,6 +706,14 @@ export class JobModel {
     assignmentMode?: any;
     assignmentSource?: any;
     assignedConsultantId?: string | null;
+    paymentStatus?: any;
+    servicePackage?: string | null;
+    paymentAmount?: number | null;
+    paymentCurrency?: string | null;
+    stripeSessionId?: string | null;
+    stripePaymentIntentId?: string | null;
+    paymentCompletedAt?: Date | null;
+    paymentFailedAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }): Job {
@@ -726,6 +779,14 @@ export class JobModel {
       assignmentMode: prismaJob.assignmentMode || undefined,
       assignmentSource: prismaJob.assignmentSource || undefined,
       assignedConsultantId: prismaJob.assignedConsultantId || undefined,
+      paymentStatus: prismaJob.paymentStatus || undefined,
+      servicePackage: prismaJob.servicePackage || undefined,
+      paymentAmount: prismaJob.paymentAmount || undefined,
+      paymentCurrency: prismaJob.paymentCurrency || undefined,
+      stripeSessionId: prismaJob.stripeSessionId || undefined,
+      stripePaymentIntentId: prismaJob.stripePaymentIntentId || undefined,
+      paymentCompletedAt: prismaJob.paymentCompletedAt || undefined,
+      paymentFailedAt: prismaJob.paymentFailedAt || undefined,
       createdAt: prismaJob.createdAt,
       updatedAt: prismaJob.updatedAt,
     };

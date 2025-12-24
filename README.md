@@ -55,6 +55,10 @@ Create a `.env` file in the backend root:
 DATABASE_URL="postgresql://user:password@localhost:5432/hrm8"
 PORT=3000
 FRONTEND_URL="http://localhost:8080"
+BACKEND_URL="http://localhost:3000"
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
 NODE_ENV="development"
 
 # Email Configuration (optional - for production)
@@ -89,6 +93,8 @@ CLOUDINARY_API_SECRET=your-api-secret
 - `/api/employees/*` - Employee management
 
 For detailed endpoint documentation, see the route files in `src/routes/`.
+
+"stripe listen --forward-to localhost:3000/api/payments/stripe-webhook"
 
 ## Pending Verification Flow
 

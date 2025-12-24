@@ -4,7 +4,7 @@
  */
 
 import prisma from '../lib/prisma';
-import { AssignmentSource } from '@prisma/client';
+import { AssignmentSource, PipelineStage } from '@prisma/client';
 
 export interface ConsultantJobAssignmentData {
   id: string;
@@ -15,6 +15,11 @@ export interface ConsultantJobAssignmentData {
   status: string;
   notes: string | null;
   assignmentSource?: AssignmentSource | null;
+  pipelineStage: PipelineStage;
+  pipelineProgress: number;
+  pipelineNote: string | null;
+  pipelineUpdatedAt: Date | null;
+  pipelineUpdatedBy: string | null;
 }
 
 export class ConsultantJobAssignmentModel {
@@ -37,6 +42,8 @@ export class ConsultantJobAssignmentModel {
         status: assignmentData.status || 'ACTIVE',
         notes: assignmentData.notes || null,
         assignmentSource: assignmentData.assignmentSource || null,
+        pipeline_stage: 'INTAKE' as PipelineStage,
+        pipeline_progress: 0,
       },
     });
 
@@ -113,6 +120,11 @@ export class ConsultantJobAssignmentModel {
         ...(data.status !== undefined && { status: data.status }),
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(data.assignmentSource !== undefined && { assignmentSource: data.assignmentSource }),
+        ...(data.pipelineStage !== undefined && { pipeline_stage: data.pipelineStage }),
+        ...(data.pipelineProgress !== undefined && { pipeline_progress: data.pipelineProgress }),
+        ...(data.pipelineNote !== undefined && { pipeline_note: data.pipelineNote }),
+        ...(data.pipelineUpdatedAt !== undefined && { pipeline_updated_at: data.pipelineUpdatedAt }),
+        ...(data.pipelineUpdatedBy !== undefined && { pipeline_updated_by: data.pipelineUpdatedBy }),
       },
     });
 
@@ -157,25 +169,21 @@ export class ConsultantJobAssignmentModel {
   /**
    * Map Prisma assignment to ConsultantJobAssignmentData interface
    */
-  private static mapPrismaToAssignment(prismaAssignment: {
-    id: string;
-    consultantId: string;
-    jobId: string;
-    assignedBy: string | null;
-    assignedAt: Date;
-    status: string;
-    notes: string | null;
-    assignmentSource?: AssignmentSource | null;
-  }): ConsultantJobAssignmentData {
+  private static mapPrismaToAssignment(prismaAssignment: any): ConsultantJobAssignmentData {
     return {
       id: prismaAssignment.id,
-      consultantId: prismaAssignment.consultantId,
-      jobId: prismaAssignment.jobId,
-      assignedBy: prismaAssignment.assignedBy,
-      assignedAt: prismaAssignment.assignedAt,
+      consultantId: prismaAssignment.consultantId || prismaAssignment.consultant_id,
+      jobId: prismaAssignment.jobId || prismaAssignment.job_id,
+      assignedBy: prismaAssignment.assignedBy || prismaAssignment.assigned_by,
+      assignedAt: prismaAssignment.assignedAt || prismaAssignment.assigned_at,
       status: prismaAssignment.status,
       notes: prismaAssignment.notes,
-      assignmentSource: prismaAssignment.assignmentSource || null,
+      assignmentSource: prismaAssignment.assignmentSource || prismaAssignment.assignment_source || null,
+      pipelineStage: (prismaAssignment.pipelineStage || prismaAssignment.pipeline_stage) as PipelineStage,
+      pipelineProgress: prismaAssignment.pipelineProgress !== undefined ? prismaAssignment.pipelineProgress : (prismaAssignment.pipeline_progress || 0),
+      pipelineNote: prismaAssignment.pipelineNote || prismaAssignment.pipeline_note,
+      pipelineUpdatedAt: prismaAssignment.pipelineUpdatedAt || prismaAssignment.pipeline_updated_at,
+      pipelineUpdatedBy: prismaAssignment.pipelineUpdatedBy || prismaAssignment.pipeline_updated_by,
     };
   }
 }

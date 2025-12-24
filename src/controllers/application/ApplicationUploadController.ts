@@ -37,9 +37,11 @@ const upload = multer({
   },
 });
 
+import { RequestHandler } from 'express';
+
 export class ApplicationUploadController {
   // Middleware for single file upload
-  static uploadMiddleware = upload.single('file');
+  static uploadMiddleware: RequestHandler = upload.single('file');
 
   /**
    * Upload a file for application (resume, cover letter, or portfolio)

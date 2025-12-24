@@ -1,9 +1,12 @@
 import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../../types';
+import { CandidateAuthenticatedRequest } from '../../middleware/candidateAuth';
 import { VideoInterviewService } from '../../services/interview/VideoInterviewService';
 import { InterviewSchedulingService } from '../../services/interview/InterviewSchedulingService';
 import { InterviewInvitationEmailService } from '../../services/interview/InterviewInvitationEmailService';
 import type { AutoScheduleRequest } from '../../services/interview/InterviewSchedulingService';
+import { VideoInterviewModel } from '../../models/VideoInterview';
+import { ApplicationModel } from '../../models/Application';
 
 export class VideoInterviewController {
   /**
@@ -178,6 +181,56 @@ export class VideoInterviewController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to schedule video interview',
+      });
+    }
+  }
+
+  /**
+   * Get video interviews for an application (candidate view)
+   * GET /api/video-interviews/application/:applicationId
+   */
+  static async getApplicationInterviews(req: CandidateAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const candidate = req.candidate;
+      const { applicationId } = req.params;
+
+      if (!candidate) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      // Verify the application belongs to the candidate
+      const application = await ApplicationModel.findById(applicationId);
+      
+      if (!application) {
+        res.status(404).json({
+          success: false,
+          error: 'Application not found',
+        });
+        return;
+      }
+
+      if (application.candidateId !== candidate.id) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied',
+        });
+        return;
+      }
+
+      const interviews = await VideoInterviewModel.findByApplicationId(applicationId);
+
+      res.json({
+        success: true,
+        data: { interviews },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to load interviews',
       });
     }
   }

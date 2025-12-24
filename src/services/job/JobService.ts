@@ -7,7 +7,9 @@ import { Job, JobStatus, HiringMode, WorkArrangement, EmploymentType, HiringTeam
 import { JobModel } from '../../models/Job';
 import { CompanyModel } from '../../models/Company';
 import { JobAllocationService } from '../hrm8/JobAllocationService';
+import { JobPaymentService } from '../payments/JobPaymentService';
 import { prisma } from '../../lib/prisma';
+import { PaymentStatus } from '@prisma/client';
 
 export interface CreateJobRequest {
   title: string;
@@ -39,6 +41,7 @@ export interface CreateJobRequest {
   videoInterviewingEnabled?: boolean;
   assignmentMode?: AssignmentMode;
   regionId?: string;
+  servicePackage?: string;
 }
 
 export interface UpdateJobRequest extends Partial<CreateJobRequest> {
@@ -50,6 +53,7 @@ export interface UpdateJobRequest extends Partial<CreateJobRequest> {
   automated_screening_enabled?: boolean;
   screening_criteria?: any;
   pre_interview_questionnaire_enabled?: boolean;
+  servicePackage?: string;
 }
 
 export class JobService {
@@ -61,19 +65,9 @@ export class JobService {
     createdBy: string,
     jobData: CreateJobRequest
   ): Promise<Job> {
-    console.log('🔧 JobService.createJob called with:', {
-      companyId,
-      createdBy,
-      jobData: {
-        ...jobData,
-        description: jobData.description?.substring(0, 100) + '...',
-      },
-    });
-    
     try {
       // Generate job code if not provided
       const jobCode = await this.generateJobCode(companyId);
-      console.log('✅ Generated job code:', jobCode);
 
       const jobModelData = {
         companyId,
@@ -108,20 +102,8 @@ export class JobService {
         applicationForm: jobData.applicationForm,
         videoInterviewingEnabled: jobData.videoInterviewingEnabled || false,
       };
-      
-      console.log('📦 Calling JobModel.create with:', {
-        ...jobModelData,
-        description: jobModelData.description?.substring(0, 100) + '...',
-      });
 
-      // Add assignmentMode and regionId to job data if provided
-      const finalJobData = {
-        ...jobModelData,
-        assignmentMode: jobData.assignmentMode || AssignmentMode.AUTO,
-        regionId: jobData.regionId,
-      };
-
-      // Get company data to inherit regionId and check assignment settings
+      // Get company data to inherit regionId and check assignment settings FIRST
       const company = await CompanyModel.findById(companyId);
       let companyRegionId: string | undefined;
       let jobAssignmentMode: JobAssignmentMode = JobAssignmentMode.AUTO_RULES_ONLY;
@@ -129,7 +111,7 @@ export class JobService {
       if (company) {
         const companyData = await prisma.company.findUnique({
           where: { id: companyId },
-          select: { 
+          select: {
             regionId: true,
             jobAssignmentMode: true,
           },
@@ -140,16 +122,25 @@ export class JobService {
       }
 
       // Use company's regionId as default if job doesn't have one
+      // Priority: jobData.regionId (explicit) > company.regionId (default)
       const finalRegionId = jobData.regionId || companyRegionId;
-      if (finalRegionId) {
-        finalJobData.regionId = finalRegionId;
-        console.log('🌍 Using regionId:', finalRegionId, jobData.regionId ? '(from job data)' : '(from company)');
-      } else {
-        console.log('⚠️ No regionId available - job will not be auto-assignable');
-      }
+
+      // Determine service package and payment status
+      const servicePackage = jobData.servicePackage || 'self-managed';
+      const requiresPayment = JobPaymentService.requiresPayment(servicePackage as any);
+      const paymentStatus = requiresPayment ? undefined : PaymentStatus.PAID; // Free packages are automatically PAID
+
+      // Add assignmentMode, regionId, and payment fields to job data
+      // Note: regionId must be set here so JobModel.create can save it
+      const finalJobData = {
+        ...jobModelData,
+        assignmentMode: jobData.assignmentMode || AssignmentMode.AUTO,
+        ...(finalRegionId && { regionId: finalRegionId }), // Only include if we have a value
+        servicePackage,
+        ...(paymentStatus && { paymentStatus }), // Only set if we have a value
+      };
 
       const job = await JobModel.create(finalJobData);
-      console.log('✅ JobModel.create succeeded:', job.id);
 
       // Initialize fixed rounds for the new job
       try {
@@ -162,29 +153,23 @@ export class JobService {
       }
 
       // Attempt auto-assignment if company mode is AUTO_RULES_ONLY and job assignmentMode is AUTO
+      // Skip auto-assignment for drafts. Only assign once the job is OPEN (publish/submit).
       try {
         const assignmentMode = jobData.assignmentMode || AssignmentMode.AUTO;
-
-        if (jobAssignmentMode === JobAssignmentMode.AUTO_RULES_ONLY && assignmentMode === AssignmentMode.AUTO) {
-          console.log('🔄 Attempting auto-assignment for job:', job.id);
-          const autoAssignResult = await JobAllocationService.autoAssignJob(job.id);
-          
-          if (autoAssignResult.success) {
-            console.log('✅ Auto-assignment succeeded:', autoAssignResult.consultantId);
-          } else {
-            console.log('⚠️ Auto-assignment failed:', autoAssignResult.error);
-            // Don't throw - job creation should succeed even if auto-assignment fails
-          }
-        } else {
-          console.log('ℹ️ Auto-assignment skipped:', {
-            companyMode: jobAssignmentMode,
-            jobMode: assignmentMode,
-          });
+        if (job.status !== JobStatus.OPEN) {
+          // Draft jobs should not be auto-assigned
+        } else if (jobAssignmentMode === JobAssignmentMode.AUTO_RULES_ONLY && assignmentMode === AssignmentMode.AUTO) {
+          await JobAllocationService.autoAssignJob(job.id);
         }
       } catch (autoAssignError) {
         console.error('❌ Auto-assignment error (non-fatal):', autoAssignError);
         // Don't throw - job creation should succeed even if auto-assignment fails
       }
+
+      // Process job alerts asynchronously (don't wait for it)
+      this.processJobAlertsAsync(job).catch(err => {
+        console.error('Failed to process job alerts:', err);
+      });
 
       // Fetch the job again to get updated assignment info
       const updatedJob = await JobModel.findById(job.id);
@@ -196,6 +181,18 @@ export class JobService {
         stack: error instanceof Error ? error.stack : 'No stack trace',
       });
       throw error;
+    }
+  }
+
+  /**
+   * Process job alerts asynchronously
+   */
+  private static async processJobAlertsAsync(job: any) {
+    try {
+      const { CandidateJobService } = await import('../candidate/CandidateJobService');
+      await CandidateJobService.processJobAlerts(job);
+    } catch (error) {
+      console.error('Error in processJobAlertsAsync:', error);
     }
   }
 
@@ -239,7 +236,23 @@ export class JobService {
       throw new Error('Job does not belong to your company');
     }
 
-    return job;
+    const pipeline = await JobAllocationService.getPipelineForJob(jobId, job.assignedConsultantId);
+    let assignedConsultantName: string | undefined;
+    if (job.assignedConsultantId) {
+      const consultant = await prisma.consultant.findUnique({
+        where: { id: job.assignedConsultantId },
+        select: { firstName: true, lastName: true },
+      });
+      if (consultant) {
+        assignedConsultantName = `${consultant.firstName} ${consultant.lastName}`.trim();
+      }
+    }
+
+    return {
+      ...job,
+      ...(assignedConsultantName && { assignedConsultantName }),
+      ...(pipeline && { pipeline }),
+    };
   }
 
   /**
@@ -289,7 +302,7 @@ export class JobService {
     // Verify all jobs belong to company
     const jobs = await JobModel.findByCompanyId(companyId);
     const validJobIds = jobs.filter(job => jobIds.includes(job.id)).map(job => job.id);
-    
+
     if (validJobIds.length === 0) {
       throw new Error('No valid jobs found for deletion');
     }
@@ -308,11 +321,41 @@ export class JobService {
       throw new Error('Only draft jobs can be published');
     }
 
+    // Check if payment is required and completed
+    const canPublish = await JobPaymentService.canPublishJob(jobId);
+    if (!canPublish) {
+      const prismaJob = await prisma.job.findUnique({
+        where: { id: jobId },
+        select: { servicePackage: true, paymentStatus: true },
+      });
+
+      if (prismaJob?.servicePackage && prismaJob.servicePackage !== 'self-managed') {
+        throw new Error('Payment is required before publishing this job. Please complete the payment first.');
+      }
+    }
+
     // Set posting date if not already set
     const updatedJob = await JobModel.update(jobId, {
       status: JobStatus.OPEN,
       postingDate: job.postingDate || new Date(),
     });
+
+    // Auto-assign when publishing if eligible and unassigned
+    try {
+      const companySettings = await prisma.company.findUnique({
+        where: { id: updatedJob.companyId },
+        select: { jobAssignmentMode: true },
+      });
+      if (
+        updatedJob.assignmentMode === AssignmentMode.AUTO &&
+        !updatedJob.assignedConsultantId &&
+        companySettings?.jobAssignmentMode === JobAssignmentMode.AUTO_RULES_ONLY
+      ) {
+        await JobAllocationService.autoAssignJob(updatedJob.id);
+      }
+    } catch (autoAssignError) {
+      console.error('❌ Auto-assignment error on publish (non-fatal):', autoAssignError);
+    }
 
     return updatedJob;
   }
@@ -343,6 +386,23 @@ export class JobService {
       shareLink,
       referralLink,
     });
+
+    // Auto-assign when activating if eligible and unassigned
+    try {
+      const companySettings = await prisma.company.findUnique({
+        where: { id: updatedJob.companyId },
+        select: { jobAssignmentMode: true },
+      });
+      if (
+        updatedJob.assignmentMode === AssignmentMode.AUTO &&
+        !updatedJob.assignedConsultantId &&
+        companySettings?.jobAssignmentMode === JobAssignmentMode.AUTO_RULES_ONLY
+      ) {
+        await JobAllocationService.autoAssignJob(updatedJob.id);
+      }
+    } catch (autoAssignError) {
+      console.error('❌ Auto-assignment error on submit (non-fatal):', autoAssignError);
+    }
 
     return updatedJob;
   }

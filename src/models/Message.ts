@@ -34,14 +34,16 @@ export class MessageModel {
     content: string;
     type?: MessageType;
   }): Promise<MessageData> {
+    const { randomUUID } = await import('crypto');
     const message = await prisma.message.create({
       data: {
+        id: randomUUID(),
         conversationId: messageData.conversationId,
         senderEmail: messageData.senderEmail,
-        senderType: messageData.senderType,
-        senderId: messageData.senderId,
+        senderType: messageData.senderType as any,
+        senderId: messageData.senderId || '',
         content: messageData.content,
-        type: messageData.type || 'TEXT',
+        contentType: (messageData.type || 'TEXT') as any,
       },
     });
 
@@ -56,26 +58,14 @@ export class MessageModel {
   ): Promise<MessageData[]> {
     const messages = await prisma.message.findMany({
       where: {
-        conversationId,
+        conversationId: conversationId,
       },
       orderBy: {
         createdAt: 'asc',
       },
     });
 
-    return messages.map((msg: {
-      id: string;
-      conversationId: string;
-      senderEmail: string;
-      senderType: MessageSenderType;
-      senderId: string | null;
-      content: string;
-      type: MessageType;
-      isRead: boolean;
-      readAt: Date | null;
-      createdAt: Date;
-      updatedAt: Date;
-    }) => this.mapPrismaToMessage(msg));
+    return messages.map((msg: any) => this.mapPrismaToMessage(msg));
   }
 
   /**
@@ -85,7 +75,6 @@ export class MessageModel {
     const message = await prisma.message.update({
       where: { id: messageId },
       data: {
-        isRead: true,
         readAt: new Date(),
       },
     });
@@ -100,51 +89,60 @@ export class MessageModel {
     conversationId: string,
     senderEmail: string
   ): Promise<number> {
-    const result = await prisma.message.updateMany({
+    // Get messages that haven't been read by this sender
+    const allMessages = await prisma.message.findMany({
       where: {
-        conversationId,
+        conversationId: conversationId,
         senderEmail: {
           not: senderEmail,
         },
-        isRead: false,
-      },
-      data: {
-        isRead: true,
-        readAt: new Date(),
       },
     });
 
-    return result.count;
+    // Filter messages where senderEmail is not in readBy array
+    const messages = allMessages.filter(msg => {
+      const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+      return !readBy.includes(senderEmail);
+    });
+
+    // Update each message to add sender to readBy array
+    const updatePromises = messages.map(async (msg) => {
+      const currentReadBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+      const updatedReadBy = [...currentReadBy, senderEmail];
+      
+      return prisma.message.update({
+        where: { id: msg.id },
+        data: {
+          readBy: updatedReadBy,
+          readAt: new Date(),
+        },
+      });
+    });
+
+    await Promise.all(updatePromises);
+    
+    return messages.length;
   }
 
   /**
    * Map Prisma message to MessageData interface
    */
-  private static mapPrismaToMessage(prismaMessage: {
-    id: string;
-    conversationId: string;
-    senderEmail: string;
-    senderType: MessageSenderType;
-    senderId: string | null;
-    content: string;
-    type: MessageType;
-    isRead: boolean;
-    readAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): MessageData {
+  private static mapPrismaToMessage(prismaMessage: any): MessageData {
+    // Check if message is read (has read_by array with at least one entry)
+    const isRead = prismaMessage.read_by && Array.isArray(prismaMessage.read_by) && prismaMessage.read_by.length > 0;
+    
     return {
       id: prismaMessage.id,
-      conversationId: prismaMessage.conversationId,
-      senderEmail: prismaMessage.senderEmail,
-      senderType: prismaMessage.senderType,
-      senderId: prismaMessage.senderId || undefined,
+      conversationId: prismaMessage.conversation_id || prismaMessage.conversationId,
+      senderEmail: prismaMessage.sender_email || prismaMessage.senderEmail,
+      senderType: (prismaMessage.sender_type || prismaMessage.senderType) as MessageSenderType,
+      senderId: prismaMessage.sender_id || prismaMessage.senderId || undefined,
       content: prismaMessage.content,
-      type: prismaMessage.type,
-      isRead: prismaMessage.isRead,
-      readAt: prismaMessage.readAt || undefined,
-      createdAt: prismaMessage.createdAt,
-      updatedAt: prismaMessage.updatedAt,
+      type: (prismaMessage.content_type || prismaMessage.type || 'TEXT') as MessageType,
+      isRead,
+      readAt: prismaMessage.read_at ? new Date(prismaMessage.read_at) : (prismaMessage.readAt ? new Date(prismaMessage.readAt) : undefined),
+      createdAt: prismaMessage.created_at ? new Date(prismaMessage.created_at) : new Date(prismaMessage.createdAt),
+      updatedAt: prismaMessage.updated_at ? new Date(prismaMessage.updated_at) : new Date(prismaMessage.updatedAt),
     };
   }
 }

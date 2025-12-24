@@ -16,14 +16,25 @@ export interface UpdateCandidateProfileRequest {
   country?: string;
   visaStatus?: string;
   workEligibility?: string;
+  requiresSponsorship?: boolean;
   jobTypePreference?: string[];
+  expectedSalaryMin?: string;
+  expectedSalaryMax?: string;
+  salaryCurrency?: string;
   salaryPreference?: {
     min?: number;
     max?: number;
     currency?: string;
   };
   relocationWilling?: boolean;
+  preferredLocations?: string;
   remotePreference?: string;
+
+  // Privacy & Visibility
+  profileVisibility?: string;
+  showContactInfo?: boolean;
+  showSalaryExpectations?: boolean;
+  allowRecruiterContact?: boolean;
 }
 
 export class CandidateService {
@@ -85,6 +96,135 @@ export class CandidateService {
    */
   static async verifyEmail(candidateId: string): Promise<void> {
     await CandidateModel.verifyEmail(candidateId);
+  }
+
+  /**
+   * Add work experience
+   */
+  static async addWorkExperience(candidateId: string, data: any) {
+    const { prisma } = await import('../../lib/prisma');
+    return await prisma.candidateWorkExperience.create({
+      data: {
+        candidate_id: candidateId,
+        ...data,
+      },
+    });
+  }
+
+  /**
+   * Update work experience
+   */
+  static async updateWorkExperience(candidateId: string, experienceId: string, data: any) {
+    const { prisma } = await import('../../lib/prisma');
+
+    // Verify ownership
+    const experience = await prisma.candidateWorkExperience.findFirst({
+      where: { id: experienceId, candidate_id: candidateId },
+    });
+
+    if (!experience) {
+      throw new Error('Work experience not found');
+    }
+
+    return await prisma.candidateWorkExperience.update({
+      where: { id: experienceId },
+      data,
+    });
+  }
+
+  /**
+   * Delete work experience
+   */
+  static async deleteWorkExperience(candidateId: string, experienceId: string) {
+    const { prisma } = await import('../../lib/prisma');
+
+    // Verify ownership
+    const experience = await prisma.candidateWorkExperience.findFirst({
+      where: { id: experienceId, candidate_id: candidateId },
+    });
+
+    if (!experience) {
+      throw new Error('Work experience not found');
+    }
+
+    return await prisma.candidateWorkExperience.delete({
+      where: { id: experienceId },
+    });
+  }
+
+  /**
+   * Update skills
+   * Replaces all skills for the candidate
+   */
+  static async updateSkills(candidateId: string, skills: { name: string; level?: string }[]) {
+    const { prisma } = await import('../../lib/prisma');
+
+    // Transaction to delete old skills and add new ones
+    return await prisma.$transaction(async (tx) => {
+      // Delete existing skills
+      await tx.candidateSkill.deleteMany({
+        where: { candidate_id: candidateId },
+      });
+
+      // Create new skills
+      if (skills.length > 0) {
+        const { randomUUID } = await import('crypto');
+        await tx.candidateSkill.createMany({
+          data: skills.map(skill => ({
+            id: randomUUID(),
+            candidate_id: candidateId,
+            name: skill.name,
+            level: skill.level,
+          })),
+        });
+      }
+
+      return await tx.candidateSkill.findMany({
+        where: { candidate_id: candidateId },
+      });
+    });
+  }
+
+  /**
+   * Get work history
+   */
+  static async getWorkHistory(candidateId: string) {
+    const { prisma } = await import('../../lib/prisma');
+    return await prisma.candidateWorkExperience.findMany({
+      where: { candidate_id: candidateId },
+      orderBy: { start_date: 'desc' },
+    });
+  }
+
+  /**
+   * Get skills
+   */
+  static async getSkills(candidateId: string) {
+    const { prisma } = await import('../../lib/prisma');
+    return await prisma.candidateSkill.findMany({
+      where: { candidate_id: candidateId },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Delete all work experience for a candidate
+   */
+  static async deleteAllWorkExperience(candidateId: string) {
+    const { prisma } = await import('../../lib/prisma');
+    return await prisma.candidateWorkExperience.deleteMany({
+      where: { candidate_id: candidateId },
+    });
+  }
+
+  /**
+   * Delete all skills for a candidate
+   */
+  static async deleteAllSkills(candidateId: string) {
+    const { prisma } = await import('../../lib/prisma');
+    return await prisma.candidateSkill.deleteMany({
+      where: { candidate_id: candidateId },
+    });
   }
 }
 

@@ -66,6 +66,42 @@ export class VideoInterviewService {
       notes: params.notes ?? null,
     });
 
+    // Send notification to candidate about scheduled interview
+    try {
+      const { ApplicationNotificationService } = await import('../notification/ApplicationNotificationService');
+      await ApplicationNotificationService.notifyInterviewScheduled(
+        params.applicationId,
+        params.candidateId,
+        params.jobId,
+        params.scheduledDate,
+        params.type || 'VIDEO',
+        undefined, // location - can be added if available
+        meetingLink || undefined
+      );
+    } catch (error) {
+      console.error('Failed to send interview notification:', error);
+      // Don't fail the interview creation if notification fails
+    }
+
+    // Update application stage if needed
+    try {
+      const { ApplicationModel } = await import('../../models/Application');
+      const application = await ApplicationModel.findById(params.applicationId);
+      if (application && application.stage !== 'TECHNICAL_INTERVIEW' && application.stage !== 'ONSITE_INTERVIEW') {
+        // Determine stage based on interview type
+        let newStage = 'PHONE_SCREEN';
+        if (params.type === 'TECHNICAL') {
+          newStage = 'TECHNICAL_INTERVIEW';
+        } else if (params.type === 'ONSITE' || params.type === 'IN_PERSON') {
+          newStage = 'ONSITE_INTERVIEW';
+        }
+        await ApplicationModel.updateStage(params.applicationId, newStage as any);
+      }
+    } catch (error) {
+      console.error('Failed to update application stage:', error);
+      // Don't fail the interview creation if stage update fails
+    }
+
     return interview;
   }
 

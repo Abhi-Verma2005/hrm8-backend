@@ -19,6 +19,12 @@ export interface RegionData {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  licensee?: {
+    id: string;
+    name: string;
+    legalEntityName: string;
+    email: string;
+  } | null;
 }
 
 export class RegionModel {
@@ -61,7 +67,14 @@ export class RegionModel {
       where: { id },
       include: {
         consultants: true,
-        licensee: true,
+        licensee: {
+          select: {
+            id: true,
+            name: true,
+            legalEntityName: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -95,6 +108,16 @@ export class RegionModel {
         ...(filters?.isActive !== undefined && { isActive: filters.isActive }),
         ...(filters?.country && { country: filters.country }),
       },
+      include: {
+        licensee: {
+          select: {
+            id: true,
+            name: true,
+            legalEntityName: true,
+            email: true,
+          },
+        },
+      },
       orderBy: { name: 'asc' },
     });
 
@@ -122,6 +145,16 @@ export class RegionModel {
     const region = await prisma.region.update({
       where: { id },
       data: updateData,
+      include: {
+        licensee: {
+          select: {
+            id: true,
+            name: true,
+            legalEntityName: true,
+            email: true,
+          },
+        },
+      },
     });
 
     return this.mapPrismaToRegion(region);
@@ -146,6 +179,16 @@ export class RegionModel {
         licenseeId,
         ownerType: RegionOwnerType.LICENSEE,
       },
+      include: {
+        licensee: {
+          select: {
+            id: true,
+            name: true,
+            legalEntityName: true,
+            email: true,
+          },
+        },
+      },
     });
 
     return this.mapPrismaToRegion(region);
@@ -160,6 +203,16 @@ export class RegionModel {
       data: {
         licenseeId: null,
         ownerType: RegionOwnerType.HRM8,
+      },
+      include: {
+        licensee: {
+          select: {
+            id: true,
+            name: true,
+            legalEntityName: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -183,6 +236,12 @@ export class RegionModel {
       isActive: prismaRegion.isActive,
       createdAt: prismaRegion.createdAt,
       updatedAt: prismaRegion.updatedAt,
+      licensee: prismaRegion.licensee ? {
+        id: prismaRegion.licensee.id,
+        name: prismaRegion.licensee.name,
+        legalEntityName: prismaRegion.licensee.legalEntityName,
+        email: prismaRegion.licensee.email,
+      } : null,
     };
   }
 }

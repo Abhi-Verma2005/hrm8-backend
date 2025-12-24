@@ -7,6 +7,8 @@ import { ConsultantModel, ConsultantData } from '../../models/Consultant';
 import { AvailabilityStatus } from '@prisma/client';
 import { JobAllocationService } from '../hrm8/JobAllocationService';
 import { CommissionService } from '../hrm8/CommissionService';
+import { JobModel } from '../../models/Job';
+import { Job } from '../../types';
 
 export class ConsultantService {
   /**
@@ -42,10 +44,36 @@ export class ConsultantService {
   }
 
   /**
-   * Get consultant's assigned jobs
+   * Get consultant's assigned jobs (returns job IDs)
    */
-  static async getAssignedJobs(consultantId: string): Promise<string[]> {
+  static async getAssignedJobIds(consultantId: string): Promise<string[]> {
     return await JobAllocationService.getConsultantJobs(consultantId);
+  }
+
+  /**
+   * Get consultant's assigned jobs with full details
+   */
+  static async getAssignedJobs(consultantId: string): Promise<Job[]> {
+    const jobIds = await JobAllocationService.getConsultantJobs(consultantId);
+    const jobs: Job[] = [];
+    
+    for (const jobId of jobIds) {
+      try {
+        const job = await JobModel.findById(jobId);
+        if (job) {
+          const pipeline = await JobAllocationService.getPipelineForConsultantJob(consultantId, jobId);
+          jobs.push({
+            ...job,
+            ...(pipeline && { pipeline }),
+          });
+        }
+      } catch (error) {
+        // Skip jobs that can't be fetched (e.g., deleted)
+        console.error(`Failed to fetch job ${jobId} for consultant ${consultantId}:`, error);
+      }
+    }
+    
+    return jobs;
   }
 
   /**
