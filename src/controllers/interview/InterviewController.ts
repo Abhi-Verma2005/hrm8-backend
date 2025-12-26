@@ -551,6 +551,67 @@ export class InterviewController {
   }
 
   /**
+   * Add feedback to an interview
+   * POST /api/interviews/:id/feedback
+   */
+  static async addFeedback(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { overallRating, notes, recommendation } = req.body;
+
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          error: 'Interview ID is required',
+        });
+        return;
+      }
+
+      if (overallRating === undefined || overallRating === null) {
+        res.status(400).json({
+          success: false,
+          error: 'Overall rating is required',
+        });
+        return;
+      }
+
+      const user = req.user as any;
+      const interviewerName = (user.firstName && user.lastName) 
+        ? `${user.firstName} ${user.lastName}` 
+        : (user.email || 'Interviewer');
+
+      const interview = await InterviewService.addFeedback(id, {
+        interviewerId: req.user.id,
+        interviewerName,
+        interviewerEmail: req.user.email,
+        overallRating,
+        notes,
+        recommendation,
+      });
+
+      res.json({
+        success: true,
+        data: { interview },
+        message: 'Feedback submitted successfully',
+      });
+    } catch (error) {
+      console.error('[InterviewController.addFeedback] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to submit feedback',
+      });
+    }
+  }
+
+  /**
    * Helper: Get color for interview status
    */
   private static getStatusColor(status: string): string {

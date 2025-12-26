@@ -30,6 +30,9 @@ router.get('/:id', InterviewController.getInterview);
 // Update interview status (IN_PROGRESS, COMPLETED)
 router.put('/:id/status', InterviewController.updateInterviewStatus);
 
+// Add feedback to interview
+router.post('/:id/feedback', InterviewController.addFeedback);
+
 // Reschedule interview
 router.put('/:id/reschedule', InterviewController.rescheduleInterview);
 

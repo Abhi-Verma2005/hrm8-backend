@@ -234,27 +234,30 @@ export class VideoInterviewService {
     }
   ): Promise<VideoInterviewData> {
     // 1. Create the feedback record
+    const feedbackData: any = {
+      id: crypto.randomUUID(),
+      video_interview_id: interviewId,
+      interviewer_id: data.interviewerId,
+      interviewer_name: data.interviewerName,
+      interviewer_email: data.interviewerEmail,
+      overall_rating: data.overallRating,
+      notes: data.notes,
+      recommendation: data.recommendation,
+      submitted_at: new Date(),
+      updated_at: new Date(),
+    };
+
     await prisma.interviewFeedback.create({
-      data: {
-        id: crypto.randomUUID(),
-        video_interview_id: interviewId,
-        interviewer_id: data.interviewerId,
-        interviewer_name: data.interviewerName,
-        interviewer_email: data.interviewerEmail,
-        overall_rating: data.overallRating,
-        notes: data.notes,
-        recommendation: data.recommendation as any,
-        submitted_at: new Date(),
-        updated_at: new Date(),
-      },
+      data: feedbackData,
     });
 
     // 2. Calculate new average score
+    const whereClause: any = { video_interview_id: interviewId };
     const allFeedbacks = await prisma.interviewFeedback.findMany({
-      where: { video_interview_id: interviewId },
+      where: whereClause,
     });
 
-    const totalScore = allFeedbacks.reduce((sum, fb) => sum + (fb.overall_rating || 0), 0);
+    const totalScore = allFeedbacks.reduce((sum, fb: any) => sum + (fb.overall_rating || 0), 0);
     const averageScore = totalScore / allFeedbacks.length;
 
     // 3. Update the interview with the new average
