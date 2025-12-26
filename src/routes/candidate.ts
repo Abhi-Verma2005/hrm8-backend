@@ -92,6 +92,13 @@ import { CandidateJobController } from '../controllers/candidate/CandidateJobCon
 // Document routes
 import { CandidateDocumentController } from '../controllers/candidate/CandidateDocumentController';
 
+// Assessment routes
+import { CandidateAssessmentController } from '../controllers/candidate/CandidateAssessmentController';
+router.get('/assessments', CandidateAssessmentController.getAssessments);
+router.get('/assessments/:id', CandidateAssessmentController.getAssessmentDetails);
+router.post('/assessments/:id/start', CandidateAssessmentController.startAssessment);
+router.post('/assessments/:id/submit', CandidateAssessmentController.submitAssessment);
+
 // Configure multer for document uploads
 const documentUpload = multer({
     storage: multer.memoryStorage(),

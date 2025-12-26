@@ -13,8 +13,42 @@ import { JobModel } from '../../models/Job';
 import { CompanyService } from '../../services/company/CompanyService';
 import { JobInvitationModel } from '../../models/JobInvitation';
 import { ApplicationModel } from '../../models/Application';
+import { CandidateDocumentService } from '../../services/candidate/CandidateDocumentService';
 
 export class ApplicationController {
+  /**
+   * Get application resume
+   * GET /api/applications/:id/resume
+   */
+  static async getApplicationResume(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const application = await ApplicationModel.findById(id);
+
+      if (!application) {
+        res.status(404).json({ success: false, error: 'Application not found' });
+        return;
+      }
+
+      if (!application.resumeUrl) {
+        res.status(404).json({ success: false, error: 'Application has no resume' });
+        return;
+      }
+
+      const resume = await CandidateDocumentService.findByUrl(application.resumeUrl);
+      
+      if (!resume) {
+        res.status(404).json({ success: false, error: 'Resume document not found' });
+        return;
+      }
+
+      res.json({ success: true, data: resume });
+    } catch (error) {
+      console.error('Error fetching application resume:', error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+
   /**
    * Submit a new application (anonymous - auto-creates account)
    * POST /api/applications/anonymous
@@ -516,9 +550,49 @@ export class ApplicationController {
         })),
       });
 
+      // Also load ApplicationRoundProgress to map applications to rounds
+      const { prisma } = await import('../../lib/prisma');
+      const roundProgress = await prisma.applicationRoundProgress.findMany({
+        where: {
+          Application: {
+            jobId,
+          },
+        },
+        include: {
+          JobRound: true,
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+      });
+
+      // Group by applicationId and get the latest (most recent) round for each
+      const progressByApplication = new Map<string, any>();
+      roundProgress.forEach((progress) => {
+        const existing = progressByApplication.get(progress.applicationId);
+        // Use updatedAt to determine the latest round activity, as re-entering a round
+        // updates the existing record via upsert without changing createdAt
+        if (!existing || new Date(progress.updatedAt) > new Date(existing.updatedAt)) {
+          progressByApplication.set(progress.applicationId, progress);
+        }
+      });
+
+      // Create round progress object
+      const roundProgressData: Record<string, { roundId: string; roundName?: string; completed: boolean }> = {};
+      progressByApplication.forEach((progress, applicationId) => {
+        roundProgressData[applicationId] = {
+          roundId: progress.jobRoundId,
+          roundName: progress.JobRound?.name,
+          completed: progress.completed,
+        };
+      });
+
       res.json({
         success: true,
-        data: { applications },
+        data: { 
+          applications,
+          roundProgress: roundProgressData,
+        },
       });
     } catch (error) {
       console.error('[ApplicationController.getJobApplications] error', error);
@@ -807,6 +881,46 @@ export class ApplicationController {
   }
 
   /**
+   * Update application tags
+   * PUT /api/applications/:id/tags
+   */
+  static async updateTags(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { tags } = req.body;
+
+      if (!Array.isArray(tags)) {
+        res.status(400).json({
+          success: false,
+          error: 'Tags must be an array',
+        });
+        return;
+      }
+
+      const application = await ApplicationService.updateTags(id, tags);
+
+      res.json({
+        success: true,
+        data: { application },
+        message: 'Tags updated successfully',
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update tags',
+      });
+    }
+  }
+
+  /**
    * Shortlist candidate
    * POST /api/applications/:id/shortlist
    */
@@ -904,6 +1018,46 @@ export class ApplicationController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update stage',
+      });
+    }
+  }
+
+  /**
+   * Move application to a round
+   * PUT /api/applications/:id/round/:roundId
+   */
+  static async moveToRound(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id, roundId } = req.params;
+
+      if (!roundId) {
+        res.status(400).json({
+          success: false,
+          error: 'Round ID is required',
+        });
+        return;
+      }
+
+      const application = await ApplicationService.moveToRound(id, roundId, req.user.id);
+
+      res.json({
+        success: true,
+        data: { application },
+        message: 'Application moved to round successfully',
+      });
+    } catch (error) {
+      console.error('[ApplicationController.moveToRound] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to move application to round',
       });
     }
   }
@@ -1018,6 +1172,7 @@ export class ApplicationController {
         res.status(404).json({
           success: false,
           error: 'Candidate not found',
+          code: 'CANDIDATE_NOT_FOUND',
         });
         return;
       }
@@ -1042,6 +1197,17 @@ export class ApplicationController {
         res.status(404).json({
           success: false,
           error: 'Job not found',
+          code: 'JOB_NOT_FOUND',
+        });
+        return;
+      }
+
+      // Check job status - only OPEN jobs can accept new candidates
+      if (job.status !== 'OPEN') {
+        res.status(400).json({
+          success: false,
+          error: `Job is not accepting applications. Current status: ${job.status}`,
+          code: 'JOB_NOT_ACCEPTING',
         });
         return;
       }
@@ -1051,6 +1217,16 @@ export class ApplicationController {
         res.status(404).json({
           success: false,
           error: 'Company not found',
+        });
+        return;
+      }
+
+      // Check user has permission to add candidates to this job (company match)
+      if (job.companyId !== req.user.companyId) {
+        res.status(403).json({
+          success: false,
+          error: 'You do not have permission to add candidates to this job',
+          code: 'UNAUTHORIZED',
         });
         return;
       }
@@ -1068,37 +1244,100 @@ export class ApplicationController {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
-      // Create job invitation
+      // Wrap invitation creation in transaction for atomicity
+      const { prisma } = await import('../../lib/prisma');
       const { JobInvitationStatus } = await import('../../types');
-      const invitation = await JobInvitationModel.create({
-        jobId,
-        candidateId,
-        email: candidate.email,
-        token,
-        status: JobInvitationStatus.PENDING,
-        invitedBy: req.user.id,
-        expiresAt,
-      });
+      
+      let invitation;
+      try {
+        // Use transaction to ensure atomicity of invitation creation
+        invitation = await prisma.$transaction(async (tx) => {
+          // Double-check for race conditions within transaction
+          const existingInvitation = await tx.jobInvitation.findFirst({
+            where: {
+              email: candidate.email.toLowerCase(),
+              jobId,
+              status: JobInvitationStatus.PENDING,
+            },
+          });
+
+          if (existingInvitation) {
+            throw new Error('INVITATION_EXISTS');
+          }
+
+          // Create job invitation using transaction client
+          const created = await tx.jobInvitation.create({
+            data: {
+              jobId,
+              candidateId,
+              email: candidate.email.toLowerCase(),
+              token,
+              status: JobInvitationStatus.PENDING,
+              invitedBy: req.user.id,
+              expiresAt,
+            },
+          });
+
+          // Map to JobInvitationData format
+          return {
+            id: created.id,
+            jobId: created.jobId,
+            candidateId: created.candidateId || undefined,
+            email: created.email,
+            token: created.token,
+            status: created.status,
+            invitedBy: created.invitedBy,
+            expiresAt: created.expiresAt,
+            acceptedAt: created.acceptedAt || undefined,
+            applicationId: created.applicationId || undefined,
+            createdAt: created.createdAt,
+            updatedAt: created.updatedAt,
+          };
+        });
+      } catch (error: any) {
+        if (error.message === 'INVITATION_EXISTS') {
+          res.status(400).json({
+            success: false,
+            error: 'An invitation has already been sent to this candidate',
+            code: 'INVITATION_EXISTS',
+          });
+          return;
+        }
+        throw error; // Re-throw other errors
+      }
 
       // Generate invitation URL
       const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
       const invitationUrl = `${baseUrl}/candidate/accept-invitation?token=${token}`;
 
-      // Send invitation email
-      const { emailService } = await import('../../services/email/EmailService');
-      await emailService.sendJobInvitationEmail({
-        to: candidate.email,
-        jobTitle: job.title,
-        companyName: company.name,
-        jobUrl: invitationUrl,
-        recruiterName,
-      });
+      // Send invitation email (outside transaction - external service)
+      // If email fails, invitation is still created but we should log it
+      let emailSent = false;
+      try {
+        const { emailService } = await import('../../services/email/EmailService');
+        await emailService.sendJobInvitationEmail({
+          to: candidate.email,
+          jobTitle: job.title,
+          companyName: company.name,
+          jobUrl: invitationUrl,
+          recruiterName,
+        });
+        emailSent = true;
+      } catch (emailError) {
+        // Log email failure but don't fail the request
+        // The invitation is created, candidate can still access via direct link
+        console.error('Failed to send invitation email:', emailError);
+        // TODO: Queue email for retry or update invitation status
+      }
 
       res.status(201).json({
         success: true,
         data: { 
           invitationId: invitation.id,
-          message: 'Invitation sent to candidate successfully',
+          message: emailSent 
+            ? 'Invitation sent to candidate successfully'
+            : 'Invitation created but email delivery failed. The candidate can still access the invitation link.',
+          emailSent,
         },
       });
     } catch (error) {

@@ -7,6 +7,13 @@ import { ApplicationModel, ApplicationData } from '../../models/Application';
 import { CandidateModel } from '../../models/Candidate';
 import { JobModel } from '../../models/Job';
 import { ApplicationStatus, ApplicationStage, ManualScreeningStatus, ParticipantType } from '@prisma/client';
+import { prisma } from '../../lib/prisma';
+import { JobRoundModel } from '../../models/JobRound';
+import { JobRoundService } from '../job/JobRoundService';
+import { AssessmentService } from '../assessment/AssessmentService';
+import { InterviewService } from '../interview/InterviewService';
+import { CandidateScoringService } from '../ai/CandidateScoringService';
+import crypto from 'crypto';
 
 export interface SubmitApplicationRequest {
   candidateId: string;
@@ -105,9 +112,161 @@ export class ApplicationService {
         tags: applicationData.tags,
       });
 
+      // Automatically assign application to NEW round
+      try {
+        const newRound = await JobRoundModel.findByJobIdAndFixedKey(applicationData.jobId, 'NEW');
+        if (newRound) {
+          await prisma.applicationRoundProgress.upsert({
+            where: {
+              applicationId_jobRoundId: {
+                applicationId: application.id,
+                jobRoundId: newRound.id,
+              },
+            },
+            create: {
+              id: crypto.randomUUID(),
+              applicationId: application.id,
+              jobRoundId: newRound.id,
+              completed: false,
+            },
+            update: {
+              completed: false,
+              completedAt: null,
+            },
+          });
+        }
+      } catch (roundError) {
+        // Log error but don't fail application creation
+        console.error('Failed to assign application to NEW round:', roundError);
+      }
+
+      // Trigger auto-scoring in the background (non-blocking)
+      // Don't await - let it run asynchronously
+      this.autoScoreApplication(application.id, applicationData.jobId).catch((scoringError) => {
+        // Log error but don't fail application creation
+        console.error('Auto-scoring failed for application:', application.id, scoringError);
+      });
+
+      // Auto-populate candidate profile from resume if available and profile is empty
+      if (applicationData.resumeUrl) {
+        // Run in background to avoid delaying response
+        (async () => {
+          try {
+            console.log(`📄 Attempting to auto-populate profile from resume for candidate ${candidate.id}`);
+            const { CandidateDocumentService } = await import('../candidate/CandidateDocumentService');
+            const { ResumeParserService } = await import('../ai/ResumeParserService');
+            const { CandidateService } = await import('../candidate/CandidateService');
+            const { CandidateQualificationsService } = await import('../candidate/CandidateQualificationsService');
+
+            // Find resume document
+            const resume = await CandidateDocumentService.findByUrl(applicationData.resumeUrl!);
+            
+            if (resume && resume.content) {
+              // Parse resume text
+              console.log('🤖 Parsing resume content for auto-population...');
+              const parsedResumeData = await ResumeParserService.parseResume({
+                text: resume.content,
+                metadata: {
+                  fileName: resume.fileName,
+                  fileType: resume.fileType,
+                  fileSize: resume.fileSize
+                }
+              });
+
+              // 1. Populate Skills (only if empty)
+              const existingSkillsCount = await prisma.candidateSkill.count({ where: { candidate_id: candidate.id } });
+              if (existingSkillsCount === 0 && parsedResumeData.skills && parsedResumeData.skills.length > 0) {
+                console.log(`🎯 Auto-populating ${parsedResumeData.skills.length} skills...`);
+                const skillsToSave = parsedResumeData.skills.map((skill: any) => ({
+                  name: typeof skill === 'string' ? skill : (skill.name || 'Unknown Skill'),
+                  level: skill.level || 'intermediate',
+                }));
+                await CandidateService.updateSkills(candidate.id, skillsToSave);
+              } else {
+                console.log(`ℹ️ Skills already exist or none found in resume (${existingSkillsCount} existing)`);
+              }
+
+              // 2. Populate Work Experience (only if empty)
+              const existingExpCount = await prisma.candidateWorkExperience.count({ where: { candidate_id: candidate.id } });
+              if (existingExpCount === 0 && parsedResumeData.workExperience && parsedResumeData.workExperience.length > 0) {
+                console.log(`💼 Auto-populating ${parsedResumeData.workExperience.length} work experience entries...`);
+                for (const exp of parsedResumeData.workExperience) {
+                  try {
+                    let startDate: Date;
+                    if (exp.startDate) {
+                      startDate = new Date(exp.startDate);
+                      if (isNaN(startDate.getTime())) startDate = new Date();
+                    } else {
+                      startDate = new Date();
+                    }
+
+                    let endDate: Date | null = null;
+                    if (exp.endDate) {
+                      endDate = new Date(exp.endDate);
+                      if (isNaN(endDate.getTime())) endDate = null;
+                    }
+
+                    await CandidateService.addWorkExperience(candidate.id, {
+                      company: exp.company || 'Unknown Company',
+                      role: exp.role || 'Unknown Role',
+                      startDate,
+                      endDate,
+                      current: exp.current || false,
+                      description: exp.description || undefined,
+                      location: exp.location || undefined,
+                    });
+                  } catch (e) {
+                    console.error('Error saving work experience:', e);
+                  }
+                }
+              } else {
+                console.log(`ℹ️ Work experience already exists or none found in resume (${existingExpCount} existing)`);
+              }
+
+              // 3. Populate Education (only if empty)
+              const existingEduCount = await prisma.candidateEducation.count({ where: { candidate_id: candidate.id } });
+              if (existingEduCount === 0 && parsedResumeData.education && parsedResumeData.education.length > 0) {
+                console.log(`🎓 Auto-populating ${parsedResumeData.education.length} education entries...`);
+                for (const edu of parsedResumeData.education) {
+                  try {
+                    let startDate: string | undefined;
+                    if (edu.startDate) {
+                      const date = new Date(edu.startDate);
+                      if (!isNaN(date.getTime())) startDate = date.toISOString();
+                    }
+
+                    let endDate: string | undefined;
+                    if (edu.endDate) {
+                      const date = new Date(edu.endDate);
+                      if (!isNaN(date.getTime())) endDate = date.toISOString();
+                    }
+
+                    await CandidateQualificationsService.addEducation(candidate.id, {
+                      institution: edu.institution || 'Unknown Institution',
+                      degree: edu.degree || 'Unknown Degree',
+                      field: edu.field || 'Unknown Field',
+                      startDate,
+                      endDate,
+                      current: edu.current || false,
+                      grade: edu.grade,
+                      description: edu.description,
+                    });
+                  } catch (e) {
+                    console.error('Error saving education:', e);
+                  }
+                }
+              } else {
+                console.log(`ℹ️ Education already exists or none found in resume (${existingEduCount} existing)`);
+              }
+            }
+          } catch (error) {
+            console.error('❌ Failed to auto-populate profile from resume:', error);
+          }
+        })();
+      }
+
       // Auto-create conversation for candidate ↔ job owner/consultant
       try {
-        const { prisma } = await import('../../lib/prisma');
         const existingConversation = await prisma.conversation.findFirst({
           where: { jobId: job.id, candidateId: candidate.id },
         });
@@ -380,6 +539,41 @@ export class ApplicationService {
         addedBy,
       });
 
+      // Automatically assign application to NEW round
+      try {
+        const newRound = await JobRoundModel.findByJobIdAndFixedKey(jobId, 'NEW');
+        if (newRound) {
+          await prisma.applicationRoundProgress.upsert({
+            where: {
+              applicationId_jobRoundId: {
+                applicationId: application.id,
+                jobRoundId: newRound.id,
+              },
+            },
+            create: {
+              id: crypto.randomUUID(),
+              applicationId: application.id,
+              jobRoundId: newRound.id,
+              completed: false,
+            },
+            update: {
+              completed: false,
+              completedAt: null,
+            },
+          });
+        }
+      } catch (roundError) {
+        // Log error but don't fail application creation
+        console.error('Failed to assign application to NEW round:', roundError);
+      }
+
+      // Trigger auto-scoring in the background (non-blocking)
+      // Don't await - let it run asynchronously
+      this.autoScoreApplication(application.id, jobId).catch((scoringError) => {
+        // Log error but don't fail application creation
+        console.error('Auto-scoring failed for application:', application.id, scoringError);
+      });
+
       // Add notes if provided
       if (applicationData?.notes) {
         await ApplicationModel.updateNotes(application.id, applicationData.notes);
@@ -427,6 +621,18 @@ export class ApplicationService {
       throw new Error('Rank must be at least 1');
     }
     return await ApplicationModel.updateRank(applicationId, rank);
+  }
+
+  /**
+   * Update application tags
+   */
+  static async updateTags(applicationId: string, tags: string[]): Promise<ApplicationData> {
+    if (!Array.isArray(tags)) {
+      throw new Error('Tags must be an array');
+    }
+    // Validate tag strings (no empty strings, reasonable length)
+    const validTags = tags.filter(tag => typeof tag === 'string' && tag.trim().length > 0 && tag.length <= 50);
+    return await ApplicationModel.updateTags(applicationId, validTags);
   }
 
   /**
@@ -586,6 +792,7 @@ export class ApplicationService {
 
       // Step 4: Parse resume if provided
       let parsedResumeData: any = null;
+      let resumeText: string | undefined;
       let resumeUrl = applicationData.resumeUrl;
 
       if (applicationData.resumeFile) {
@@ -616,6 +823,7 @@ export class ApplicationService {
           };
           
           const parsedDocument = await DocumentParserService.parseDocument(fileForParsing);
+          resumeText = parsedDocument.text || '';
 
           console.log('📝 Document parsed, text length:', parsedDocument.text?.length || 0);
 
@@ -630,7 +838,7 @@ export class ApplicationService {
             training: parsedResumeData.training?.length || 0,
           });
 
-          // Upload resume to Cloudinary
+          // Upload resume to Cloudinary or Local Storage
           if (CloudinaryService.isConfigured()) {
             const uploadResult = await CloudinaryService.uploadFile(
               applicationData.resumeFile.buffer,
@@ -642,6 +850,17 @@ export class ApplicationService {
             );
             resumeUrl = uploadResult.secureUrl;
             console.log('☁️ Resume uploaded to Cloudinary:', resumeUrl);
+          } else {
+            // Fallback: Upload to local storage
+            const { LocalStorageService } = await import('../storage/LocalStorageService');
+            const uploadResult = await LocalStorageService.uploadFile(
+              applicationData.resumeFile.buffer, 
+              applicationData.resumeFile.originalname, 
+              { folder: `applications/temp` }
+            );
+            const API_BASE_URL = process.env.API_URL || 'http://localhost:3000';
+            resumeUrl = `${API_BASE_URL}${uploadResult.url}`;
+            console.log('💾 Resume uploaded to Local Storage:', resumeUrl);
           }
         } catch (error: any) {
           console.error('❌ Failed to parse resume:', {
@@ -649,6 +868,8 @@ export class ApplicationService {
             stack: error.stack,
           });
           // Continue without parsing - resume will still be saved
+          // Capture error in resumeText for debugging purposes if parsing failed
+          resumeText = `[Parsing Error] ${error.message}`;
         }
       } else {
         console.log('⚠️ No resume file provided for parsing');
@@ -669,6 +890,25 @@ export class ApplicationService {
         lastName: lastName.trim(),
         phone: phone?.trim(),
       });
+
+      // Step 5.5: Create CandidateResume record if resume was uploaded and parsed
+      if (applicationData.resumeFile && resumeUrl) {
+        try {
+          console.log('📄 Creating CandidateResume record...');
+          await CandidateDocumentService.uploadResume(
+            candidate.id,
+            applicationData.resumeFile.originalname,
+            resumeUrl,
+            applicationData.resumeFile.size,
+            applicationData.resumeFile.mimetype,
+            resumeText
+          );
+          console.log('✅ CandidateResume record created');
+        } catch (error: any) {
+          console.error('❌ Failed to create CandidateResume record:', error.message);
+          // Continue execution - don't fail the whole application
+        }
+      }
 
       // Step 6: Save parsed resume data (work history, skills, education, etc.)
       if (parsedResumeData) {
@@ -899,7 +1139,8 @@ export class ApplicationService {
             applicationData.resumeFile.originalname,
             resumeUrl,
             applicationData.resumeFile.size,
-            applicationData.resumeFile.mimetype
+            applicationData.resumeFile.mimetype,
+            resumeText
           );
           
           // Set as default if it's the first resume
@@ -1115,5 +1356,181 @@ export class ApplicationService {
       return { error: error.message || 'Failed to submit application', code: 'SUBMIT_FAILED' };
     }
   }
-}
 
+  /**
+   * Move application to a specific round
+   * Creates or updates ApplicationRoundProgress record
+   */
+  static async moveToRound(
+    applicationId: string,
+    jobRoundId: string,
+    userId: string
+  ): Promise<ApplicationData> {
+    // Verify application exists
+    const application = await ApplicationModel.findById(applicationId);
+    if (!application) {
+      throw new Error('Application not found');
+    }
+
+    // Handle fallback round IDs (e.g., "fixed-OFFER-{jobId}")
+    // These are created by the frontend when fixed rounds don't exist in the database
+    let round = await JobRoundModel.findById(jobRoundId);
+    
+    if (!round && jobRoundId.startsWith('fixed-')) {
+      // Extract fixedKey from fallback ID format: "fixed-{FIXEDKEY}-{jobId}"
+      const parts = jobRoundId.split('-');
+      if (parts.length >= 2) {
+        const fixedKey = parts[1]; // e.g., "OFFER", "HIRED", "NEW", "REJECTED"
+        
+        // First, try to find the actual round (it might already exist)
+        round = await JobRoundModel.findByJobIdAndFixedKey(application.jobId, fixedKey);
+        
+        // If not found, ensure fixed rounds exist for this job
+        if (!round) {
+          await JobRoundService.initializeFixedRounds(application.jobId);
+          
+          // Try to find the actual round again
+          round = await JobRoundModel.findByJobIdAndFixedKey(application.jobId, fixedKey);
+        }
+        
+        if (!round) {
+          throw new Error(`Fixed round '${fixedKey}' not found for job`);
+        }
+        
+        // Update jobRoundId to use the actual round ID
+        jobRoundId = round.id;
+      }
+    }
+    
+    if (!round) {
+      throw new Error('Round not found');
+    }
+
+    if (round.jobId !== application.jobId) {
+      throw new Error('Round does not belong to the same job');
+    }
+
+    // Create or update ApplicationRoundProgress
+    await prisma.applicationRoundProgress.upsert({
+      where: {
+        applicationId_jobRoundId: {
+          applicationId,
+          jobRoundId,
+        },
+      },
+      create: {
+        id: crypto.randomUUID(),
+        applicationId,
+        jobRoundId,
+        completed: false,
+      },
+      update: {
+        // Reset completion if moving to a round
+        completed: false,
+        completedAt: null,
+      },
+    });
+
+    // Map round to stage for backward compatibility
+    // Map fixed rounds to ApplicationStage
+    let mappedStage: ApplicationStage = ApplicationStage.NEW_APPLICATION;
+    
+    if (round.isFixed) {
+      switch (round.fixedKey) {
+        case 'NEW':
+          mappedStage = ApplicationStage.NEW_APPLICATION;
+          break;
+        case 'OFFER':
+          mappedStage = ApplicationStage.OFFER_EXTENDED;
+          break;
+        case 'HIRED':
+          mappedStage = ApplicationStage.OFFER_ACCEPTED;
+          break;
+        case 'REJECTED':
+          mappedStage = ApplicationStage.REJECTED;
+          break;
+      }
+    } else {
+      // For custom rounds, try to infer stage from type
+      if (round.type === 'ASSESSMENT') {
+        mappedStage = ApplicationStage.RESUME_REVIEW; // Default to screening
+      } else if (round.type === 'INTERVIEW') {
+        mappedStage = ApplicationStage.TECHNICAL_INTERVIEW;
+      }
+    }
+
+    // Update application stage for backward compatibility
+    const updatedApplication = await ApplicationModel.updateStage(applicationId, mappedStage);
+
+    // Auto-assign assessment if moving to an assessment round
+    if (round.type === 'ASSESSMENT') {
+      try {
+        await AssessmentService.autoAssignAssessment(applicationId, jobRoundId, userId);
+      } catch (error) {
+        // Log error but don't fail the move operation
+        console.error('Failed to auto-assign assessment:', error);
+      }
+    }
+    // Auto-schedule interview if moving to an interview round
+    else if (round.type === 'INTERVIEW') {
+      try {
+        await InterviewService.autoScheduleInterview({
+          applicationId,
+          jobRoundId,
+          scheduledBy: userId,
+        });
+      } catch (error) {
+        // Log error with details for debugging
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`Failed to auto-schedule interview for application ${applicationId} in round ${jobRoundId}:`, errorMessage);
+        // Store error in application notes for visibility
+        const currentNotes = updatedApplication.recruiterNotes || '';
+        await ApplicationModel.updateNotes(
+          applicationId,
+          `${currentNotes}\n[Auto-schedule failed: ${errorMessage}]`.trim()
+        );
+        // Note: We don't throw here to allow the move operation to complete
+        // The error is logged and stored in notes for admin visibility
+      }
+    }
+
+    // Trigger email automations for round entry
+    try {
+      const { EmailAutomationService } = await import('../email/EmailAutomationService');
+      await EmailAutomationService.handleApplicationRoundEntry(applicationId, jobRoundId, userId);
+    } catch (error) {
+      // Log error but don't fail the move operation
+      console.error('Failed to trigger email automations:', error);
+    }
+
+    return updatedApplication;
+  }
+
+  /**
+   * Auto-score application in the background
+   * This is called automatically when an application is submitted
+   */
+  private static async autoScoreApplication(applicationId: string, jobId: string): Promise<void> {
+    try {
+      console.log(`🤖 Starting auto-scoring for application ${applicationId}`);
+      
+      const scoringResult = await CandidateScoringService.scoreCandidate({
+        applicationId,
+        jobId,
+      });
+
+      // Update application with score and AI analysis
+      await ApplicationModel.updateScoreAndAnalysis(
+        applicationId,
+        scoringResult.scores.overall,
+        scoringResult
+      );
+
+      console.log(`✅ Auto-scoring completed for application ${applicationId}: ${scoringResult.scores.overall}/100`);
+    } catch (error) {
+      // Log error but don't throw - this is a background operation
+      console.error(`❌ Auto-scoring failed for application ${applicationId}:`, error);
+      // Optionally, you could store a flag indicating scoring failed for retry later
+    }
+  }
+}

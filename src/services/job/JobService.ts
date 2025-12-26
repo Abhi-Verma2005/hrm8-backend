@@ -48,6 +48,11 @@ export interface UpdateJobRequest extends Partial<CreateJobRequest> {
   status?: JobStatus;
   closeDate?: Date;
   applicationForm?: any;
+  assignedConsultantId?: string | null;
+  screening_enabled?: boolean;
+  automated_screening_enabled?: boolean;
+  screening_criteria?: any;
+  pre_interview_questionnaire_enabled?: boolean;
   servicePackage?: string;
 }
 
@@ -137,6 +142,17 @@ export class JobService {
 
       const job = await JobModel.create(finalJobData);
 
+      // Initialize fixed rounds for the new job
+      try {
+        const { JobRoundService } = await import('./JobRoundService');
+        await JobRoundService.initializeFixedRounds(job.id);
+        console.log('✅ Fixed rounds initialized for job:', job.id);
+      } catch (roundError) {
+        console.error('⚠️ Failed to initialize fixed rounds (non-critical):', roundError);
+        // Don't fail job creation if round initialization fails
+      }
+
+      // Attempt auto-assignment if company mode is AUTO_RULES_ONLY and job assignmentMode is AUTO
       // Skip auto-assignment for drafts. Only assign once the job is OPEN (publish/submit).
       try {
         const assignmentMode = jobData.assignmentMode || AssignmentMode.AUTO;

@@ -6,6 +6,9 @@ import { Router, type Router as RouterType } from 'express';
 import { JobController } from '../controllers/job/JobController';
 import { JobDocumentController } from '../controllers/job/JobDocumentController';
 import { ApplicationFormController } from '../controllers/job/ApplicationFormController';
+import { JobRoundController } from '../controllers/job/JobRoundController';
+import { AssessmentController } from '../controllers/assessment/AssessmentController';
+import { InterviewController } from '../controllers/interview/InterviewController';
 import { authenticate, requireJobPostingPermission } from '../middleware/auth';
 import { scopeToCompany } from '../middleware/companyIsolation';
 
@@ -151,6 +154,68 @@ router.post(
   '/new/application-form/generate-questions',
   requireJobPostingPermission,
   ApplicationFormController.generateQuestions
+);
+
+// Job Rounds (Pipeline Stages) routes
+// Get all rounds for a job (all authenticated users can view)
+router.get('/:jobId/rounds', JobRoundController.getJobRounds);
+
+// Create a new round (requires job posting permission)
+router.post(
+  '/:jobId/rounds',
+  requireJobPostingPermission,
+  JobRoundController.createRound
+);
+
+// Update a round (requires job posting permission)
+router.put(
+  '/:jobId/rounds/:roundId',
+  requireJobPostingPermission,
+  JobRoundController.updateRound
+);
+
+// Delete a round (requires job posting permission)
+router.delete(
+  '/:jobId/rounds/:roundId',
+  requireJobPostingPermission,
+  JobRoundController.deleteRound
+);
+
+// Assessment Configuration routes
+// Get assessment configuration for a round (requires job posting permission)
+router.get(
+  '/:jobId/rounds/:roundId/assessment-config',
+  requireJobPostingPermission,
+  AssessmentController.getAssessmentConfig
+);
+
+// Get all assessments for a round (requires job posting permission)
+router.get(
+  '/:jobId/rounds/:roundId/assessments',
+  requireJobPostingPermission,
+  AssessmentController.getRoundAssessments
+);
+
+// Configure assessment for a round (requires job posting permission)
+router.post(
+  '/:jobId/rounds/:roundId/assessment-config',
+  requireJobPostingPermission,
+  AssessmentController.configureAssessment
+);
+
+// Interview Configuration routes
+// Get interview configuration for a round (requires job posting permission)
+router.get(
+  '/:jobId/rounds/:roundId/interview-config',
+  requireJobPostingPermission,
+  InterviewController.getInterviewConfig
+);
+
+// Configure interview for a round (requires job posting permission)
+router.post(
+  '/:jobId/rounds/:roundId/interview-config',
+  requireJobPostingPermission,
+  InterviewController.configureInterview
 );
 
 export default router;

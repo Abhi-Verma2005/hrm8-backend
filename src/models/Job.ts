@@ -117,6 +117,23 @@ export class JobModel {
       if ((jobData as any).regionId !== undefined && (jobData as any).regionId !== null) {
         prismaData.regionId = (jobData as any).regionId;
       }
+      if ((jobData as any).assignedConsultantId !== undefined) {
+        prismaData.assignedConsultantId = (jobData as any).assignedConsultantId || null;
+      }
+
+      // Screening fields
+      if ((jobData as any).screening_enabled !== undefined) {
+        prismaData.screening_enabled = (jobData as any).screening_enabled;
+      }
+      if ((jobData as any).automated_screening_enabled !== undefined) {
+        prismaData.automated_screening_enabled = (jobData as any).automated_screening_enabled;
+      }
+      if ((jobData as any).screening_criteria !== undefined) {
+        prismaData.screening_criteria = (jobData as any).screening_criteria || null;
+      }
+      if ((jobData as any).pre_interview_questionnaire_enabled !== undefined) {
+        prismaData.pre_interview_questionnaire_enabled = (jobData as any).pre_interview_questionnaire_enabled;
+      }
 
       // Payment fields
       if ((jobData as any).servicePackage !== undefined) {

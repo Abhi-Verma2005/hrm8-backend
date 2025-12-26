@@ -192,12 +192,21 @@ export class JobController {
         payloadKeys.length > 0 &&
         payloadKeys.every((key) => LIFECYCLE_FIELDS.has(key));
 
-      // For full content edits, keep stricter rule: only DRAFT or job creator
+      // For full content edits, allow editing if:
+      // 1. Job is in DRAFT status, OR
+      // 2. User is the job creator, OR  
+      // 3. Job status allows editing (OPEN jobs can be edited by creator)
+      // This allows editing posted jobs through the edit drawer
       if (!isLifecycleOnlyUpdate) {
-        if (existingJob.status !== JobStatus.DRAFT && existingJob.createdBy !== req.user.id) {
+        const canEdit = 
+          existingJob.status === JobStatus.DRAFT || 
+          existingJob.createdBy === req.user.id ||
+          existingJob.status === JobStatus.OPEN; // Allow editing OPEN jobs
+        
+        if (!canEdit) {
           res.status(403).json({
             success: false,
-            error: 'You can only edit draft jobs or jobs you created',
+            error: 'You can only edit draft jobs, open jobs you created, or use lifecycle-only updates',
           });
           return;
         }

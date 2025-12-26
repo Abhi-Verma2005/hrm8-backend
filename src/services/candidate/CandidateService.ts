@@ -103,11 +103,24 @@ export class CandidateService {
    */
   static async addWorkExperience(candidateId: string, data: any) {
     const { prisma } = await import('../../lib/prisma');
+    const { randomUUID } = await import('crypto');
+    
+    // Map camelCase to snake_case and ensure ID
+    const workExperienceData = {
+      id: data.id || randomUUID(),
+      candidate_id: candidateId,
+      company: data.company,
+      role: data.role,
+      start_date: data.startDate || data.start_date,
+      end_date: data.endDate || data.end_date,
+      current: data.current || false,
+      description: data.description,
+      location: data.location,
+      updated_at: new Date(),
+    };
+
     return await prisma.candidateWorkExperience.create({
-      data: {
-        candidate_id: candidateId,
-        ...data,
-      },
+      data: workExperienceData,
     });
   }
 

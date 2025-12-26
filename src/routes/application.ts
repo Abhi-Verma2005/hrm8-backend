@@ -53,6 +53,7 @@ router.get('/', authenticateCandidate, ApplicationController.getCandidateApplica
 
 // Recruiter routes (require company authentication)
 router.get('/admin/:id', authenticate, ApplicationController.getApplicationForAdmin);
+router.get('/:id/resume', authenticate, ApplicationController.getApplicationResume);
 // Get applications for a job (must come before /:id to avoid route conflicts)
 router.get('/job/:jobId', authenticate, ApplicationController.getJobApplications);
 
@@ -74,9 +75,11 @@ router.post('/bulk-score', authenticate, ApplicationController.bulkScoreCandidat
 // Recruiter application management routes (must come after /:id to avoid conflicts)
 router.put('/:id/score', authenticate, ApplicationController.updateScore);
 router.put('/:id/rank', authenticate, ApplicationController.updateRank);
+router.put('/:id/tags', authenticate, ApplicationController.updateTags);
 router.post('/:id/shortlist', authenticate, ApplicationController.shortlistCandidate);
 router.post('/:id/unshortlist', authenticate, ApplicationController.unshortlistCandidate);
 router.put('/:id/stage', authenticate, ApplicationController.updateStage);
+router.put('/:id/round/:roundId', authenticate, ApplicationController.moveToRound);
 router.put('/:id/notes', authenticate, ApplicationController.updateNotes);
 router.put('/:id/manual-screening', authenticate, ApplicationController.updateManualScreening);
 
