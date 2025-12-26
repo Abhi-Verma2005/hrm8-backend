@@ -30,6 +30,7 @@ model Company {
   licensee_id          String?
   referred_by          String?
   region_owner_type    RegionOwnerType           @default(HRM8)
+  commission_status    CommissionStatus          @default(PENDING)
   AccountTeam          AccountTeam[]
   Activity             Activity[]
   Bill                 Bill[]
@@ -37,6 +38,7 @@ model Company {
   profile              CompanyProfile?
   CompanySettings      CompanySettings?
   Contact              Contact[]
+  EmailTemplate        EmailTemplate[]
   Integration          Integration[]
   invitations          Invitation[]
   jobs                 Job[]
@@ -47,6 +49,8 @@ model Company {
   Subscription         Subscription[]
   users                User[]
   verificationTokens   VerificationToken[]
+  priceBookId          String?                   @map("price_book_id")
+  priceBook            PriceBook?                @relation(fields: [priceBookId], references: [id])
 
   @@index([domain])
   @@index([verificationStatus])
@@ -84,6 +88,9 @@ model User {
   updatedAt              DateTime             @updatedAt @map("updated_at")
   assignedBy             String?              @map("assigned_by")
   Assessment             Assessment[]
+  AssessmentComment      AssessmentComment[]
+  AssessmentGrade        AssessmentGrade[]
+  EmailTemplate          EmailTemplate[]
   sentInvitations        Invitation[]         @relation("InvitedBy")
   createdJobs            Job[]                @relation("JobCreator")
   sentJobInvitations     JobInvitation[]      @relation("JobInviter")
@@ -245,7 +252,6 @@ model Job {
   savedAsTemplate                     Boolean                     @default(false) @map("saved_as_template")
   shareLink                           String?                     @map("share_link")
   templateId                          String?                     @map("template_id")
-  paymentStatus                       PaymentStatus?              @default(PENDING) @map("payment_status")
   archived                            Boolean                     @default(false) @map("archived")
   archivedAt                          DateTime?                   @map("archived_at")
   archivedBy                          String?                     @map("archived_by")
@@ -257,11 +263,20 @@ model Job {
   assignedConsultantId                String?                     @map("assigned_consultant_id")
   assignmentMode                      AssignmentMode              @default(AUTO) @map("assignment_mode")
   assignmentSource                    AssignmentSource?           @map("assignment_source")
+  paymentStatus                       PaymentStatus?              @default(PENDING) @map("payment_status")
   servicePackage                      String?                     @map("service_package")
+  payment_amount                      Float?
+  payment_completed_at                DateTime?
+  payment_currency                    String?
+  payment_failed_at                   DateTime?
+  stripe_payment_intent_id            String?
+  stripe_session_id                   String?
   applications                        Application[]
   commissions                         Commission[]
   consultantAssignments               ConsultantJobAssignment[]
   conversations                       Conversation[]
+  EmailMessage                        EmailMessage[]
+  EmailTemplate                       EmailTemplate[]
   assignedConsultant                  Consultant?                 @relation(fields: [assignedConsultantId], references: [id])
   company                             Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   creator                             User                        @relation("JobCreator", fields: [createdBy], references: [id], onDelete: Cascade)
@@ -499,16 +514,18 @@ model MessageAttachment {
 }
 
 model CandidateResume {
-  id          String    @id @default(uuid())
-  candidateId String    @map("candidate_id")
-  fileName    String    @map("file_name")
-  fileUrl     String    @map("file_url")
-  fileSize    Int       @map("file_size")
-  fileType    String    @map("file_type")
-  isDefault   Boolean   @default(false) @map("is_default")
-  version     Int       @default(1)
-  uploadedAt  DateTime  @default(now()) @map("uploaded_at")
-  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  id               String             @id @default(uuid())
+  candidateId      String             @map("candidate_id")
+  fileName         String             @map("file_name")
+  fileUrl          String             @map("file_url")
+  fileSize         Int                @map("file_size")
+  fileType         String             @map("file_type")
+  isDefault        Boolean            @default(false) @map("is_default")
+  version          Int                @default(1)
+  uploadedAt       DateTime           @default(now()) @map("uploaded_at")
+  content          String?
+  candidate        Candidate          @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  ResumeAnnotation ResumeAnnotation[]
 
   @@index([candidateId])
   @@index([isDefault])
@@ -593,6 +610,7 @@ model Application {
   job                      Job                        @relation(fields: [jobId], references: [id], onDelete: Cascade)
   ApplicationRoundProgress ApplicationRoundProgress[]
   Assessment               Assessment[]
+  EmailMessage             EmailMessage[]
   jobInvitation            JobInvitation?
   OfferDocument            OfferDocument[]
   OfferLetter              OfferLetter[]
@@ -686,6 +704,7 @@ model Assessment {
   job_round_id       String?
   Application        Application          @relation(fields: [application_id], references: [id], onDelete: Cascade)
   User               User                 @relation(fields: [invited_by], references: [id])
+  AssessmentComment  AssessmentComment[]
   AssessmentQuestion AssessmentQuestion[]
   AssessmentResponse AssessmentResponse[]
 
@@ -723,6 +742,7 @@ model AssessmentResponse {
   response           Json
   score              Float?
   answered_at        DateTime            @default(now())
+  AssessmentGrade    AssessmentGrade[]
   Assessment         Assessment          @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
   AssessmentQuestion AssessmentQuestion? @relation(fields: [question_id], references: [id])
 
@@ -941,6 +961,7 @@ model Region {
   Lead          Lead[]
   licensee      RegionalLicensee? @relation(fields: [licenseeId], references: [id])
   revenue       RegionalRevenue[]
+  priceBooks    PriceBook[]
 
   @@index([isActive])
   @@index([licenseeId])
@@ -971,6 +992,7 @@ model RegionalLicensee {
   updatedAt           DateTime          @updatedAt @map("updated_at")
   regions             Region[]
   revenueShares       RegionalRevenue[]
+  settlements         Settlement[]
 
   @@index([email])
   @@index([status])
@@ -1231,6 +1253,8 @@ model JobRound {
   updated_at               DateTime
   ApplicationRoundProgress ApplicationRoundProgress[]
   AssessmentConfiguration  AssessmentConfiguration?
+  EmailTemplate            EmailTemplate[]
+  EmailTemplateTrigger     EmailTemplateTrigger[]
   InterviewConfiguration   InterviewConfiguration?
   Job                      Job                        @relation(fields: [job_id], references: [id], onDelete: Cascade)
   VideoInterview           VideoInterview[]
@@ -1272,6 +1296,9 @@ model InterviewConfiguration {
   agenda                     String?
   created_at                 DateTime        @default(now())
   updated_at                 DateTime
+  assigned_interviewer_ids   String[]        @default([])
+  recruiter_email            String?
+  recruiter_name             String?
   JobRound                   JobRound        @relation(fields: [job_round_id], references: [id], onDelete: Cascade)
 
   @@index([job_round_id])
@@ -1640,6 +1667,135 @@ model Subscription {
   @@index([planType])
   @@index([sales_agent_id])
   @@index([status])
+}
+
+model AssessmentComment {
+  id            String     @id
+  assessment_id String
+  user_id       String
+  comment       String
+  created_at    DateTime   @default(now())
+  updated_at    DateTime
+  Assessment    Assessment @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  User          User       @relation(fields: [user_id], references: [id])
+
+  @@index([assessment_id])
+  @@index([user_id])
+}
+
+model AssessmentGrade {
+  id                     String             @id
+  assessment_response_id String
+  user_id                String
+  score                  Float?
+  comment                String?
+  created_at             DateTime           @default(now())
+  updated_at             DateTime
+  AssessmentResponse     AssessmentResponse @relation(fields: [assessment_response_id], references: [id], onDelete: Cascade)
+  User                   User               @relation(fields: [user_id], references: [id])
+
+  @@unique([assessment_response_id, user_id])
+  @@index([assessment_response_id])
+  @@index([user_id])
+}
+
+model EmailMessage {
+  id             String         @id
+  template_id    String?
+  application_id String?
+  candidate_id   String
+  job_id         String
+  job_round_id   String?
+  to             String
+  cc             String[]       @default([])
+  bcc            String[]       @default([])
+  subject        String
+  body           String
+  status         EmailStatus    @default(SENT)
+  sent_at        DateTime       @default(now())
+  delivered_at   DateTime?
+  opened_at      DateTime?
+  bounced_at     DateTime?
+  error_message  String?
+  sender_id      String
+  sender_email   String
+  Application    Application?   @relation(fields: [application_id], references: [id])
+  Job            Job            @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  EmailTemplate  EmailTemplate? @relation(fields: [template_id], references: [id])
+
+  @@index([application_id])
+  @@index([candidate_id])
+  @@index([job_id])
+  @@index([job_round_id])
+  @@index([sender_id])
+  @@index([sent_at])
+  @@index([status])
+}
+
+model EmailTemplate {
+  id                   String                 @id
+  company_id           String
+  job_id               String?
+  job_round_id         String?
+  name                 String
+  type                 EmailTemplateType
+  subject              String
+  body                 String
+  variables            String[]               @default([])
+  is_active            Boolean                @default(true)
+  is_default           Boolean                @default(false)
+  is_ai_generated      Boolean                @default(false)
+  version              Int                    @default(1)
+  created_by           String
+  created_at           DateTime               @default(now())
+  updated_at           DateTime
+  EmailMessage         EmailMessage[]
+  Company              Company                @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  User                 User                   @relation(fields: [created_by], references: [id], onDelete: Cascade)
+  Job                  Job?                   @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  JobRound             JobRound?              @relation(fields: [job_round_id], references: [id], onDelete: Cascade)
+  EmailTemplateTrigger EmailTemplateTrigger[]
+
+  @@index([company_id])
+  @@index([created_by])
+  @@index([job_id])
+  @@index([job_round_id])
+  @@index([type])
+}
+
+model EmailTemplateTrigger {
+  id                String        @id
+  template_id       String
+  job_round_id      String
+  trigger_type      TriggerType
+  trigger_condition Json?
+  delay_days        Int?          @default(0)
+  delay_hours       Int?          @default(0)
+  scheduled_time    String?
+  is_active         Boolean       @default(true)
+  created_at        DateTime      @default(now())
+  updated_at        DateTime
+  JobRound          JobRound      @relation(fields: [job_round_id], references: [id], onDelete: Cascade)
+  EmailTemplate     EmailTemplate @relation(fields: [template_id], references: [id], onDelete: Cascade)
+
+  @@index([job_round_id])
+  @@index([template_id])
+}
+
+model ResumeAnnotation {
+  id              String          @id
+  resume_id       String
+  user_id         String
+  user_name       String
+  user_color      String
+  type            String
+  text            String
+  comment         String?
+  position        Json
+  created_at      DateTime        @default(now())
+  CandidateResume CandidateResume @relation(fields: [resume_id], references: [id], onDelete: Cascade)
+
+  @@index([resume_id])
 }
 
 enum UserRole {
@@ -2151,4 +2307,145 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
+}
+
+
+enum EmailStatus {
+  SENT
+  DELIVERED
+  OPENED
+  BOUNCED
+  FAILED
+}
+
+enum EmailTemplateType {
+  APPLICATION_CONFIRMATION
+  INTERVIEW_INVITATION
+  REJECTION
+  OFFER_EXTENDED
+  OFFER_ACCEPTED
+  STAGE_CHANGE
+  REMINDER
+  FOLLOW_UP
+  CUSTOM
+}
+
+enum TriggerType {
+  IMMEDIATE
+  SCHEDULED
+  CONDITIONAL
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?
+  category    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  tiers       PriceTier[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model PriceBook {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  isGlobal    Boolean  @default(false) @map("is_global")
+  regionId    String?  @map("region_id")
+  currency    String   @default("USD")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  region      Region?  @relation(fields: [regionId], references: [id])
+  tiers       PriceTier[]
+  companies   Company[]
+
+  @@index([regionId])
+  @@index([isGlobal])
+}
+
+model PriceTier {
+  id          String    @id @default(uuid())
+  priceBookId String    @map("price_book_id")
+  productId   String    @map("product_id")
+  name        String
+  minQuantity Int       @default(1) @map("min_quantity")
+  maxQuantity Int?      @map("max_quantity")
+  unitPrice   Float     @map("unit_price")
+  period      String    @default("MONTHLY")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  priceBook   PriceBook @relation(fields: [priceBookId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@index([priceBookId])
+  @@index([productId])
+}
+
+model PromoCode {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  description   String?
+  discountType  String
+  discountValue Float    @map("discount_value")
+  startDate     DateTime @map("start_date")
+  endDate       DateTime? @map("end_date")
+  maxUses       Int?     @map("max_uses")
+  usedCount     Int      @default(0) @map("used_count")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model GlobalIntegration {
+  id          String   @id @default(uuid())
+  provider    String   @unique
+  name        String
+  category    String
+  apiKey      String?  @map("api_key")
+  apiSecret   String?  @map("api_secret")
+  endpointUrl String?  @map("endpoint_url")
+  config      Json?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([provider])
+}
+
+model Settlement {
+  id            String           @id @default(uuid())
+  licenseeId    String           @map("licensee_id")
+  periodStart   DateTime         @map("period_start")
+  periodEnd     DateTime         @map("period_end")
+  totalRevenue  Float            @map("total_revenue")
+  licenseeShare Float            @map("licensee_share")
+  hrm8Share     Float            @map("hrm8_share")
+  status        String           @default("PENDING")
+  paymentDate   DateTime?        @map("payment_date")
+  reference     String?
+  generatedAt   DateTime         @default(now()) @map("generated_at")
+  licensee      RegionalLicensee @relation(fields: [licenseeId], references: [id])
+
+  @@index([licenseeId])
+  @@index([status])
+}
+
+model DunningPolicy {
+  id            String   @id @default(uuid())
+  name          String
+  daysOverdue   Int      @map("days_overdue")
+  action        String
+  emailTemplate String?  @map("email_template")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 }

@@ -5,6 +5,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import prisma from '../lib/prisma';
 
 const router: Router = Router();
 
@@ -79,9 +80,62 @@ if (process.env.NODE_ENV !== 'production') {
       });
     }
   });
+
+  /**
+   * Get latest verification token for a company admin by email/companyId
+   * This is for local E2E testing only. Do not enable in production.
+   * Query params:
+   * - email (required if companyId not provided)
+   * - companyId (required if email not provided)
+   */
+  router.get('/api/dev/verification-token', async (req: Request, res: Response) => {
+    try {
+      const { email, companyId } = req.query as { email?: string; companyId?: string };
+
+      if (!email && !companyId) {
+        res.status(400).json({
+          success: false,
+          error: 'email or companyId is required',
+        });
+        return;
+      }
+
+      const token = await prisma.verificationToken.findFirst({
+        where: {
+          ...(email ? { email: email.toLowerCase() } : {}),
+          ...(companyId ? { companyId } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!token) {
+        res.status(404).json({
+          success: false,
+          error: 'No verification token found',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          token: token.token,
+          companyId: token.companyId,
+          email: token.email,
+          expiresAt: token.expiresAt,
+          usedAt: token.usedAt,
+          createdAt: token.createdAt,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch verification token',
+      });
+    }
+  });
 }
 
 export default router;
-
 
 

@@ -11,6 +11,9 @@ import { ConsultantManagementController } from '../controllers/hrm8/ConsultantMa
 import { JobAllocationController } from '../controllers/hrm8/JobAllocationController';
 import { CommissionController } from '../controllers/hrm8/CommissionController';
 import { RegionalRevenueController } from '../controllers/hrm8/RegionalRevenueController';
+import { PricingController } from '../controllers/hrm8/PricingController';
+import { FinanceController } from '../controllers/hrm8/FinanceController';
+import { IntegrationAdminController } from '../controllers/hrm8/IntegrationAdminController';
 import { authenticateHrm8User } from '../middleware/hrm8Auth';
 
 const router: RouterType = Router();
@@ -78,5 +81,21 @@ router.get('/revenue/:id', RegionalRevenueController.getById);
 router.put('/revenue/:id/confirm', RegionalRevenueController.confirm);
 router.put('/revenue/:id/pay', RegionalRevenueController.markAsPaid);
 
-export default router;
+// Pricing routes
+router.get('/pricing/products', PricingController.getProducts);
+router.post('/pricing/products', PricingController.upsertProduct);
+router.get('/pricing/books', PricingController.getPriceBooks);
+router.post('/pricing/books', PricingController.createPriceBook);
+router.post('/pricing/companies/:id/assign', PricingController.assignCustomPriceBook);
 
+// Finance routes
+router.get('/finance/invoices', FinanceController.getInvoices);
+router.post('/finance/settlements/calculate', FinanceController.calculateSettlement);
+router.get('/finance/dunning', FinanceController.getDunning);
+
+// Integration routes
+router.get('/integrations/catalog', IntegrationAdminController.getAll);
+router.post('/integrations/global-config', IntegrationAdminController.upsert);
+router.get('/integrations/usage', IntegrationAdminController.getUsage);
+
+export default router;
