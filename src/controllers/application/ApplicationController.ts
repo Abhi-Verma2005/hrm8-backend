@@ -562,7 +562,7 @@ export class ApplicationController {
           JobRound: true,
         },
         orderBy: {
-          updatedAt: 'desc',
+          updated_at: 'desc',
         },
       });
 

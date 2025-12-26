@@ -94,6 +94,7 @@ export interface ApplicationData {
       name: string;
     };
   };
+  roundId?: string;
 }
 
 export class ApplicationModel {
@@ -226,6 +227,12 @@ export class ApplicationModel {
       where: { jobId },
       include: {
         candidate: true,
+        ApplicationRoundProgress: {
+          orderBy: {
+            updated_at: 'desc',
+          },
+          take: 1,
+        },
       },
       orderBy: { appliedDate: 'desc' },
     });
@@ -579,6 +586,13 @@ export class ApplicationModel {
           name: prismaApplication.job.company.name,
         } : undefined,
       };
+    }
+
+    // Include roundId from ApplicationRoundProgress if available
+    if (prismaApplication.ApplicationRoundProgress && prismaApplication.ApplicationRoundProgress.length > 0) {
+      const progress = prismaApplication.ApplicationRoundProgress[0];
+      // Handle potential case/mapping differences (snake_case in schema vs camelCase in client)
+      application.roundId = progress.job_round_id || progress.jobRoundId;
     }
 
     return application;

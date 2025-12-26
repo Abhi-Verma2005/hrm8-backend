@@ -90,129 +90,132 @@ export class InterviewService {
   static async autoScheduleInterview(
     params: AutoScheduleInterviewParams
   ): Promise<VideoInterviewData> {
-    // Use transaction to prevent race conditions
-    return await prisma.$transaction(async (tx) => {
-      // Load configuration
-      const config = await InterviewConfigurationModel.findByJobRoundId(params.jobRoundId);
-      if (!config || !config.enabled || !config.autoSchedule) {
-        throw new Error('Interview auto-scheduling is not enabled for this round');
-      }
+    // 1. Perform checks and external API calls OUTSIDE the transaction to avoid timeouts
 
-      // Validate default duration is set
-      if (!config.defaultDuration || config.defaultDuration <= 0) {
-        throw new Error('Interview configuration must have a valid default duration (greater than 0)');
-      }
+    // Load configuration
+    const config = await InterviewConfigurationModel.findByJobRoundId(params.jobRoundId);
+    if (!config || !config.enabled || !config.autoSchedule) {
+      throw new Error('Interview auto-scheduling is not enabled for this round');
+    }
 
-      // Check if interview already exists for this application/round (check all active statuses)
-      // Use transaction-aware query to prevent race conditions
-      const existingInterviews = await tx.videoInterview.findMany({
-        where: {
-          jobRoundId: params.jobRoundId,
-          applicationId: params.applicationId,
-          status: {
-            in: ['SCHEDULED', 'RESCHEDULED', 'IN_PROGRESS'],
-          },
-        },
-      });
-      
-      if (existingInterviews.length > 0) {
-        // Map back to VideoInterviewData format
-        const existing = existingInterviews[0];
-        return {
-          id: existing.id,
-          applicationId: existing.applicationId,
-          candidateId: existing.candidateId,
-          jobId: existing.jobId,
-          jobRoundId: existing.jobRoundId,
-          scheduledDate: existing.scheduledDate,
-          duration: existing.duration,
-          meetingLink: existing.meetingLink,
-          status: existing.status,
-          type: existing.type,
-          interviewerIds: existing.interviewerIds,
-          isAutoScheduled: existing.isAutoScheduled ?? false,
-          rescheduledFrom: existing.rescheduledFrom,
-          rescheduledAt: existing.rescheduledAt,
-          rescheduledBy: existing.rescheduledBy,
-          cancellationReason: existing.cancellationReason,
-          noShowReason: existing.noShowReason,
-          overallScore: existing.overallScore,
-          recommendation: existing.recommendation,
-          ratingCriteriaScores: existing.ratingCriteriaScores,
-          recordingUrl: existing.recordingUrl,
-          transcript: existing.transcript,
-          feedback: existing.feedback,
-          notes: existing.notes,
-          createdAt: existing.createdAt,
-          updatedAt: existing.updatedAt,
-        };
-      }
+    // Validate default duration is set
+    if (!config.defaultDuration || config.defaultDuration <= 0) {
+      throw new Error('Interview configuration must have a valid default duration (greater than 0)');
+    }
 
-      // Load application and job details
-      const application = await ApplicationModel.findById(params.applicationId);
-      if (!application) {
-        throw new Error('Application not found');
-      }
-      
-      // Ensure candidate data is loaded
-      if (!application.candidate) {
-        throw new Error('Candidate information not found for application');
-      }
-
-      const job = await JobModel.findById(application.jobId);
-      if (!job) {
-        throw new Error('Job not found');
-      }
-
-      const candidate = application.candidate;
-
-      // Validate scheduledBy user exists (basic validation)
-      if (!params.scheduledBy) {
-        throw new Error('scheduledBy user ID is required');
-      }
-
-      // Find available time slot
-      const timeSlot = await this.findAvailableTimeSlot(config, params.applicationId);
-
-      // Generate meeting link if video interview
-      let meetingLink: string | null = null;
-      if (config.interviewFormat === 'LIVE_VIDEO') {
-        const start = timeSlot.startDate;
-        const end = new Date(start.getTime() + config.defaultDuration * 60 * 1000);
-
-        try {
-          const candidateName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || candidate.email;
-          const calendarEvent = await GoogleCalendarService.createVideoInterviewEvent({
-            summary: `${job.title} - Interview with ${candidateName}`,
-            description: `Interview for ${job.title}`,
-            start,
-            end,
-            attendees: [{ email: candidate.email, name: candidateName }],
-          });
-          meetingLink = calendarEvent.meetingLink || null;
-        } catch (error) {
-          console.error('Failed to create calendar event:', error);
-          // Continue without meeting link, will be set later
-        }
-      }
-
-      // Create interview (within transaction)
-      const interview = await VideoInterviewModel.create({
-        applicationId: params.applicationId,
-        candidateId: application.candidateId,
-        jobId: application.jobId,
+    // Check if interview already exists for this application/round (check all active statuses)
+    const existingInterviews = await prisma.videoInterview.findMany({
+      where: {
         jobRoundId: params.jobRoundId,
-        scheduledDate: timeSlot.startDate,
-        duration: config.defaultDuration,
-        meetingLink,
-        status: 'SCHEDULED',
-        type: this.mapInterviewFormatToType(config.interviewFormat),
-        interviewerIds: timeSlot.interviewerIds || [],
-        isAutoScheduled: true,
-        recordingUrl: null,
-        transcript: null,
-        feedback: null,
-        notes: null,
+        applicationId: params.applicationId,
+        status: {
+          in: ['SCHEDULED', 'RESCHEDULED', 'IN_PROGRESS'],
+        },
+      },
+    });
+    
+    if (existingInterviews.length > 0) {
+      // Map back to VideoInterviewData format
+      const existing = existingInterviews[0];
+      return {
+        id: existing.id,
+        applicationId: existing.applicationId,
+        candidateId: existing.candidateId,
+        jobId: existing.jobId,
+        jobRoundId: existing.jobRoundId,
+        scheduledDate: existing.scheduledDate,
+        duration: existing.duration,
+        meetingLink: existing.meetingLink,
+        status: existing.status,
+        type: existing.type,
+        interviewerIds: existing.interviewerIds,
+        isAutoScheduled: existing.isAutoScheduled ?? false,
+        rescheduledFrom: existing.rescheduledFrom,
+        rescheduledAt: existing.rescheduledAt,
+        rescheduledBy: existing.rescheduledBy,
+        cancellationReason: existing.cancellationReason,
+        noShowReason: existing.noShowReason,
+        overallScore: existing.overallScore,
+        recommendation: existing.recommendation,
+        ratingCriteriaScores: existing.ratingCriteriaScores,
+        recordingUrl: existing.recordingUrl,
+        transcript: existing.transcript,
+        feedback: existing.feedback,
+        notes: existing.notes,
+        createdAt: existing.createdAt,
+        updatedAt: existing.updatedAt,
+      };
+    }
+
+    // Load application and job details
+    const application = await ApplicationModel.findById(params.applicationId);
+    if (!application) {
+      throw new Error('Application not found');
+    }
+    
+    // Ensure candidate data is loaded
+    if (!application.candidate) {
+      throw new Error('Candidate information not found for application');
+    }
+
+    const job = await JobModel.findById(application.jobId);
+    if (!job) {
+      throw new Error('Job not found');
+    }
+
+    const candidate = application.candidate;
+
+    // Validate scheduledBy user exists (basic validation)
+    if (!params.scheduledBy) {
+      throw new Error('scheduledBy user ID is required');
+    }
+
+    // Find available time slot
+    const timeSlot = await this.findAvailableTimeSlot(config, params.applicationId);
+
+    // Generate meeting link if video interview (EXTERNAL API CALL)
+    let meetingLink: string | null = null;
+    if (config.interviewFormat === 'LIVE_VIDEO') {
+      const start = timeSlot.startDate;
+      const end = new Date(start.getTime() + config.defaultDuration * 60 * 1000);
+
+      try {
+        const candidateName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || candidate.email;
+        const calendarEvent = await GoogleCalendarService.createVideoInterviewEvent({
+          summary: `${job.title} - Interview with ${candidateName}`,
+          description: `Interview for ${job.title}`,
+          start,
+          end,
+          attendees: [{ email: candidate.email, name: candidateName }],
+        });
+        meetingLink = calendarEvent.meetingLink || null;
+      } catch (error) {
+        console.error('Failed to create calendar event:', error);
+        // Continue without meeting link, will be set later
+      }
+    }
+
+    // 2. Perform database updates INSIDE transaction
+    return await prisma.$transaction(async (tx) => {
+      // Create interview (within transaction)
+      const interview = await tx.videoInterview.create({
+        data: {
+          applicationId: params.applicationId,
+          candidateId: application.candidateId,
+          jobId: application.jobId,
+          job_round_id: params.jobRoundId,
+          scheduledDate: timeSlot.startDate,
+          duration: config.defaultDuration!,
+          meetingLink,
+          status: 'SCHEDULED',
+          type: this.mapInterviewFormatToType(config.interviewFormat) as any,
+          interviewerIds: timeSlot.interviewerIds || [],
+          is_auto_scheduled: true,
+          recordingUrl: null,
+          transcript: undefined,
+          feedback: undefined,
+          notes: null,
+        },
       });
 
       // Update ApplicationRoundProgress (use transaction)
@@ -234,16 +237,43 @@ export class InterviewService {
           videoInterviewId: interview.id,
         },
       });
-
-      // Send interview invitation email (outside transaction)
-      try {
-        await InterviewInvitationEmailService.sendInterviewInvitation(interview);
-      } catch (error) {
-        console.error('Failed to send interview invitation email:', error);
-        // Don't fail the interview creation if email fails
-      }
-
-      return interview;
+      
+      return {
+          id: interview.id,
+          applicationId: interview.applicationId,
+          candidateId: interview.candidateId,
+          jobId: interview.jobId,
+          jobRoundId: interview.jobRoundId,
+          scheduledDate: interview.scheduledDate,
+          duration: interview.duration,
+          meetingLink: interview.meetingLink,
+          status: interview.status,
+          type: interview.type,
+          interviewerIds: interview.interviewerIds,
+          isAutoScheduled: interview.isAutoScheduled ?? false,
+          rescheduledFrom: interview.rescheduledFrom,
+          rescheduledAt: interview.rescheduledAt,
+          rescheduledBy: interview.rescheduledBy,
+          cancellationReason: interview.cancellationReason,
+          noShowReason: interview.noShowReason,
+          overallScore: interview.overallScore,
+          recommendation: interview.recommendation,
+          ratingCriteriaScores: interview.ratingCriteriaScores,
+          recordingUrl: interview.recordingUrl,
+          transcript: interview.transcript,
+          feedback: interview.feedback,
+          notes: interview.notes,
+          createdAt: interview.createdAt,
+          updatedAt: interview.updatedAt,
+      };
+    }).then(async (interview) => {
+        // Send interview invitation email (after transaction commits)
+        try {
+            await InterviewInvitationEmailService.sendInterviewInvitation(interview);
+        } catch (error) {
+            console.error('Failed to send interview invitation email:', error);
+        }
+        return interview;
     });
   }
 
@@ -1068,7 +1098,7 @@ export class InterviewService {
     }
 
     if (filters?.jobRoundId) {
-      where.jobRoundId = filters.jobRoundId;
+      where.job_round_id = filters.jobRoundId;
     }
 
     if (filters?.status) {

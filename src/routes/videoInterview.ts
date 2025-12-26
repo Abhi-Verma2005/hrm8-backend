@@ -15,6 +15,9 @@ router.post('/', authenticate, VideoInterviewController.scheduleManual);
 router.post('/auto-schedule', authenticate, VideoInterviewController.generateAISuggestions);
 router.post('/finalize', authenticate, VideoInterviewController.finalizeInterviews);
 router.post('/:id/send-invitation', authenticate, VideoInterviewController.sendInterviewInvitation);
+router.post('/:id/feedback', authenticate, VideoInterviewController.addFeedback);
+router.patch('/:id/status', authenticate, VideoInterviewController.updateStatus);
+router.get('/:id/progression-status', authenticate, VideoInterviewController.getProgressionStatus);
 router.get('/job/:jobId/calendar', authenticate, VideoInterviewController.getJobCalendarEvents);
 
 export default router;

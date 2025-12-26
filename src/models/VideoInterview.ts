@@ -34,6 +34,7 @@ export interface VideoInterviewData {
   recordingUrl?: string | null;
   transcript?: any;
   feedback?: any;
+  interviewFeedbacks?: any[];
   notes?: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -51,22 +52,22 @@ export class VideoInterviewModel {
         applicationId: data.applicationId,
         candidateId: data.candidateId,
         jobId: data.jobId,
-        jobRoundId: data.jobRoundId ?? null,
+        job_round_id: data.jobRoundId ?? null,
         scheduledDate: data.scheduledDate,
         duration: data.duration,
         meetingLink: data.meetingLink ?? null,
         status: data.status as any,
         type: data.type as any,
         interviewerIds: data.interviewerIds,
-        isAutoScheduled: data.isAutoScheduled ?? false,
-        rescheduledFrom: data.rescheduledFrom ?? null,
-        rescheduledAt: data.rescheduledAt ?? null,
-        rescheduledBy: data.rescheduledBy ?? null,
-        cancellationReason: data.cancellationReason ?? null,
-        noShowReason: data.noShowReason ?? null,
-        overallScore: data.overallScore ?? null,
+        is_auto_scheduled: data.isAutoScheduled ?? false,
+        rescheduled_from: data.rescheduledFrom ?? null,
+        rescheduled_at: data.rescheduledAt ?? null,
+        rescheduled_by: data.rescheduledBy ?? null,
+        cancellation_reason: data.cancellationReason ?? null,
+        no_show_reason: data.noShowReason ?? null,
+        overall_score: data.overallScore ?? null,
         recommendation: data.recommendation as any ?? null,
-        ratingCriteriaScores: data.ratingCriteriaScores ?? null,
+        rating_criteria_scores: data.ratingCriteriaScores ?? null,
         recordingUrl: data.recordingUrl ?? null,
         transcript: data.transcript ?? null,
         feedback: data.feedback ?? null,
@@ -88,22 +89,22 @@ export class VideoInterviewModel {
     if (data.applicationId !== undefined) updateData.applicationId = data.applicationId;
     if (data.candidateId !== undefined) updateData.candidateId = data.candidateId;
     if (data.jobId !== undefined) updateData.jobId = data.jobId;
-    if (data.jobRoundId !== undefined) updateData.jobRoundId = data.jobRoundId;
+    if (data.jobRoundId !== undefined) updateData.job_round_id = data.jobRoundId;
     if (data.scheduledDate !== undefined) updateData.scheduledDate = data.scheduledDate;
     if (data.duration !== undefined) updateData.duration = data.duration;
     if (data.meetingLink !== undefined) updateData.meetingLink = data.meetingLink;
     if (data.status !== undefined) updateData.status = data.status as any;
     if (data.type !== undefined) updateData.type = data.type as any;
     if (data.interviewerIds !== undefined) updateData.interviewerIds = data.interviewerIds;
-    if (data.isAutoScheduled !== undefined) updateData.isAutoScheduled = data.isAutoScheduled;
-    if (data.rescheduledFrom !== undefined) updateData.rescheduledFrom = data.rescheduledFrom;
-    if (data.rescheduledAt !== undefined) updateData.rescheduledAt = data.rescheduledAt;
-    if (data.rescheduledBy !== undefined) updateData.rescheduledBy = data.rescheduledBy;
-    if (data.cancellationReason !== undefined) updateData.cancellationReason = data.cancellationReason;
-    if (data.noShowReason !== undefined) updateData.noShowReason = data.noShowReason;
-    if (data.overallScore !== undefined) updateData.overallScore = data.overallScore;
+    if (data.isAutoScheduled !== undefined) updateData.is_auto_scheduled = data.isAutoScheduled;
+    if (data.rescheduledFrom !== undefined) updateData.rescheduled_from = data.rescheduledFrom;
+    if (data.rescheduledAt !== undefined) updateData.rescheduled_at = data.rescheduledAt;
+    if (data.rescheduledBy !== undefined) updateData.rescheduled_by = data.rescheduledBy;
+    if (data.cancellationReason !== undefined) updateData.cancellation_reason = data.cancellationReason;
+    if (data.noShowReason !== undefined) updateData.no_show_reason = data.noShowReason;
+    if (data.overallScore !== undefined) updateData.overall_score = data.overallScore;
     if (data.recommendation !== undefined) updateData.recommendation = data.recommendation as any;
-    if (data.ratingCriteriaScores !== undefined) updateData.ratingCriteriaScores = data.ratingCriteriaScores;
+    if (data.ratingCriteriaScores !== undefined) updateData.rating_criteria_scores = data.ratingCriteriaScores;
     if (data.recordingUrl !== undefined) updateData.recordingUrl = data.recordingUrl;
     if (data.transcript !== undefined) updateData.transcript = data.transcript;
     if (data.feedback !== undefined) updateData.feedback = data.feedback;
@@ -123,6 +124,7 @@ export class VideoInterviewModel {
   static async findByJobId(jobId: string): Promise<VideoInterviewData[]> {
     const interviews = await prisma.videoInterview.findMany({
       where: { jobId },
+      include: { InterviewFeedback: true },
       orderBy: { scheduledDate: 'asc' },
     });
 
@@ -135,6 +137,7 @@ export class VideoInterviewModel {
   static async findById(id: string): Promise<VideoInterviewData | null> {
     const interview = await prisma.videoInterview.findUnique({
       where: { id },
+      include: { InterviewFeedback: true },
     });
 
     if (!interview) {
@@ -150,6 +153,7 @@ export class VideoInterviewModel {
   static async findByApplicationId(applicationId: string): Promise<VideoInterviewData[]> {
     const interviews = await prisma.videoInterview.findMany({
       where: { applicationId },
+      include: { InterviewFeedback: true },
       orderBy: { scheduledDate: 'asc' },
     });
 
@@ -185,6 +189,7 @@ export class VideoInterviewModel {
           in: jobIds,
         },
       },
+      include: { InterviewFeedback: true },
       orderBy: { scheduledDate: 'asc' },
     });
 
@@ -200,25 +205,26 @@ export class VideoInterviewModel {
       applicationId: prismaInterview.applicationId,
       candidateId: prismaInterview.candidateId,
       jobId: prismaInterview.jobId,
-      jobRoundId: prismaInterview.jobRoundId,
+      jobRoundId: prismaInterview.job_round_id,
       scheduledDate: prismaInterview.scheduledDate,
       duration: prismaInterview.duration,
       meetingLink: prismaInterview.meetingLink,
       status: prismaInterview.status,
       type: prismaInterview.type,
       interviewerIds: prismaInterview.interviewerIds,
-      isAutoScheduled: prismaInterview.isAutoScheduled ?? false,
-      rescheduledFrom: prismaInterview.rescheduledFrom,
-      rescheduledAt: prismaInterview.rescheduledAt,
-      rescheduledBy: prismaInterview.rescheduledBy,
-      cancellationReason: prismaInterview.cancellationReason,
-      noShowReason: prismaInterview.noShowReason,
-      overallScore: prismaInterview.overallScore,
+      isAutoScheduled: prismaInterview.is_auto_scheduled ?? false,
+      rescheduledFrom: prismaInterview.rescheduled_from,
+      rescheduledAt: prismaInterview.rescheduled_at,
+      rescheduledBy: prismaInterview.rescheduled_by,
+      cancellationReason: prismaInterview.cancellation_reason,
+      noShowReason: prismaInterview.no_show_reason,
+      overallScore: prismaInterview.overall_score,
       recommendation: prismaInterview.recommendation,
-      ratingCriteriaScores: prismaInterview.ratingCriteriaScores,
+      ratingCriteriaScores: prismaInterview.rating_criteria_scores,
       recordingUrl: prismaInterview.recordingUrl,
       transcript: prismaInterview.transcript,
       feedback: prismaInterview.feedback,
+      interviewFeedbacks: prismaInterview.InterviewFeedback ?? [],
       notes: prismaInterview.notes,
       createdAt: prismaInterview.createdAt,
       updatedAt: prismaInterview.updatedAt,

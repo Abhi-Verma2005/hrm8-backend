@@ -537,6 +537,125 @@ export class VideoInterviewController {
       });
     }
   }
+
+  /**
+   * Add feedback to an interview
+   * POST /api/video-interviews/:id/feedback
+   */
+  static async addFeedback(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || !req.user.companyId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { overallRating, notes, recommendation } = req.body;
+
+      if (overallRating === undefined) {
+        res.status(400).json({
+          success: false,
+          error: 'overallRating is required',
+        });
+        return;
+      }
+
+      const interview = await VideoInterviewService.addFeedback(id, {
+        interviewerId: req.user.id,
+        interviewerName: req.user.name || 'Unknown',
+        interviewerEmail: req.user.email,
+        overallRating,
+        notes,
+        recommendation,
+      });
+
+      res.json({
+        success: true,
+        data: { interview },
+        message: 'Feedback submitted successfully',
+      });
+    } catch (error) {
+      console.error('[VideoInterviewController.addFeedback] error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to submit feedback',
+      });
+    }
+  }
+
+  /**
+   * Update interview status
+   * PATCH /api/video-interviews/:id/status
+   */
+  static async updateStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || !req.user.companyId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!status) {
+        res.status(400).json({
+          success: false,
+          error: 'status is required',
+        });
+        return;
+      }
+
+      const interview = await VideoInterviewService.updateStatus(id, status);
+
+      res.json({
+        success: true,
+        data: { interview },
+        message: 'Status updated successfully',
+      });
+    } catch (error) {
+      console.error('[VideoInterviewController.updateStatus] error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update status',
+      });
+    }
+  }
+
+  /**
+   * Check progression status
+   * GET /api/video-interviews/:id/progression-status
+   */
+  static async getProgressionStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || !req.user.companyId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+      const status = await VideoInterviewService.getProgressionStatus(id);
+
+      res.json({
+        success: true,
+        data: status,
+      });
+    } catch (error) {
+      console.error('[VideoInterviewController.getProgressionStatus] error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get progression status',
+      });
+    }
+  }
 }
 
 

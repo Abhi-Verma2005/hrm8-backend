@@ -28,12 +28,14 @@ model Company {
   preferredRecruiterId String?                   @map("preferred_recruiter_id")
   created_by           String?
   licensee_id          String?
-  referred_by          String?
   region_owner_type    RegionOwnerType           @default(HRM8)
   commission_status    CommissionStatus          @default(PENDING)
+  priceBookId          String?                   @map("price_book_id")
+  referred_by          String?
   AccountTeam          AccountTeam[]
   Activity             Activity[]
   Bill                 Bill[]
+  priceBook            PriceBook?                @relation(fields: [priceBookId], references: [id])
   region               Region?                   @relation(fields: [regionId], references: [id])
   profile              CompanyProfile?
   CompanySettings      CompanySettings?
@@ -49,8 +51,6 @@ model Company {
   Subscription         Subscription[]
   users                User[]
   verificationTokens   VerificationToken[]
-  priceBookId          String?                   @map("price_book_id")
-  priceBook            PriceBook?                @relation(fields: [priceBookId], references: [id])
 
   @@index([domain])
   @@index([verificationStatus])
@@ -959,9 +959,9 @@ model Region {
   consultants   Consultant[]
   jobs          Job[]
   Lead          Lead[]
+  priceBooks    PriceBook[]
   licensee      RegionalLicensee? @relation(fields: [licenseeId], references: [id])
   revenue       RegionalRevenue[]
-  priceBooks    PriceBook[]
 
   @@index([isActive])
   @@index([licenseeId])
@@ -1297,8 +1297,6 @@ model InterviewConfiguration {
   created_at                 DateTime        @default(now())
   updated_at                 DateTime
   assigned_interviewer_ids   String[]        @default([])
-  recruiter_email            String?
-  recruiter_name             String?
   JobRound                   JobRound        @relation(fields: [job_round_id], references: [id], onDelete: Cascade)
 
   @@index([job_round_id])
@@ -1796,6 +1794,120 @@ model ResumeAnnotation {
   CandidateResume CandidateResume @relation(fields: [resume_id], references: [id], onDelete: Cascade)
 
   @@index([resume_id])
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  name        String
+  code        String      @unique
+  description String?
+  category    String
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  tiers       PriceTier[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model PriceBook {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  isGlobal    Boolean     @default(false) @map("is_global")
+  regionId    String?     @map("region_id")
+  currency    String      @default("USD")
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  companies   Company[]
+  region      Region?     @relation(fields: [regionId], references: [id])
+  tiers       PriceTier[]
+
+  @@index([regionId])
+  @@index([isGlobal])
+}
+
+model PriceTier {
+  id          String    @id @default(uuid())
+  priceBookId String    @map("price_book_id")
+  productId   String    @map("product_id")
+  name        String
+  minQuantity Int       @default(1) @map("min_quantity")
+  maxQuantity Int?      @map("max_quantity")
+  unitPrice   Float     @map("unit_price")
+  period      String    @default("MONTHLY")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  priceBook   PriceBook @relation(fields: [priceBookId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@index([priceBookId])
+  @@index([productId])
+}
+
+model PromoCode {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  description   String?
+  discountType  String
+  discountValue Float     @map("discount_value")
+  startDate     DateTime  @map("start_date")
+  endDate       DateTime? @map("end_date")
+  maxUses       Int?      @map("max_uses")
+  usedCount     Int       @default(0) @map("used_count")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model GlobalIntegration {
+  id          String   @id @default(uuid())
+  provider    String   @unique
+  name        String
+  category    String
+  apiKey      String?  @map("api_key")
+  apiSecret   String?  @map("api_secret")
+  endpointUrl String?  @map("endpoint_url")
+  config      Json?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([provider])
+}
+
+model Settlement {
+  id            String           @id @default(uuid())
+  licenseeId    String           @map("licensee_id")
+  periodStart   DateTime         @map("period_start")
+  periodEnd     DateTime         @map("period_end")
+  totalRevenue  Float            @map("total_revenue")
+  licenseeShare Float            @map("licensee_share")
+  hrm8Share     Float            @map("hrm8_share")
+  status        String           @default("PENDING")
+  paymentDate   DateTime?        @map("payment_date")
+  reference     String?
+  generatedAt   DateTime         @default(now()) @map("generated_at")
+  licensee      RegionalLicensee @relation(fields: [licenseeId], references: [id])
+
+  @@index([licenseeId])
+  @@index([status])
+}
+
+model DunningPolicy {
+  id            String   @id @default(uuid())
+  name          String
+  daysOverdue   Int      @map("days_overdue")
+  action        String
+  emailTemplate String?  @map("email_template")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 }
 
 enum UserRole {
@@ -2309,7 +2421,6 @@ enum PaymentStatus {
   REFUNDED
 }
 
-
 enum EmailStatus {
   SENT
   DELIVERED
@@ -2335,119 +2446,3 @@ enum TriggerType {
   SCHEDULED
   CONDITIONAL
 }
-
-model Product {
-  id          String   @id @default(uuid())
-  name        String
-  code        String   @unique
-  description String?
-  category    String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  tiers       PriceTier[]
-
-  @@index([category])
-  @@index([isActive])
-}
-
-model PriceBook {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  isGlobal    Boolean  @default(false) @map("is_global")
-  regionId    String?  @map("region_id")
-  currency    String   @default("USD")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  region      Region?  @relation(fields: [regionId], references: [id])
-  tiers       PriceTier[]
-  companies   Company[]
-
-  @@index([regionId])
-  @@index([isGlobal])
-}
-
-model PriceTier {
-  id          String    @id @default(uuid())
-  priceBookId String    @map("price_book_id")
-  productId   String    @map("product_id")
-  name        String
-  minQuantity Int       @default(1) @map("min_quantity")
-  maxQuantity Int?      @map("max_quantity")
-  unitPrice   Float     @map("unit_price")
-  period      String    @default("MONTHLY")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  priceBook   PriceBook @relation(fields: [priceBookId], references: [id], onDelete: Cascade)
-  product     Product   @relation(fields: [productId], references: [id])
-
-  @@index([priceBookId])
-  @@index([productId])
-}
-
-model PromoCode {
-  id            String   @id @default(uuid())
-  code          String   @unique
-  description   String?
-  discountType  String
-  discountValue Float    @map("discount_value")
-  startDate     DateTime @map("start_date")
-  endDate       DateTime? @map("end_date")
-  maxUses       Int?     @map("max_uses")
-  usedCount     Int      @default(0) @map("used_count")
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  @@index([code])
-  @@index([isActive])
-}
-
-model GlobalIntegration {
-  id          String   @id @default(uuid())
-  provider    String   @unique
-  name        String
-  category    String
-  apiKey      String?  @map("api_key")
-  apiSecret   String?  @map("api_secret")
-  endpointUrl String?  @map("endpoint_url")
-  config      Json?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  @@index([provider])
-}
-
-model Settlement {
-  id            String           @id @default(uuid())
-  licenseeId    String           @map("licensee_id")
-  periodStart   DateTime         @map("period_start")
-  periodEnd     DateTime         @map("period_end")
-  totalRevenue  Float            @map("total_revenue")
-  licenseeShare Float            @map("licensee_share")
-  hrm8Share     Float            @map("hrm8_share")
-  status        String           @default("PENDING")
-  paymentDate   DateTime?        @map("payment_date")
-  reference     String?
-  generatedAt   DateTime         @default(now()) @map("generated_at")
-  licensee      RegionalLicensee @relation(fields: [licenseeId], references: [id])
-
-  @@index([licenseeId])
-  @@index([status])
-}
-
-model DunningPolicy {
-  id            String   @id @default(uuid())
-  name          String
-  daysOverdue   Int      @map("days_overdue")
-  action        String
-  emailTemplate String?  @map("email_template")
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-}
-
-

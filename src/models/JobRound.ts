@@ -26,7 +26,7 @@ export class JobRoundModel {
 
   static async findByJobId(jobId: string): Promise<JobRoundData[]> {
     const rounds = await prisma.jobRound.findMany({
-      where: { jobId },
+      where: { job_id: jobId },
       orderBy: { order: 'asc' },
     });
 
@@ -36,7 +36,7 @@ export class JobRoundModel {
   static async findByJobIdAndFixedKey(jobId: string, fixedKey: string): Promise<JobRoundData | null> {
     const round = await prisma.jobRound.findFirst({
       where: {
-        jobId,
+        job_id:jobId,
         isFixed: true,
         fixedKey,
       },

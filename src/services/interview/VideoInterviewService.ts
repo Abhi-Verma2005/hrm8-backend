@@ -1,4 +1,6 @@
+import crypto from 'crypto';
 import { VideoInterviewModel, type VideoInterviewData } from '../../models/VideoInterview';
+import prisma from '../../lib/prisma';
 import { ApplicationModel } from '../../models/Application';
 import { JobModel } from '../../models/Job';
 import { GoogleCalendarService } from '../integrations/GoogleCalendarService';
@@ -127,6 +129,145 @@ export class VideoInterviewService {
     options?: { jobId?: string }
   ): Promise<VideoInterviewData[]> {
     return await VideoInterviewModel.findByCompanyId(companyId, options);
+  }
+
+  static async updateStatus(id: string, status: string): Promise<VideoInterviewData> {
+    return await VideoInterviewModel.update(id, { status });
+  }
+
+  /**
+   * Mark an interview as complete
+   */
+  static async markAsComplete(id: string): Promise<VideoInterviewData> {
+    return await this.updateStatus(id, 'COMPLETED');
+  }
+
+  /**
+   * Check if the interview can proceed to next stage (all assigned interviewers have graded)
+   */
+  static async getProgressionStatus(interviewId: string): Promise<{
+    canProgress: boolean;
+    missingInterviewers: string[];
+    submittedCount: number;
+    totalCount: number;
+    requiresAllInterviewers: boolean;
+  }> {
+    const interview = await VideoInterviewModel.findById(interviewId);
+    if (!interview) {
+      throw new Error('Interview not found');
+    }
+
+    // Default response
+    const result = {
+      canProgress: true,
+      missingInterviewers: [] as string[],
+      submittedCount: 0,
+      totalCount: 0,
+      requiresAllInterviewers: false,
+    };
+
+    // If no job round, we assume manual process and allow progression
+    if (!interview.jobRoundId) {
+      return result;
+    }
+
+    // Check configuration
+    // Note: Prisma client typically maps snake_case DB fields to camelCase properties
+    // We try to access using camelCase if possible, or fallback to snake_case if typed as such
+    // Based on linter feedback, we should use camelCase
+    const config = await prisma.interviewConfiguration.findUnique({
+      where: { jobRoundId: interview.jobRoundId },
+    });
+
+    if (!config || !config.requireAllInterviewers) {
+      return result;
+    }
+
+    result.requiresAllInterviewers = true;
+
+    // Get assigned interviewers
+    const assignedInterviewerIds: string[] = Array.isArray(interview.interviewerIds) 
+      ? interview.interviewerIds 
+      : [];
+    
+    result.totalCount = assignedInterviewerIds.length;
+
+    if (result.totalCount === 0) {
+      return result;
+    }
+
+    // Get submitted feedbacks
+    const feedbacks = await prisma.interviewFeedback.findMany({
+      where: { videoInterviewId: interviewId },
+      select: { interviewerId: true },
+    });
+
+    const submittedInterviewerIds = feedbacks
+      .map(f => f.interviewerId)
+      .filter((id): id is string => !!id);
+
+    result.submittedCount = submittedInterviewerIds.length;
+
+    // Find missing
+    const missing = assignedInterviewerIds.filter(id => !submittedInterviewerIds.includes(id));
+    result.missingInterviewers = missing;
+
+    if (missing.length > 0) {
+      result.canProgress = false;
+    }
+
+    return result;
+  }
+
+  /**
+   * Add feedback to an interview
+   */
+  static async addFeedback(
+    interviewId: string,
+    data: {
+      interviewerId: string;
+      interviewerName: string;
+      interviewerEmail?: string;
+      overallRating: number;
+      notes?: string;
+      recommendation?: string;
+    }
+  ): Promise<VideoInterviewData> {
+    // 1. Create the feedback record
+    await prisma.interviewFeedback.create({
+      data: {
+        id: crypto.randomUUID(),
+        video_interview_id: interviewId,
+        interviewer_id: data.interviewerId,
+        interviewer_name: data.interviewerName,
+        interviewer_email: data.interviewerEmail,
+        overall_rating: data.overallRating,
+        notes: data.notes,
+        recommendation: data.recommendation as any,
+        submitted_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+
+    // 2. Calculate new average score
+    const allFeedbacks = await prisma.interviewFeedback.findMany({
+      where: { video_interview_id: interviewId },
+    });
+
+    const totalScore = allFeedbacks.reduce((sum, fb) => sum + (fb.overall_rating || 0), 0);
+    const averageScore = totalScore / allFeedbacks.length;
+
+    // 3. Update the interview with the new average
+    // VideoInterviewModel handles the mapping internally
+    await VideoInterviewModel.update(interviewId, {
+      overallScore: averageScore,
+    });
+    
+    // 4. Return the updated interview
+    const finalInterview = await VideoInterviewModel.findById(interviewId);
+    if (!finalInterview) throw new Error('Interview not found after update');
+    
+    return finalInterview;
   }
 }
 
