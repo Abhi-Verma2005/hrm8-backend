@@ -6,6 +6,8 @@
 import { Response } from 'express';
 import { CandidateAuthenticatedRequest } from '../../middleware/candidateAuth';
 import { CloudinaryService } from '../../services/storage/CloudinaryService';
+import { CandidateDocumentService } from '../../services/candidate/CandidateDocumentService';
+import { DocumentParserService } from '../../services/document/DocumentParserService';
 import multer from 'multer';
 
 // Configure multer for memory storage
@@ -84,6 +86,35 @@ export class ApplicationUploadController {
         folder,
         resourceType: 'raw', // All application documents are raw files
       });
+
+      // If it's a resume, also save it to the CandidateResume table
+      if (fileType === 'resume') {
+        try {
+          // Parse document content
+          let content: string | undefined;
+          try {
+            const parsedDoc = await DocumentParserService.parseDocument(req.file);
+            content = parsedDoc.text;
+          } catch (parseError: any) {
+            console.warn('[ApplicationUploadController] Failed to parse resume content:', parseError);
+            content = `[Parsing Error] ${parseError.message}`;
+          }
+
+          // Save to CandidateResume table
+          await CandidateDocumentService.uploadResume(
+            candidate.id,
+            req.file.originalname,
+            result.secureUrl,
+            req.file.size,
+            req.file.mimetype,
+            content
+          );
+          console.log('[ApplicationUploadController] Resume saved to CandidateResume table');
+        } catch (dbError) {
+          console.error('[ApplicationUploadController] Failed to save resume to database:', dbError);
+          // Don't fail the upload response, just log the error
+        }
+      }
 
       res.json({
         success: true,

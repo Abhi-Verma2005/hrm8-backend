@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 import { CandidateDocumentService } from '../../services/candidate/CandidateDocumentService';
 import { CloudinaryService } from '../../services/storage/CloudinaryService';
 import { LocalStorageService } from '../../services/storage/LocalStorageService';
+import { DocumentParserService } from '../../services/document/DocumentParserService';
 
 export class CandidateDocumentController {
     // ========== Resume Endpoints ==========
@@ -48,6 +49,17 @@ export class CandidateDocumentController {
                 return;
             }
 
+            // Parse document content
+            let content: string | undefined;
+            try {
+                const parsedDoc = await DocumentParserService.parseDocument(req.file);
+                content = parsedDoc.text;
+            } catch (error: any) {
+                console.warn('Failed to parse document content:', error);
+                // Continue without content but log error in content field
+                content = `[Parsing Error] ${error.message}`;
+            }
+
             // Upload to Cloudinary
             let fileUrl: string;
             if (CloudinaryService.isConfigured()) {
@@ -71,7 +83,8 @@ export class CandidateDocumentController {
                 req.file.originalname,
                 fileUrl,
                 req.file.size,
-                req.file.mimetype
+                req.file.mimetype,
+                content
             );
 
             res.json({ success: true, data: resume });

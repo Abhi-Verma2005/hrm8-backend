@@ -53,6 +53,7 @@ router.get('/', authenticateCandidate, ApplicationController.getCandidateApplica
 
 // Recruiter routes (require company authentication)
 router.get('/admin/:id', authenticate, ApplicationController.getApplicationForAdmin);
+router.get('/:id/resume', authenticate, ApplicationController.getApplicationResume);
 // Get applications for a job (must come before /:id to avoid route conflicts)
 router.get('/job/:jobId', authenticate, ApplicationController.getJobApplications);
 

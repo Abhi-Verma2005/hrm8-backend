@@ -34,6 +34,24 @@ export interface CandidateScoringResult {
     culturalFitAnalysis: string;
     overallAssessment: string;
   };
+  // Enhanced AI Insights
+  summary: string;
+  behavioralTraits: string[];
+  communicationStyle: string;
+  careerTrajectory: string;
+  flightRisk: {
+    level: 'Low' | 'Medium' | 'High';
+    reason: string;
+  };
+  salaryBenchmark: {
+    position: 'Below' | 'Within' | 'Above';
+    marketRange: string;
+  };
+  culturalFit: {
+    score: number;
+    analysis: string;
+    valuesMatched: string[];
+  };
   analyzedAt: string;
 }
 
@@ -137,6 +155,9 @@ Analyze candidates based on:
 3. **Education Background**: Educational qualifications and certifications
 4. **Interview Performance**: If interview feedback is available
 5. **Cultural Fit**: Alignment with company values and team dynamics
+6. **Behavioral Profile**: Psychological traits, communication style, and potential team dynamics
+7. **Retention Risk**: Likelihood of the candidate staying long-term based on history
+8. **Market Value**: Estimated compensation alignment
 
 Provide detailed analysis with specific examples and evidence from the candidate's profile.`;
 
@@ -180,6 +201,15 @@ Provide a comprehensive analysis including:
    - Education Analysis: Assessment of educational background
    - Cultural Fit Analysis: Assessment of cultural alignment
    - Overall Assessment: Comprehensive summary
+
+8. **Enhanced Insights**:
+   - **Executive Summary**: A concise 2-3 sentence bio of the candidate.
+   - **Behavioral Traits**: List 3-5 key personality traits (e.g., "Leadership", "Analytical").
+   - **Communication Style**: Describe how they communicate (e.g., "Direct", "Collaborative").
+   - **Career Trajectory**: Describe their growth pattern (e.g., "Fast-tracked", "Stable").
+   - **Flight Risk**: Assess risk (Low/Medium/High) and provide a reason based on tenure history.
+   - **Salary Benchmark**: Estimate if they are Below/Within/Above market rate for this role.
+   - **Cultural Fit Detail**: Score (0-100) and list specific company values they match.
 
 Be specific, objective, and provide actionable insights.`;
 
@@ -242,8 +272,43 @@ Be specific, objective, and provide actionable insights.`;
                     },
                     required: ['skillsAnalysis', 'experienceAnalysis', 'educationAnalysis', 'culturalFitAnalysis', 'overallAssessment'],
                   },
+                  summary: { type: 'string' },
+                  behavioralTraits: { 
+                    type: 'array',
+                    items: { type: 'string' }
+                  },
+                  communicationStyle: { type: 'string' },
+                  careerTrajectory: { type: 'string' },
+                  flightRisk: {
+                    type: 'object',
+                    properties: {
+                      level: { type: 'string', enum: ['Low', 'Medium', 'High'] },
+                      reason: { type: 'string' }
+                    },
+                    required: ['level', 'reason']
+                  },
+                  salaryBenchmark: {
+                    type: 'object',
+                    properties: {
+                      position: { type: 'string', enum: ['Below', 'Within', 'Above'] },
+                      marketRange: { type: 'string' }
+                    },
+                    required: ['position', 'marketRange']
+                  },
+                  culturalFit: {
+                    type: 'object',
+                    properties: {
+                      score: { type: 'number', minimum: 0, maximum: 100 },
+                      analysis: { type: 'string' },
+                      valuesMatched: { 
+                        type: 'array',
+                        items: { type: 'string' }
+                      }
+                    },
+                    required: ['score', 'analysis', 'valuesMatched']
+                  }
                 },
-                required: ['scores', 'strengths', 'concerns', 'recommendation', 'justification', 'improvementAreas', 'detailedAnalysis'],
+                required: ['scores', 'strengths', 'concerns', 'recommendation', 'justification', 'improvementAreas', 'detailedAnalysis', 'summary', 'behavioralTraits', 'communicationStyle', 'careerTrajectory', 'flightRisk', 'salaryBenchmark', 'culturalFit'],
               },
             },
           },

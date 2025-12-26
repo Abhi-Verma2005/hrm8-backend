@@ -19,6 +19,26 @@ export class CandidateDocumentService {
     }
 
     /**
+     * Get a specific resume
+     */
+    static async getResume(resumeId: string) {
+        const { prisma } = await import('../../lib/prisma');
+        return await prisma.candidateResume.findUnique({
+            where: { id: resumeId },
+        });
+    }
+
+    /**
+     * Find resume by URL
+     */
+    static async findByUrl(fileUrl: string) {
+        const { prisma } = await import('../../lib/prisma');
+        return await prisma.candidateResume.findFirst({
+            where: { fileUrl: fileUrl },
+        });
+    }
+
+    /**
      * Upload a new resume
      */
     static async uploadResume(
@@ -26,7 +46,8 @@ export class CandidateDocumentService {
         fileName: string,
         fileUrl: string,
         fileSize: number,
-        fileType: string
+        fileType: string,
+        content?: string
     ) {
         const { prisma } = await import('../../lib/prisma');
 
@@ -49,6 +70,7 @@ export class CandidateDocumentService {
                 fileType: fileType,
                 version: nextVersion,
                 isDefault: false, // New uploads are not default by default
+                content: content,
             },
         });
     }

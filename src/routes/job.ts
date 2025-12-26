@@ -189,6 +189,13 @@ router.get(
   AssessmentController.getAssessmentConfig
 );
 
+// Get all assessments for a round (requires job posting permission)
+router.get(
+  '/:jobId/rounds/:roundId/assessments',
+  requireJobPostingPermission,
+  AssessmentController.getRoundAssessments
+);
+
 // Configure assessment for a round (requires job posting permission)
 router.post(
   '/:jobId/rounds/:roundId/assessment-config',

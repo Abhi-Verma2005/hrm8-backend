@@ -3503,6 +3503,227 @@ The Hiring Team
       throw new Error('Failed to send offer accepted email');
     }
   }
+
+  /**
+   * Render template with merge fields
+   */
+  renderTemplate(template: string, variables: Record<string, any>): string {
+    let rendered = template;
+    
+    // Replace all {{variableName}} with actual values
+    Object.keys(variables).forEach(key => {
+      const value = variables[key];
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+      rendered = rendered.replace(regex, value !== null && value !== undefined ? String(value) : '');
+    });
+    
+    return rendered;
+  }
+
+  /**
+   * Get template variables from candidate, application, and job data
+   */
+  async getTemplateVariables(data: {
+    candidateId: string;
+    applicationId?: string;
+    jobId: string;
+    jobRoundId?: string;
+    recruiterId?: string;
+    customVariables?: Record<string, any>;
+  }): Promise<Record<string, any>> {
+    const variables: Record<string, any> = {};
+
+    // Get candidate data
+    const { CandidateModel } = await import('../../models/Candidate');
+    const candidate = await CandidateModel.findById(data.candidateId);
+    if (candidate) {
+      variables.candidateName = `${candidate.firstName} ${candidate.lastName}`.trim();
+      variables.candidateFirstName = candidate.firstName;
+      variables.candidateLastName = candidate.lastName;
+      variables.candidateEmail = candidate.email;
+      variables.candidatePhone = candidate.phone || '';
+    }
+
+    // Get application data
+    if (data.applicationId) {
+      const { ApplicationModel } = await import('../../models/Application');
+      const application = await ApplicationModel.findById(data.applicationId);
+      if (application) {
+        variables.applicationDate = application.appliedDate.toLocaleDateString();
+        variables.currentStage = application.stage.replace(/_/g, ' ');
+        variables.applicationStatus = application.status;
+        variables.score = application.score || '';
+        variables.rank = application.rank || '';
+      }
+    }
+
+    // Get job data
+    const { JobModel } = await import('../../models/Job');
+    const job = await JobModel.findById(data.jobId);
+    if (job) {
+      variables.jobTitle = job.title;
+      variables.jobLocation = job.location;
+      variables.jobDepartment = job.department || '';
+      
+      // Get company name
+      const { CompanyModel } = await import('../../models/Company');
+      const company = await CompanyModel.findById(job.companyId);
+      if (company) {
+        variables.companyName = company.name;
+      }
+    }
+
+    // Get job round data
+    if (data.jobRoundId) {
+      const { JobRoundModel } = await import('../../models/JobRound');
+      const round = await JobRoundModel.findById(data.jobRoundId);
+      if (round) {
+        variables.roundName = round.name;
+        variables.roundType = round.type;
+      }
+    }
+
+    // Get recruiter data
+    if (data.recruiterId) {
+      const { prisma } = await import('../../lib/prisma');
+      const recruiter = await prisma.user.findUnique({
+        where: { id: data.recruiterId },
+      });
+      if (recruiter) {
+        variables.recruiterName = recruiter.name;
+        variables.recruiterEmail = recruiter.email;
+      }
+    }
+
+    // Add custom variables
+    if (data.customVariables) {
+      Object.assign(variables, data.customVariables);
+    }
+
+    return variables;
+  }
+
+  /**
+   * Send email using template
+   */
+  async sendTemplateEmail(data: {
+    templateId: string;
+    applicationId?: string;
+    candidateId: string;
+    jobId: string;
+    jobRoundId?: string;
+    senderId: string;
+    customVariables?: Record<string, any>;
+  }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    try {
+      // Get template
+      const { EmailTemplateModel } = await import('../../models/EmailTemplate');
+      const template = await EmailTemplateModel.findById(data.templateId);
+      
+      if (!template) {
+        throw new Error('Template not found');
+      }
+
+      if (!template.isActive) {
+        throw new Error('Template is not active');
+      }
+
+      // Get variables
+      const variables = await this.getTemplateVariables({
+        candidateId: data.candidateId,
+        applicationId: data.applicationId,
+        jobId: data.jobId,
+        jobRoundId: data.jobRoundId,
+        recruiterId: data.senderId,
+        customVariables: data.customVariables,
+      });
+
+      // Get sender info
+      const { prisma } = await import('../../lib/prisma');
+      const sender = await prisma.user.findUnique({
+        where: { id: data.senderId },
+      });
+      if (!sender) {
+        throw new Error('Sender not found');
+      }
+
+      // Render template
+      const subject = this.renderTemplate(template.subject, variables);
+      const body = this.renderTemplate(template.body, variables);
+
+      // Get candidate email
+      const { CandidateModel } = await import('../../models/Candidate');
+      const candidate = await CandidateModel.findById(data.candidateId);
+      if (!candidate) {
+        throw new Error('Candidate not found');
+      }
+
+      // Send email
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || sender.email;
+      const fromName = process.env.EMAIL_FROM_NAME || sender.name;
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: candidate.email,
+        subject,
+        html: body,
+        text: this.htmlToText(body),
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      // Save email message
+      const { EmailMessageModel } = await import('../../models/EmailMessage');
+      const emailMessage = await EmailMessageModel.create({
+        templateId: data.templateId,
+        applicationId: data.applicationId || null,
+        candidateId: data.candidateId,
+        jobId: data.jobId,
+        jobRoundId: data.jobRoundId || null,
+        to: candidate.email,
+        subject,
+        body,
+        status: 'SENT',
+        senderId: data.senderId,
+        senderEmail: sender.email,
+      });
+
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Template Email (Development Mode):');
+        console.log('To:', candidate.email);
+        console.log('Subject:', subject);
+        console.log('Template:', template.name);
+        console.log('---');
+      }
+
+      return {
+        success: true,
+        messageId: emailMessage.id,
+      };
+    } catch (error) {
+      console.error('Failed to send template email:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send template email',
+      };
+    }
+  }
+
+  /**
+   * Convert HTML to plain text (basic implementation)
+   */
+  private htmlToText(html: string): string {
+    return html
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .trim();
+  }
 }
 
 export const emailService = new EmailService();

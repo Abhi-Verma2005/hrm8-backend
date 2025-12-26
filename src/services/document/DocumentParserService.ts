@@ -8,8 +8,8 @@ import mammoth from 'mammoth';
 // Use require for CommonJS module pdf-parse
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const pdfParseModule = require('pdf-parse');
-// pdf-parse v2.x exports a PDFParse class
-const PDFParse = pdfParseModule.PDFParse || pdfParseModule;
+// pdf-parse v2.x exports a PDFParse class, but handle different import styles
+const PDFParse = pdfParseModule.default || pdfParseModule.PDFParse || pdfParseModule;
 
 export interface ParsedDocument {
   text: string;
@@ -27,21 +27,27 @@ export class DocumentParserService {
    */
   static async parsePDF(buffer: Buffer): Promise<ParsedDocument> {
     try {
+      console.log(`[DocumentParserService] Starting PDF parse. Buffer size: ${buffer.length}`);
+      
       // pdf-parse v2.x uses PDFParse class
       const parser = new PDFParse({ data: buffer });
       const textResult = await parser.getText();
       const infoResult = await parser.getInfo();
       
+      const text = textResult.text || '';
+      console.log(`[DocumentParserService] PDF parsed. Text length: ${text.length}`);
+
       return {
-        text: textResult.text || '',
+        text,
         metadata: {
           title: infoResult.info?.Title,
           author: infoResult.info?.Author,
           pages: infoResult.total || 0,
-          wordCount: (textResult.text || '').split(/\s+/).length,
+          wordCount: text.split(/\s+/).length,
         },
       };
     } catch (error) {
+      console.error('[DocumentParserService] PDF parsing failed:', error);
       throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

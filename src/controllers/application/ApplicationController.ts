@@ -13,8 +13,42 @@ import { JobModel } from '../../models/Job';
 import { CompanyService } from '../../services/company/CompanyService';
 import { JobInvitationModel } from '../../models/JobInvitation';
 import { ApplicationModel } from '../../models/Application';
+import { CandidateDocumentService } from '../../services/candidate/CandidateDocumentService';
 
 export class ApplicationController {
+  /**
+   * Get application resume
+   * GET /api/applications/:id/resume
+   */
+  static async getApplicationResume(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const application = await ApplicationModel.findById(id);
+
+      if (!application) {
+        res.status(404).json({ success: false, error: 'Application not found' });
+        return;
+      }
+
+      if (!application.resumeUrl) {
+        res.status(404).json({ success: false, error: 'Application has no resume' });
+        return;
+      }
+
+      const resume = await CandidateDocumentService.findByUrl(application.resumeUrl);
+      
+      if (!resume) {
+        res.status(404).json({ success: false, error: 'Resume document not found' });
+        return;
+      }
+
+      res.json({ success: true, data: resume });
+    } catch (error) {
+      console.error('Error fetching application resume:', error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+
   /**
    * Submit a new application (anonymous - auto-creates account)
    * POST /api/applications/anonymous
@@ -528,7 +562,7 @@ export class ApplicationController {
           JobRound: true,
         },
         orderBy: {
-          createdAt: 'desc',
+          updatedAt: 'desc',
         },
       });
 
@@ -536,7 +570,9 @@ export class ApplicationController {
       const progressByApplication = new Map<string, any>();
       roundProgress.forEach((progress) => {
         const existing = progressByApplication.get(progress.applicationId);
-        if (!existing || new Date(progress.createdAt) > new Date(existing.createdAt)) {
+        // Use updatedAt to determine the latest round activity, as re-entering a round
+        // updates the existing record via upsert without changing createdAt
+        if (!existing || new Date(progress.updatedAt) > new Date(existing.updatedAt)) {
           progressByApplication.set(progress.applicationId, progress);
         }
       });

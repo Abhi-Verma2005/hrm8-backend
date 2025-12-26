@@ -371,5 +371,321 @@ export class AssessmentController {
       });
     }
   }
-}
 
+  /**
+   * Get all assessments for a job round
+   * GET /api/jobs/:jobId/rounds/:roundId/assessments
+   */
+  static async getRoundAssessments(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      const { roundId } = req.params;
+
+      // Get current round order to check for progression
+      const currentRound = await prisma.jobRound.findUnique({
+        where: { id: roundId },
+        select: { order: true }
+      });
+
+      if (!currentRound) {
+        res.status(404).json({ success: false, error: 'Round not found' });
+        return;
+      }
+
+      // Get application details for these assessments
+      const assessmentsRaw = await prisma.assessment.findMany({
+        where: { job_round_id: roundId },
+        orderBy: { created_at: 'desc' }
+      });
+
+      const applicationIds = Array.from(new Set(assessmentsRaw.map(a => a.application_id)));
+      const applications = await prisma.application.findMany({
+        where: { id: { in: applicationIds } },
+        include: {
+          candidate: {
+            select: { firstName: true, lastName: true, email: true }
+          },
+          ApplicationRoundProgress: {
+            include: {
+              JobRound: {
+                select: { order: true }
+              }
+            }
+          }
+        }
+      });
+      const appMap = new Map(applications.map(app => [app.id, app]));
+
+      // Compute average score per assessment from all AssessmentGrade entries
+      const assessmentIds = assessmentsRaw.map(a => a.id);
+      const grades = await prisma.assessmentGrade.findMany({
+        where: {
+          AssessmentResponse: {
+            assessment_id: { in: assessmentIds }
+          }
+        },
+        select: {
+          score: true,
+          AssessmentResponse: { select: { assessment_id: true } }
+        }
+      });
+      const avgMap = new Map<string, { sum: number; count: number }>();
+      for (const g of grades) {
+        if (g.score === null || g.score === undefined) continue;
+        const aid = g.AssessmentResponse.assessment_id;
+        const prev = avgMap.get(aid) || { sum: 0, count: 0 };
+        prev.sum += g.score;
+        prev.count += 1;
+        avgMap.set(aid, prev);
+      }
+      // Map to friendly format
+      const mappedAssessments = assessmentsRaw.map(a => {
+        const app = appMap.get(a.application_id);
+        const name = app?.candidate ? `${app.candidate.firstName} ${app.candidate.lastName}` : '';
+        const email = app?.candidate?.email || '';
+        
+        // Check if candidate has moved to next round:
+        // 1. Explicitly marked as completed in this round
+        // 2. Has a progress record for a round with a higher order
+        const currentRoundProgress = app?.ApplicationRoundProgress?.find(p => p.jobRoundId === roundId);
+        const hasLaterRound = app?.ApplicationRoundProgress?.some(p => p.JobRound && p.JobRound.order > currentRound.order) || false;
+        const isMovedToNextRound = (currentRoundProgress?.completed || false) || hasLaterRound;
+        
+        return {
+          id: a.id,
+          applicationId: a.application_id,
+          candidateName: name,
+          candidateEmail: email,
+          status: a.status,
+          score: a.results ? (a.results as any).score : null,
+          averageScore: (() => {
+            const agg = avgMap.get(a.id);
+            if (!agg || agg.count === 0) return null;
+            return Number((agg.sum / agg.count).toFixed(2));
+          })(),
+          invitedAt: a.invited_at,
+          completedAt: a.completed_at,
+          invitationToken: a.invitation_token,
+          isMovedToNextRound: isMovedToNextRound,
+          applicationStage: app?.stage
+        };
+      });
+
+      res.json({
+        success: true,
+        data: mappedAssessments
+      });
+    } catch (error) {
+      console.error('[AssessmentController.getRoundAssessments] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get round assessments',
+      });
+    }
+  }
+
+  /**
+   * Resend assessment invitation
+   * POST /api/assessments/:id/resend
+   */
+  static async resendAssessmentInvitation(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      const { id } = req.params;
+
+      const assessmentData = await AssessmentModel.findById(id);
+      if (!assessmentData) {
+        res.status(404).json({ success: false, error: 'Assessment not found' });
+        return;
+      }
+
+      let token = assessmentData.invitationToken;
+      if (!token) {
+        token = AssessmentModel.generateInvitationToken();
+        await AssessmentModel.update(id, { invitationToken: token });
+      }
+
+      await prisma.assessment.update({
+        where: { id },
+        data: { invited_at: new Date() }
+      });
+
+      await AssessmentService.sendAssessmentInvitation(id, token);
+
+      res.json({
+        success: true,
+        data: { message: 'Invitation resent successfully' }
+      });
+    } catch (error) {
+       console.error('[AssessmentController.resendAssessmentInvitation] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resend invitation',
+      });
+    }
+  }
+
+  /**
+   * Get full assessment details for grading (including grades and comments)
+   * GET /api/assessments/:id/grading
+   */
+  static async getAssessmentForGrading(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      const { id } = req.params;
+
+      const assessment = await prisma.assessment.findUnique({
+        where: { id },
+        include: {
+          Application: {
+            select: {
+              candidate: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  email: true
+                }
+              }
+            }
+          },
+          AssessmentQuestion: {
+             orderBy: { order: 'asc' }
+          },
+          AssessmentResponse: {
+            include: {
+              AssessmentGrade: {
+                include: {
+                  User: { select: { id: true, name: true } }
+                }
+              }
+            }
+          },
+          AssessmentComment: {
+            include: {
+              User: { select: { id: true, name: true } }
+            },
+            orderBy: { created_at: 'desc' }
+          }
+        }
+      });
+
+      if (!assessment) {
+        res.status(404).json({ success: false, error: 'Assessment not found' });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: assessment
+      });
+    } catch (error) {
+      console.error('[AssessmentController.getAssessmentForGrading] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get assessment details',
+      });
+    }
+  }
+
+  /**
+   * Grade a specific question response
+   * POST /api/assessments/grade
+   */
+  static async gradeResponse(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      
+      const { responseId, score, comment } = req.body;
+      
+      if (!responseId) {
+        res.status(400).json({ success: false, error: 'Response ID is required' });
+        return;
+      }
+
+      const grade = await prisma.assessmentGrade.upsert({
+        where: {
+          assessment_response_id_user_id: {
+            assessment_response_id: responseId,
+            user_id: req.user.id
+          }
+        },
+        update: {
+          score: score,
+          comment: comment
+        },
+        create: {
+          assessment_response_id: responseId,
+          user_id: req.user.id,
+          score: score,
+          comment: comment
+        }
+      });
+
+      res.json({
+        success: true,
+        data: grade
+      });
+    } catch (error) {
+      console.error('[AssessmentController.gradeResponse] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to save grade',
+      });
+    }
+  }
+
+  /**
+   * Add overall comment to assessment
+   * POST /api/assessments/:id/comment
+   */
+  static async addAssessmentComment(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      
+      const { id } = req.params;
+      const { comment } = req.body;
+      
+      if (!comment) {
+        res.status(400).json({ success: false, error: 'Comment is required' });
+        return;
+      }
+
+      const newComment = await prisma.assessmentComment.create({
+        data: {
+          assessment_id: id,
+          user_id: req.user.id,
+          comment: comment
+        },
+        include: {
+          User: { select: { id: true, name: true } }
+        }
+      });
+
+      res.json({
+        success: true,
+        data: newComment
+      });
+    } catch (error) {
+      console.error('[AssessmentController.addAssessmentComment] error', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to add comment',
+      });
+    }
+  }
+}

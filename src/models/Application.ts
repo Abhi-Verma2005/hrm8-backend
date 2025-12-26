@@ -6,6 +6,35 @@
 import { ApplicationStatus, ApplicationStage, ManualScreeningStatus } from '@prisma/client';
 import prisma from '../lib/prisma';
 
+export interface CandidateEducation {
+  id: string;
+  institution: string;
+  degree: string;
+  field: string;
+  startDate?: Date;
+  endDate?: Date;
+  current: boolean;
+  grade?: string;
+  description?: string;
+}
+
+export interface CandidateSkill {
+  id: string;
+  name: string;
+  level?: string;
+}
+
+export interface CandidateWorkExperience {
+  id: string;
+  company: string;
+  role: string;
+  startDate: Date;
+  endDate?: Date;
+  current: boolean;
+  description?: string;
+  location?: string;
+}
+
 export interface ApplicationData {
   id: string;
   candidateId: string;
@@ -52,6 +81,9 @@ export interface ApplicationData {
     country?: string;
     emailVerified: boolean;
     status: string;
+    education?: CandidateEducation[];
+    skills?: CandidateSkill[];
+    workExperience?: CandidateWorkExperience[];
   };
   // Job information (included when fetched with relations)
   job?: {
@@ -130,7 +162,13 @@ export class ApplicationModel {
     const application = await prisma.application.findUnique({
       where: { id },
       include: {
-        candidate: true,
+        candidate: {
+          include: {
+            education: true,
+            skills: true,
+            workExperience: true,
+          }
+        },
         job: {
           include: {
             company: true,
@@ -502,6 +540,32 @@ export class ApplicationModel {
         country: prismaApplication.candidate.country ?? undefined,
         emailVerified: prismaApplication.candidate.emailVerified,
         status: prismaApplication.candidate.status,
+        education: prismaApplication.candidate.education?.map((edu: any) => ({
+          id: edu.id,
+          institution: edu.institution,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.start_date,
+          endDate: edu.end_date,
+          current: edu.current,
+          grade: edu.grade,
+          description: edu.description,
+        })),
+        skills: prismaApplication.candidate.skills?.map((skill: any) => ({
+          id: skill.id,
+          name: skill.name,
+          level: skill.level,
+        })),
+        workExperience: prismaApplication.candidate.workExperience?.map((exp: any) => ({
+          id: exp.id,
+          company: exp.company,
+          role: exp.role,
+          startDate: exp.start_date,
+          endDate: exp.end_date,
+          current: exp.current,
+          description: exp.description,
+          location: exp.location,
+        })),
       };
     }
 

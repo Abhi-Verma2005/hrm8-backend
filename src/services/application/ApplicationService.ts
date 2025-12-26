@@ -147,6 +147,124 @@ export class ApplicationService {
         console.error('Auto-scoring failed for application:', application.id, scoringError);
       });
 
+      // Auto-populate candidate profile from resume if available and profile is empty
+      if (applicationData.resumeUrl) {
+        // Run in background to avoid delaying response
+        (async () => {
+          try {
+            console.log(`📄 Attempting to auto-populate profile from resume for candidate ${candidate.id}`);
+            const { CandidateDocumentService } = await import('../candidate/CandidateDocumentService');
+            const { ResumeParserService } = await import('../ai/ResumeParserService');
+            const { CandidateService } = await import('../candidate/CandidateService');
+            const { CandidateQualificationsService } = await import('../candidate/CandidateQualificationsService');
+
+            // Find resume document
+            const resume = await CandidateDocumentService.findByUrl(applicationData.resumeUrl!);
+            
+            if (resume && resume.content) {
+              // Parse resume text
+              console.log('🤖 Parsing resume content for auto-population...');
+              const parsedResumeData = await ResumeParserService.parseResume({
+                text: resume.content,
+                metadata: {
+                  fileName: resume.fileName,
+                  fileType: resume.fileType,
+                  fileSize: resume.fileSize
+                }
+              });
+
+              // 1. Populate Skills (only if empty)
+              const existingSkillsCount = await prisma.candidateSkill.count({ where: { candidate_id: candidate.id } });
+              if (existingSkillsCount === 0 && parsedResumeData.skills && parsedResumeData.skills.length > 0) {
+                console.log(`🎯 Auto-populating ${parsedResumeData.skills.length} skills...`);
+                const skillsToSave = parsedResumeData.skills.map((skill: any) => ({
+                  name: typeof skill === 'string' ? skill : (skill.name || 'Unknown Skill'),
+                  level: skill.level || 'intermediate',
+                }));
+                await CandidateService.updateSkills(candidate.id, skillsToSave);
+              } else {
+                console.log(`ℹ️ Skills already exist or none found in resume (${existingSkillsCount} existing)`);
+              }
+
+              // 2. Populate Work Experience (only if empty)
+              const existingExpCount = await prisma.candidateWorkExperience.count({ where: { candidate_id: candidate.id } });
+              if (existingExpCount === 0 && parsedResumeData.workExperience && parsedResumeData.workExperience.length > 0) {
+                console.log(`💼 Auto-populating ${parsedResumeData.workExperience.length} work experience entries...`);
+                for (const exp of parsedResumeData.workExperience) {
+                  try {
+                    let startDate: Date;
+                    if (exp.startDate) {
+                      startDate = new Date(exp.startDate);
+                      if (isNaN(startDate.getTime())) startDate = new Date();
+                    } else {
+                      startDate = new Date();
+                    }
+
+                    let endDate: Date | null = null;
+                    if (exp.endDate) {
+                      endDate = new Date(exp.endDate);
+                      if (isNaN(endDate.getTime())) endDate = null;
+                    }
+
+                    await CandidateService.addWorkExperience(candidate.id, {
+                      company: exp.company || 'Unknown Company',
+                      role: exp.role || 'Unknown Role',
+                      startDate,
+                      endDate,
+                      current: exp.current || false,
+                      description: exp.description || undefined,
+                      location: exp.location || undefined,
+                    });
+                  } catch (e) {
+                    console.error('Error saving work experience:', e);
+                  }
+                }
+              } else {
+                console.log(`ℹ️ Work experience already exists or none found in resume (${existingExpCount} existing)`);
+              }
+
+              // 3. Populate Education (only if empty)
+              const existingEduCount = await prisma.candidateEducation.count({ where: { candidate_id: candidate.id } });
+              if (existingEduCount === 0 && parsedResumeData.education && parsedResumeData.education.length > 0) {
+                console.log(`🎓 Auto-populating ${parsedResumeData.education.length} education entries...`);
+                for (const edu of parsedResumeData.education) {
+                  try {
+                    let startDate: string | undefined;
+                    if (edu.startDate) {
+                      const date = new Date(edu.startDate);
+                      if (!isNaN(date.getTime())) startDate = date.toISOString();
+                    }
+
+                    let endDate: string | undefined;
+                    if (edu.endDate) {
+                      const date = new Date(edu.endDate);
+                      if (!isNaN(date.getTime())) endDate = date.toISOString();
+                    }
+
+                    await CandidateQualificationsService.addEducation(candidate.id, {
+                      institution: edu.institution || 'Unknown Institution',
+                      degree: edu.degree || 'Unknown Degree',
+                      field: edu.field || 'Unknown Field',
+                      startDate,
+                      endDate,
+                      current: edu.current || false,
+                      grade: edu.grade,
+                      description: edu.description,
+                    });
+                  } catch (e) {
+                    console.error('Error saving education:', e);
+                  }
+                }
+              } else {
+                console.log(`ℹ️ Education already exists or none found in resume (${existingEduCount} existing)`);
+              }
+            }
+          } catch (error) {
+            console.error('❌ Failed to auto-populate profile from resume:', error);
+          }
+        })();
+      }
+
       // Auto-create conversation for candidate ↔ job owner/consultant
       try {
         const existingConversation = await prisma.conversation.findFirst({
@@ -674,6 +792,7 @@ export class ApplicationService {
 
       // Step 4: Parse resume if provided
       let parsedResumeData: any = null;
+      let resumeText: string | undefined;
       let resumeUrl = applicationData.resumeUrl;
 
       if (applicationData.resumeFile) {
@@ -704,6 +823,7 @@ export class ApplicationService {
           };
           
           const parsedDocument = await DocumentParserService.parseDocument(fileForParsing);
+          resumeText = parsedDocument.text || '';
 
           console.log('📝 Document parsed, text length:', parsedDocument.text?.length || 0);
 
@@ -718,7 +838,7 @@ export class ApplicationService {
             training: parsedResumeData.training?.length || 0,
           });
 
-          // Upload resume to Cloudinary
+          // Upload resume to Cloudinary or Local Storage
           if (CloudinaryService.isConfigured()) {
             const uploadResult = await CloudinaryService.uploadFile(
               applicationData.resumeFile.buffer,
@@ -730,6 +850,17 @@ export class ApplicationService {
             );
             resumeUrl = uploadResult.secureUrl;
             console.log('☁️ Resume uploaded to Cloudinary:', resumeUrl);
+          } else {
+            // Fallback: Upload to local storage
+            const { LocalStorageService } = await import('../storage/LocalStorageService');
+            const uploadResult = await LocalStorageService.uploadFile(
+              applicationData.resumeFile.buffer, 
+              applicationData.resumeFile.originalname, 
+              { folder: `applications/temp` }
+            );
+            const API_BASE_URL = process.env.API_URL || 'http://localhost:3000';
+            resumeUrl = `${API_BASE_URL}${uploadResult.url}`;
+            console.log('💾 Resume uploaded to Local Storage:', resumeUrl);
           }
         } catch (error: any) {
           console.error('❌ Failed to parse resume:', {
@@ -737,6 +868,8 @@ export class ApplicationService {
             stack: error.stack,
           });
           // Continue without parsing - resume will still be saved
+          // Capture error in resumeText for debugging purposes if parsing failed
+          resumeText = `[Parsing Error] ${error.message}`;
         }
       } else {
         console.log('⚠️ No resume file provided for parsing');
@@ -757,6 +890,25 @@ export class ApplicationService {
         lastName: lastName.trim(),
         phone: phone?.trim(),
       });
+
+      // Step 5.5: Create CandidateResume record if resume was uploaded and parsed
+      if (applicationData.resumeFile && resumeUrl) {
+        try {
+          console.log('📄 Creating CandidateResume record...');
+          await CandidateDocumentService.uploadResume(
+            candidate.id,
+            applicationData.resumeFile.originalname,
+            resumeUrl,
+            applicationData.resumeFile.size,
+            applicationData.resumeFile.mimetype,
+            resumeText
+          );
+          console.log('✅ CandidateResume record created');
+        } catch (error: any) {
+          console.error('❌ Failed to create CandidateResume record:', error.message);
+          // Continue execution - don't fail the whole application
+        }
+      }
 
       // Step 6: Save parsed resume data (work history, skills, education, etc.)
       if (parsedResumeData) {
@@ -987,7 +1139,8 @@ export class ApplicationService {
             applicationData.resumeFile.originalname,
             resumeUrl,
             applicationData.resumeFile.size,
-            applicationData.resumeFile.mimetype
+            applicationData.resumeFile.mimetype,
+            resumeText
           );
           
           // Set as default if it's the first resume
@@ -1339,6 +1492,15 @@ export class ApplicationService {
         // Note: We don't throw here to allow the move operation to complete
         // The error is logged and stored in notes for admin visibility
       }
+    }
+
+    // Trigger email automations for round entry
+    try {
+      const { EmailAutomationService } = await import('../email/EmailAutomationService');
+      await EmailAutomationService.handleApplicationRoundEntry(applicationId, jobRoundId, userId);
+    } catch (error) {
+      // Log error but don't fail the move operation
+      console.error('Failed to trigger email automations:', error);
     }
 
     return updatedApplication;

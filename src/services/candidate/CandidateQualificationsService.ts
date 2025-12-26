@@ -46,12 +46,25 @@ export class CandidateQualificationsService {
      */
     static async addEducation(candidateId: string, data: any) {
         const { prisma } = await import('../../lib/prisma');
+        const { randomUUID } = await import('crypto');
         const normalized = normalizeDates(data, ['startDate', 'endDate']);
+        
+        const educationData = {
+            id: data.id || randomUUID(),
+            candidate_id: candidateId,
+            institution: normalized.institution,
+            degree: normalized.degree,
+            field: normalized.field,
+            start_date: normalized.startDate || normalized.start_date,
+            end_date: normalized.endDate || normalized.end_date,
+            current: normalized.current || false,
+            grade: normalized.grade,
+            description: normalized.description,
+            updated_at: new Date(),
+        };
+
         return await prisma.candidateEducation.create({
-            data: {
-                candidate_id: candidateId,
-                ...normalized,
-            },
+            data: educationData,
         });
     }
 

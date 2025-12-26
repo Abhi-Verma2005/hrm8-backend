@@ -7,6 +7,7 @@ import { VideoInterviewModel, VideoInterviewData } from '../../models/VideoInter
 import { InterviewConfigurationModel } from '../../models/InterviewConfiguration';
 import { ApplicationModel } from '../../models/Application';
 import { JobModel } from '../../models/Job';
+import { JobRoundModel } from '../../models/JobRound';
 import { GoogleCalendarService } from '../integrations/GoogleCalendarService';
 import { prisma } from '../../lib/prisma';
 import crypto from 'crypto';
@@ -48,7 +49,7 @@ export interface CreateInterviewParams {
   type: string;
   scheduledBy: string;
   meetingLink?: string;
-  interviewerIds?: any;
+  interviewerIds?: string[];
   notes?: string;
 }
 
@@ -300,7 +301,7 @@ export class InterviewService {
           }
           return {
             startDate: slotStart,
-            interviewerIds: [], // Could be populated based on config
+            interviewerIds: config.assignedInterviewerIds || [],
           };
         }
       }
@@ -318,7 +319,7 @@ export class InterviewService {
 
     return {
       startDate: tomorrow,
-      interviewerIds: [],
+      interviewerIds: config.assignedInterviewerIds || [],
     };
   }
 
@@ -908,6 +909,13 @@ export class InterviewService {
       const hasConflict = await this.checkTimeSlotConflict(params.scheduledDate, endDate, bufferMinutes);
       if (hasConflict) {
         throw new Error('Time slot conflicts with existing interview');
+      }
+
+      // If interviewerIds not provided, use defaults from config
+      if (!params.interviewerIds || params.interviewerIds.length === 0) {
+        if (config && config.assignedInterviewerIds && config.assignedInterviewerIds.length > 0) {
+          params.interviewerIds = config.assignedInterviewerIds;
+        }
       }
     }
 

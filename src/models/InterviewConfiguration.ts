@@ -48,6 +48,7 @@ export interface InterviewConfigurationData {
   templateId?: string | null;
   questions?: any;
   agenda?: string | null;
+  assignedInterviewerIds?: string[];
   
   createdAt: Date;
   updatedAt: Date;
@@ -91,6 +92,7 @@ export class InterviewConfigurationModel {
     templateId?: string;
     questions?: any;
     agenda?: string;
+    assignedInterviewerIds?: string[];
   }): Promise<InterviewConfigurationData> {
     const config = await prisma.interviewConfiguration.create({
       data: {
@@ -122,6 +124,7 @@ export class InterviewConfigurationModel {
         templateId: data.templateId,
         questions: data.questions,
         agenda: data.agenda,
+        assignedInterviewerIds: data.assignedInterviewerIds || [],
       },
     });
 
@@ -159,6 +162,7 @@ export class InterviewConfigurationModel {
     if (data.templateId !== undefined) updateData.templateId = data.templateId;
     if (data.questions !== undefined) updateData.questions = data.questions;
     if (data.agenda !== undefined) updateData.agenda = data.agenda;
+    if (data.assignedInterviewerIds !== undefined) updateData.assignedInterviewerIds = data.assignedInterviewerIds;
     
     // Handle enum fields with proper type casting
     if (data.interviewFormat !== undefined) {
