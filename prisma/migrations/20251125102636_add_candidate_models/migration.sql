@@ -1,3 +1,0 @@
--- No-op migration.
--- The intended candidate models already exist from earlier migrations,
--- so this file is purposefully empty to unblock migrate deploy.
