@@ -6,10 +6,10 @@
 import { ResumeAnnotation } from '@prisma/client';
 
 export interface CreateAnnotationRequest {
-  resumeId: string;
-  userId: string;
-  userName: string;
-  userColor: string;
+  resume_id: string;
+  user_id: string;
+  user_name: string;
+  user_color: string;
   type: string; // 'highlight' | 'comment'
   text: string;
   comment?: string;
@@ -20,11 +20,11 @@ export class ResumeAnnotationService {
   /**
    * Get all annotations for a resume
    */
-  static async getAnnotations(resumeId: string) {
+  static async getAnnotations(resume_id: string) {
     const { prisma } = await import('../../lib/prisma');
     return await prisma.resumeAnnotation.findMany({
-      where: { resumeId },
-      orderBy: { createdAt: 'asc' },
+      where: { resume_id },
+      orderBy: { created_at: 'asc' },
     });
   }
 
@@ -35,10 +35,10 @@ export class ResumeAnnotationService {
     const { prisma } = await import('../../lib/prisma');
     return await prisma.resumeAnnotation.create({
       data: {
-        resumeId: data.resumeId,
-        userId: data.userId,
-        userName: data.userName,
-        userColor: data.userColor,
+        resume_id: data.resume_id,
+        user_id: data.user_id,
+        user_name: data.user_name,
+        user_color: data.user_color,
         type: data.type,
         text: data.text,
         comment: data.comment,
@@ -64,7 +64,7 @@ export class ResumeAnnotationService {
 
     // In a real app, you might allow admins to delete anyone's annotation
     // For now, only allow the creator to delete
-    if (annotation.userId !== userId) {
+    if (annotation.user_id !== userId) {
       throw new Error('Unauthorized to delete this annotation');
     }
 
