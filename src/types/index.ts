@@ -440,6 +440,13 @@ export interface Job {
   };
   savedAsTemplate?: boolean;
   templateId?: string;
+  archived?: boolean;
+  archivedAt?: Date;
+  archivedBy?: string;
+  automatedScreeningEnabled?: boolean;
+  preInterviewQuestionnaireEnabled?: boolean;
+  screeningCriteria?: any;
+  screeningEnabled?: boolean;
   jobTargetPromotionId?: string;
   jobTargetChannels?: string[];
   jobTargetBudget?: number;

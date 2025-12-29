@@ -5,7 +5,7 @@
 
 import { prisma } from '../lib/prisma';
 import { AssessmentStatus, AssessmentType } from '@prisma/client';
-import crypto from 'crypto';
+import crypto from "crypto"
 
 export interface AssessmentData {
   id: string;
@@ -109,7 +109,6 @@ export class AssessmentModel {
 
     const assessment = await prisma.assessment.create({
       data: {
-        id: crypto.randomUUID(),
         application_id: data.applicationId,
         candidate_id: data.candidateId,
         job_id: data.jobId,

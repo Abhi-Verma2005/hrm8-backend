@@ -13,7 +13,6 @@ import { JobRoundService } from '../job/JobRoundService';
 import { AssessmentService } from '../assessment/AssessmentService';
 import { InterviewService } from '../interview/InterviewService';
 import { CandidateScoringService } from '../ai/CandidateScoringService';
-import crypto from 'crypto';
 
 export interface SubmitApplicationRequest {
   candidateId: string;
@@ -124,7 +123,7 @@ export class ApplicationService {
               },
             },
             create: {
-              id: crypto.randomUUID(),
+              
               applicationId: application.id,
               jobRoundId: newRound.id,
               completed: false,
@@ -551,7 +550,7 @@ export class ApplicationService {
               },
             },
             create: {
-              id: crypto.randomUUID(),
+              
               applicationId: application.id,
               jobRoundId: newRound.id,
               completed: false,
@@ -1419,7 +1418,7 @@ export class ApplicationService {
         },
       },
       create: {
-        id: crypto.randomUUID(),
+        
         applicationId,
         jobRoundId,
         completed: false,

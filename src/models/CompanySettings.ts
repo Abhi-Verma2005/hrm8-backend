@@ -3,9 +3,7 @@
  * Handles database operations for company settings including office hours and timezone
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 export interface CompanySettingsData {
   id: string;
@@ -44,9 +42,10 @@ export class CompanySettingsModel {
    * Find settings by company ID
    */
   static async findByCompanyId(companyId: string): Promise<CompanySettingsData | null> {
-    return prisma.companySettings.findUnique({
-      where: { companyId },
+    const settings = await prisma.companySettings.findUnique({
+      where: { company_id: companyId },
     });
+    return settings ? this.mapPrismaToCompanySettings(settings) : null;
   }
 
   /**
@@ -63,27 +62,31 @@ export class CompanySettingsModel {
       endTime: '17:00',
     };
 
-    return prisma.companySettings.upsert({
-      where: { companyId },
+    const settings = await prisma.companySettings.upsert({
+      where: { company_id: companyId },
       update: {
         timezone: data.timezone ?? undefined,
-        workDays: data.workDays ?? undefined,
-        startTime: data.startTime ?? undefined,
-        endTime: data.endTime ?? undefined,
-        lunchStart: data.lunchStart ?? undefined,
-        lunchEnd: data.lunchEnd ?? undefined,
-        updatedAt: new Date(),
+        work_days: data.workDays ?? undefined,
+        start_time: data.startTime ?? undefined,
+        end_time: data.endTime ?? undefined,
+        lunch_start: data.lunchStart ?? undefined,
+        lunch_end: data.lunchEnd ?? undefined,
+        updated_at: new Date(),
       },
       create: {
-        companyId,
+        id: companyId,
+        company_id: companyId,
         timezone: data.timezone ?? defaults.timezone,
-        workDays: data.workDays ?? defaults.workDays,
-        startTime: data.startTime ?? defaults.startTime,
-        endTime: data.endTime ?? defaults.endTime,
-        lunchStart: data.lunchStart ?? null,
-        lunchEnd: data.lunchEnd ?? null,
+        work_days: data.workDays ?? defaults.workDays,
+        start_time: data.startTime ?? defaults.startTime,
+        end_time: data.endTime ?? defaults.endTime,
+        lunch_start: data.lunchStart ?? null,
+        lunch_end: data.lunchEnd ?? null,
+        created_at: new Date(),
+        updated_at: new Date(),
       },
     });
+    return this.mapPrismaToCompanySettings(settings);
   }
 
   /**
@@ -93,13 +96,37 @@ export class CompanySettingsModel {
     companyId: string,
     data: UpdateCompanySettingsInput
   ): Promise<CompanySettingsData> {
-    return prisma.companySettings.update({
-      where: { companyId },
+    const settings = await prisma.companySettings.update({
+      where: { company_id: companyId },
       data: {
-        ...data,
-        updatedAt: new Date(),
+        timezone: data.timezone ?? undefined,
+        work_days: data.workDays ?? undefined,
+        start_time: data.startTime ?? undefined,
+        end_time: data.endTime ?? undefined,
+        lunch_start: data.lunchStart ?? undefined,
+        lunch_end: data.lunchEnd ?? undefined,
+        updated_at: new Date(),
       },
     });
+    return this.mapPrismaToCompanySettings(settings);
+  }
+
+  /**
+   * Map Prisma CompanySettings to CompanySettingsData
+   */
+  private static mapPrismaToCompanySettings(prismaSettings: any): CompanySettingsData {
+    return {
+      id: prismaSettings.id,
+      companyId: prismaSettings.company_id,
+      timezone: prismaSettings.timezone,
+      workDays: prismaSettings.work_days,
+      startTime: prismaSettings.start_time,
+      endTime: prismaSettings.end_time,
+      lunchStart: prismaSettings.lunch_start,
+      lunchEnd: prismaSettings.lunch_end,
+      createdAt: prismaSettings.created_at,
+      updatedAt: prismaSettings.updated_at,
+    };
   }
 
   /**

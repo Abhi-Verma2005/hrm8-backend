@@ -163,7 +163,7 @@ export class AssessmentService {
       const question = questions[i];
       await prisma.assessmentQuestion.create({
         data: {
-          id: crypto.randomUUID(),
+          
           assessment_id: assessmentId,
           question_text: question.questionText || question.text,
           question_type: question.type || 'MULTIPLE_CHOICE',
@@ -262,7 +262,7 @@ export class AssessmentService {
     for (const responseData of responses) {
       await prisma.assessmentResponse.create({
         data: {
-          id: crypto.randomUUID(),
+          
           assessment_id: assessmentId,
           question_id: responseData.questionId,
           candidate_id: assessment.candidateId,

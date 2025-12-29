@@ -133,6 +133,14 @@ export class AssessmentController {
         orderBy: { order: 'asc' },
       });
 
+      // Get configuration if it exists (for time limit and instructions)
+      let config = null;
+      if (assessment.jobRoundId) {
+        config = await prisma.assessmentConfiguration.findUnique({
+          where: { job_round_id: assessment.jobRoundId }
+        });
+      }
+
       res.json({
         success: true,
         data: {
@@ -141,6 +149,8 @@ export class AssessmentController {
             status: assessment.status,
             expiryDate: assessment.expiryDate,
             passThreshold: assessment.passThreshold,
+            timeLimitMinutes: config?.time_limit_minutes || null,
+            instructions: config?.instructions || null,
           },
           questions: questions.map(q => ({
             id: q.id,
@@ -287,7 +297,7 @@ export class AssessmentController {
       const responses = await prisma.assessmentResponse.findMany({
         where: { assessment_id: id },
         include: {
-          AssessmentQuestion: true,
+          assessment_question: true,
         },
       });
 
@@ -406,11 +416,11 @@ export class AssessmentController {
         where: { id: { in: applicationIds } },
         include: {
           candidate: {
-            select: { firstName: true, lastName: true, email: true }
+            select: { first_name: true, last_name: true, email: true }
           },
-          ApplicationRoundProgress: {
+          application_round_progress: {
             include: {
-              JobRound: {
+              job_round: {
                 select: { order: true }
               }
             }
@@ -423,19 +433,19 @@ export class AssessmentController {
       const assessmentIds = assessmentsRaw.map(a => a.id);
       const grades = await prisma.assessmentGrade.findMany({
         where: {
-          AssessmentResponse: {
+          assessment_response: {
             assessment_id: { in: assessmentIds }
           }
         },
         select: {
           score: true,
-          AssessmentResponse: { select: { assessment_id: true } }
+          assessment_response: { select: { assessment_id: true } }
         }
       });
       const avgMap = new Map<string, { sum: number; count: number }>();
       for (const g of grades) {
         if (g.score === null || g.score === undefined) continue;
-        const aid = g.AssessmentResponse.assessment_id;
+        const aid = g.assessment_response.assessment_id;
         const prev = avgMap.get(aid) || { sum: 0, count: 0 };
         prev.sum += g.score;
         prev.count += 1;
@@ -444,14 +454,14 @@ export class AssessmentController {
       // Map to friendly format
       const mappedAssessments = assessmentsRaw.map(a => {
         const app = appMap.get(a.application_id);
-        const name = app?.candidate ? `${app.candidate.firstName} ${app.candidate.lastName}` : '';
+        const name = app?.candidate ? `${app.candidate.first_name} ${app.candidate.last_name}` : '';
         const email = app?.candidate?.email || '';
         
         // Check if candidate has moved to next round:
         // 1. Explicitly marked as completed in this round
         // 2. Has a progress record for a round with a higher order
-        const currentRoundProgress = app?.ApplicationRoundProgress?.find(p => p.jobRoundId === roundId);
-        const hasLaterRound = app?.ApplicationRoundProgress?.some(p => p.JobRound && p.JobRound.order > currentRound.order) || false;
+        const currentRoundProgress = app?.application_round_progress?.find(p => p.job_round_id === roundId);
+        const hasLaterRound = app?.application_round_progress?.some(p => p.job_round && p.job_round.order > currentRound.order) || false;
         const isMovedToNextRound = (currentRoundProgress?.completed || false) || hasLaterRound;
         
         return {
@@ -546,32 +556,32 @@ export class AssessmentController {
       const assessment = await prisma.assessment.findUnique({
         where: { id },
         include: {
-          Application: {
+          application: {
             select: {
               candidate: {
                 select: {
-                  firstName: true,
-                  lastName: true,
+                  first_name: true,
+                  last_name: true,
                   email: true
                 }
               }
             }
           },
-          AssessmentQuestion: {
-             orderBy: { order: 'asc' }
+          assessment_question: {
+            orderBy: { order: 'asc' }
           },
-          AssessmentResponse: {
+          assessment_response: {
             include: {
-              AssessmentGrade: {
+              assessment_grade: {
                 include: {
-                  User: { select: { id: true, name: true } }
+                  user: { select: { id: true, name: true } }
                 }
               }
             }
           },
-          AssessmentComment: {
+          assessment_comment: {
             include: {
-              User: { select: { id: true, name: true } }
+              user: { select: { id: true, name: true } }
             },
             orderBy: { created_at: 'desc' }
           }
@@ -623,13 +633,15 @@ export class AssessmentController {
         },
         update: {
           score: score,
-          comment: comment
+          comment: comment,
+          updated_at: new Date()
         },
         create: {
           assessment_response_id: responseId,
           user_id: req.user.id,
           score: score,
-          comment: comment
+          comment: comment,
+          updated_at: new Date()
         }
       });
 
@@ -669,10 +681,11 @@ export class AssessmentController {
         data: {
           assessment_id: id,
           user_id: req.user.id,
-          comment: comment
+          comment: comment,
+          updated_at: new Date()
         },
         include: {
-          User: { select: { id: true, name: true } }
+          user: { select: { id: true, name: true } }
         }
       });
 

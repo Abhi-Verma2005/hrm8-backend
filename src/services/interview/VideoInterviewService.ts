@@ -236,7 +236,7 @@ export class VideoInterviewService {
     // 1. Create the feedback record
     await prisma.interviewFeedback.create({
       data: {
-        id: crypto.randomUUID(),
+        
         video_interview_id: interviewId,
         interviewer_id: data.interviewerId,
         interviewer_name: data.interviewerName,

@@ -41,9 +41,9 @@ export class CommissionModel {
   }): Promise<CommissionData> {
     const commission = await prisma.commission.create({
       data: {
-        consultantId: commissionData.consultantId,
-        regionId: commissionData.regionId,
-        jobId: commissionData.jobId || null,
+        consultant_id: commissionData.consultantId,
+        region_id: commissionData.regionId,
+        job_id: commissionData.jobId || null,
         type: commissionData.type,
         amount: commissionData.amount,
         rate: commissionData.rate || null,
@@ -79,11 +79,11 @@ export class CommissionModel {
   ): Promise<CommissionData[]> {
     const commissions = await prisma.commission.findMany({
       where: {
-        consultantId,
+        consultant_id: consultantId,
         ...(filters?.status && { status: filters.status }),
         ...(filters?.type && { type: filters.type }),
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
     return commissions.map((commission) => this.mapPrismaToCommission(commission));
@@ -100,10 +100,10 @@ export class CommissionModel {
   ): Promise<CommissionData[]> {
     const commissions = await prisma.commission.findMany({
       where: {
-        regionId,
+        region_id: regionId,
         ...(filters?.status && { status: filters.status }),
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
     return commissions.map((commission) => this.mapPrismaToCommission(commission));
@@ -121,13 +121,13 @@ export class CommissionModel {
   }): Promise<CommissionData[]> {
     const commissions = await prisma.commission.findMany({
       where: {
-        ...(filters?.consultantId && { consultantId: filters.consultantId }),
-        ...(filters?.regionId && { regionId: filters.regionId }),
-        ...(filters?.jobId && { jobId: filters.jobId }),
+        ...(filters?.consultantId && { consultant_id: filters.consultantId }),
+        ...(filters?.regionId && { region_id: filters.regionId }),
+        ...(filters?.jobId && { job_id: filters.jobId }),
         ...(filters?.status && { status: filters.status }),
         ...(filters?.type && { type: filters.type }),
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
     return commissions.map((commission) => this.mapPrismaToCommission(commission));
@@ -140,14 +140,17 @@ export class CommissionModel {
     const commission = await prisma.commission.update({
       where: { id },
       data: {
+        ...(data.consultantId !== undefined && { consultant_id: data.consultantId }),
+        ...(data.regionId !== undefined && { region_id: data.regionId }),
+        ...(data.jobId !== undefined && { job_id: data.jobId || null }),
         ...(data.amount !== undefined && { amount: data.amount }),
         ...(data.type !== undefined && { type: data.type }),
         ...(data.rate !== undefined && { rate: data.rate || null }),
         ...(data.status !== undefined && { status: data.status }),
         ...(data.description !== undefined && { description: data.description || null }),
-        ...(data.confirmedAt !== undefined && { confirmedAt: data.confirmedAt || null }),
-        ...(data.paidAt !== undefined && { paidAt: data.paidAt || null }),
-        ...(data.paymentReference !== undefined && { paymentReference: data.paymentReference || null }),
+        ...(data.confirmedAt !== undefined && { confirmed_at: data.confirmedAt || null }),
+        ...(data.paidAt !== undefined && { paid_at: data.paidAt || null }),
+        ...(data.paymentReference !== undefined && { payment_reference: data.paymentReference || null }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
       },
     });
@@ -191,20 +194,20 @@ export class CommissionModel {
   private static mapPrismaToCommission(prismaCommission: any): CommissionData {
     return {
       id: prismaCommission.id,
-      consultantId: prismaCommission.consultantId,
-      regionId: prismaCommission.regionId,
-      jobId: prismaCommission.jobId || undefined,
+      consultantId: prismaCommission.consultant_id,
+      regionId: prismaCommission.region_id,
+      jobId: prismaCommission.job_id || undefined,
       type: prismaCommission.type,
       amount: prismaCommission.amount,
       rate: prismaCommission.rate || undefined,
       description: prismaCommission.description || undefined,
       status: prismaCommission.status,
-      confirmedAt: prismaCommission.confirmedAt || undefined,
-      paidAt: prismaCommission.paidAt || undefined,
-      paymentReference: prismaCommission.paymentReference || undefined,
+      confirmedAt: prismaCommission.confirmed_at || undefined,
+      paidAt: prismaCommission.paid_at || undefined,
+      paymentReference: prismaCommission.payment_reference || undefined,
       notes: prismaCommission.notes || undefined,
-      createdAt: prismaCommission.createdAt,
-      updatedAt: prismaCommission.updatedAt,
+      createdAt: prismaCommission.created_at,
+      updatedAt: prismaCommission.updated_at,
     };
   }
 }

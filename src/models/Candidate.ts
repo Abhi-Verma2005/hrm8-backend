@@ -21,26 +21,15 @@ export interface CandidateData {
   country?: string;
   visaStatus?: string;
   workEligibility?: string;
-  requiresSponsorship?: boolean;
   jobTypePreference: string[];
-  expectedSalaryMin?: string;
-  expectedSalaryMax?: string;
-  salaryCurrency?: string;
   salaryPreference?: {
     min?: number;
     max?: number;
     currency?: string;
   };
   relocationWilling?: boolean;
-  preferredLocations?: string;
   remotePreference?: string;
   resumeUrl?: string | null;
-
-  // Privacy & Visibility
-  profileVisibility?: string;
-  showContactInfo?: boolean;
-  showSalaryExpectations?: boolean;
-  allowRecruiterContact?: boolean;
 
   emailVerified: boolean;
   status: CandidateStatus;
@@ -63,12 +52,12 @@ export class CandidateModel {
     const candidate = await prisma.candidate.create({
       data: {
         email: candidateData.email,
-        passwordHash: candidateData.passwordHash,
-        firstName: candidateData.firstName,
-        lastName: candidateData.lastName,
+        password_hash: candidateData.passwordHash,
+        first_name: candidateData.firstName,
+        last_name: candidateData.lastName,
         phone: candidateData.phone,
         status: 'ACTIVE',
-        emailVerified: false,
+        email_verified: false,
       },
     });
 
@@ -112,12 +101,30 @@ export class CandidateModel {
     id: string,
     updateData: Partial<Omit<CandidateData, 'id' | 'createdAt' | 'updatedAt' | 'passwordHash'>>
   ): Promise<CandidateData> {
+    const mappedData: any = {};
+    if (updateData.email) mappedData.email = updateData.email;
+    if (updateData.firstName) mappedData.first_name = updateData.firstName;
+    if (updateData.lastName) mappedData.last_name = updateData.lastName;
+    if (updateData.phone) mappedData.phone = updateData.phone;
+    if (updateData.photo) mappedData.photo = updateData.photo;
+    if (updateData.linkedInUrl) mappedData.linked_in_url = updateData.linkedInUrl;
+    if (updateData.city) mappedData.city = updateData.city;
+    if (updateData.state) mappedData.state = updateData.state;
+    if (updateData.country) mappedData.country = updateData.country;
+    if (updateData.visaStatus) mappedData.visa_status = updateData.visaStatus;
+    if (updateData.workEligibility) mappedData.work_eligibility = updateData.workEligibility;
+    if (updateData.jobTypePreference) mappedData.job_type_preference = updateData.jobTypePreference;
+    if (updateData.salaryPreference) mappedData.salary_preference = updateData.salaryPreference;
+    if (updateData.relocationWilling !== undefined) mappedData.relocation_willing = updateData.relocationWilling;
+    if (updateData.remotePreference) mappedData.remote_preference = updateData.remotePreference;
+    if (updateData.resumeUrl !== undefined) mappedData.resume_url = updateData.resumeUrl;
+    if (updateData.emailVerified !== undefined) mappedData.email_verified = updateData.emailVerified;
+    if (updateData.status) mappedData.status = updateData.status;
+    if (updateData.lastLoginAt) mappedData.last_login_at = updateData.lastLoginAt;
+
     const candidate = await prisma.candidate.update({
       where: { id },
-      data: {
-        ...updateData,
-        salaryPreference: updateData.salaryPreference as any,
-      },
+      data: mappedData,
     });
 
     return this.mapPrismaToCandidate(candidate);
@@ -129,7 +136,7 @@ export class CandidateModel {
   static async updatePassword(id: string, passwordHash: string): Promise<void> {
     await prisma.candidate.update({
       where: { id },
-      data: { passwordHash },
+      data: { password_hash: passwordHash },
     });
   }
 
@@ -139,7 +146,7 @@ export class CandidateModel {
   static async updateLastLogin(id: string): Promise<void> {
     await prisma.candidate.update({
       where: { id },
-      data: { lastLoginAt: new Date() },
+      data: { last_login_at: new Date() },
     });
   }
 
@@ -149,7 +156,7 @@ export class CandidateModel {
   static async verifyEmail(id: string): Promise<void> {
     await prisma.candidate.update({
       where: { id },
-      data: { emailVerified: true },
+      data: { email_verified: true },
     });
   }
 
@@ -174,8 +181,8 @@ export class CandidateModel {
     // Search by name or email
     if (search) {
       where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
+        { first_name: { contains: search, mode: 'insensitive' } },
+        { last_name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
       ];
     }
@@ -197,7 +204,7 @@ export class CandidateModel {
         where,
         take: limit,
         skip: offset,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { created_at: 'desc' },
       }),
       prisma.candidate.count({ where }),
     ]);
@@ -215,39 +222,28 @@ export class CandidateModel {
     return {
       id: prismaCandidate.id,
       email: prismaCandidate.email,
-      passwordHash: prismaCandidate.passwordHash,
-      firstName: prismaCandidate.firstName,
-      lastName: prismaCandidate.lastName,
+      passwordHash: prismaCandidate.password_hash,
+      firstName: prismaCandidate.first_name,
+      lastName: prismaCandidate.last_name,
       phone: prismaCandidate.phone,
       photo: prismaCandidate.photo,
-      linkedInUrl: prismaCandidate.linkedInUrl,
+      linkedInUrl: prismaCandidate.linked_in_url,
       city: prismaCandidate.city,
       state: prismaCandidate.state,
       country: prismaCandidate.country,
-      visaStatus: prismaCandidate.visaStatus,
-      workEligibility: prismaCandidate.workEligibility,
-      requiresSponsorship: prismaCandidate.requiresSponsorship,
-      jobTypePreference: prismaCandidate.jobTypePreference || [],
-      expectedSalaryMin: prismaCandidate.expectedSalaryMin,
-      expectedSalaryMax: prismaCandidate.expectedSalaryMax,
-      salaryCurrency: prismaCandidate.salaryCurrency,
-      salaryPreference: prismaCandidate.salaryPreference as any,
-      relocationWilling: prismaCandidate.relocationWilling,
-      preferredLocations: prismaCandidate.preferredLocations,
-      remotePreference: prismaCandidate.remotePreference,
-      resumeUrl: prismaCandidate.resumeUrl,
+      visaStatus: prismaCandidate.visa_status,
+      workEligibility: prismaCandidate.work_eligibility,
+      jobTypePreference: prismaCandidate.job_type_preference || [],
+      salaryPreference: prismaCandidate.salary_preference as any,
+      relocationWilling: prismaCandidate.relocation_willing,
+      remotePreference: prismaCandidate.remote_preference,
+      resumeUrl: prismaCandidate.resume_url,
 
-      // Privacy & Visibility
-      profileVisibility: prismaCandidate.profileVisibility,
-      showContactInfo: prismaCandidate.showContactInfo,
-      showSalaryExpectations: prismaCandidate.showSalaryExpectations,
-      allowRecruiterContact: prismaCandidate.allowRecruiterContact,
-
-      emailVerified: prismaCandidate.emailVerified,
+      emailVerified: prismaCandidate.email_verified,
       status: prismaCandidate.status,
-      lastLoginAt: prismaCandidate.lastLoginAt,
-      createdAt: prismaCandidate.createdAt,
-      updatedAt: prismaCandidate.updatedAt,
+      lastLoginAt: prismaCandidate.last_login_at,
+      createdAt: prismaCandidate.created_at,
+      updatedAt: prismaCandidate.updated_at,
     };
   }
 }

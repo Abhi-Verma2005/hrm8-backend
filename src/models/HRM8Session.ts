@@ -27,11 +27,11 @@ export class HRM8SessionModel {
   ): Promise<HRM8SessionData> {
     const session = await prisma.hRM8Session.create({
       data: {
-        sessionId,
-        hrm8UserId,
+        session_id: sessionId,
+        hrm8_user_id: hrm8UserId,
         email,
-        expiresAt,
-        lastActivity: new Date(),
+        expires_at: expiresAt,
+        last_activity: new Date(),
       },
     });
 
@@ -43,7 +43,7 @@ export class HRM8SessionModel {
    */
   static async findBySessionId(sessionId: string): Promise<HRM8SessionData | null> {
     const session = await prisma.hRM8Session.findUnique({
-      where: { sessionId },
+      where: { session_id: sessionId },
     });
 
     if (!session) {
@@ -51,7 +51,7 @@ export class HRM8SessionModel {
     }
 
     // Check if session expired
-    if (new Date() > session.expiresAt) {
+    if (new Date() > (session as any).expires_at) {
       await this.deleteBySessionId(sessionId);
       return null;
     }
@@ -64,8 +64,8 @@ export class HRM8SessionModel {
    */
   static async updateLastActivity(sessionId: string): Promise<void> {
     await prisma.hRM8Session.update({
-      where: { sessionId },
-      data: { lastActivity: new Date() },
+      where: { session_id: sessionId },
+      data: { last_activity: new Date() },
     });
   }
 
@@ -74,7 +74,7 @@ export class HRM8SessionModel {
    */
   static async deleteBySessionId(sessionId: string): Promise<void> {
     await prisma.hRM8Session.delete({
-      where: { sessionId },
+      where: { session_id: sessionId },
     }).catch(() => {
       // Session might not exist, ignore error
     });
@@ -85,7 +85,7 @@ export class HRM8SessionModel {
    */
   static async deleteAllByHrm8UserId(hrm8UserId: string): Promise<void> {
     await prisma.hRM8Session.deleteMany({
-      where: { hrm8UserId },
+      where: { hrm8_user_id: hrm8UserId },
     });
   }
 
@@ -96,7 +96,7 @@ export class HRM8SessionModel {
     const now = new Date();
     const result = await prisma.hRM8Session.deleteMany({
       where: {
-        expiresAt: {
+        expires_at: {
           lt: now,
         },
       },
@@ -110,8 +110,8 @@ export class HRM8SessionModel {
    */
   static async findByHrm8UserId(hrm8UserId: string): Promise<HRM8SessionData[]> {
     const sessions = await prisma.hRM8Session.findMany({
-      where: { hrm8UserId },
-      orderBy: { createdAt: 'desc' },
+      where: { hrm8_user_id: hrm8UserId },
+      orderBy: { created_at: 'desc' },
     });
 
     return sessions.map((session) => this.mapPrismaToSession(session));
@@ -120,23 +120,15 @@ export class HRM8SessionModel {
   /**
    * Map Prisma session to HRM8SessionData interface
    */
-  private static mapPrismaToSession(prismaSession: {
-    id: string;
-    sessionId: string;
-    hrm8UserId: string;
-    email: string;
-    expiresAt: Date;
-    lastActivity: Date;
-    createdAt: Date;
-  }): HRM8SessionData {
+  private static mapPrismaToSession(prismaSession: any): HRM8SessionData {
     return {
       id: prismaSession.id,
-      sessionId: prismaSession.sessionId,
-      hrm8UserId: prismaSession.hrm8UserId,
+      sessionId: prismaSession.session_id,
+      hrm8UserId: prismaSession.hrm8_user_id,
       email: prismaSession.email,
-      expiresAt: prismaSession.expiresAt,
-      lastActivity: prismaSession.lastActivity,
-      createdAt: prismaSession.createdAt,
+      expiresAt: prismaSession.expires_at,
+      lastActivity: prismaSession.last_activity,
+      createdAt: prismaSession.created_at,
     };
   }
 }

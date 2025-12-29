@@ -28,8 +28,8 @@ export class ConversationModel {
     const conversation = await prisma.conversation.create({
       data: {
         id: randomUUID(),
-        jobId: conversationData.jobId,
-        candidateId: conversationData.candidateId,
+        job_id: conversationData.jobId,
+        candidate_id: conversationData.candidateId,
       },
     });
 
@@ -59,8 +59,8 @@ export class ConversationModel {
   ): Promise<ConversationData | null> {
     const conversation = await prisma.conversation.findFirst({
       where: {
-        jobId,
-        candidateId,
+        job_id: jobId,
+        candidate_id: candidateId,
       },
       include: {
         participants: true,
@@ -80,7 +80,7 @@ export class ConversationModel {
       where: {
         participants: {
           some: {
-            participantEmail: email,
+            participant_email: email,
           },
         },
       },
@@ -88,7 +88,7 @@ export class ConversationModel {
         participants: true,
       },
       orderBy: {
-        updatedAt: 'desc',
+        updated_at: 'desc',
       },
     });
 
@@ -105,8 +105,8 @@ export class ConversationModel {
     const conversation = await prisma.conversation.update({
       where: { id: conversationId },
       data: {
-        lastMessageId: lastMessageId,
-        lastMessageAt: new Date(),
+        last_message_id: lastMessageId,
+        last_message_at: new Date(),
       },
       include: {
         participants: true,
@@ -122,18 +122,18 @@ export class ConversationModel {
   private static mapPrismaToConversation(prismaConversation: any): ConversationData {
     // Fetch participants from ConversationParticipant relation
     const participants: string[] = [];
-    if (prismaConversation.ConversationParticipant) {
-      participants.push(...prismaConversation.ConversationParticipant.map((p: any) => p.participant_email));
+    if (prismaConversation.participants) {
+      participants.push(...prismaConversation.participants.map((p: any) => p.participant_email));
     }
     
     return {
       id: prismaConversation.id,
-      jobId: prismaConversation.jobId || prismaConversation.job_id || '',
-      candidateId: prismaConversation.candidateId || prismaConversation.candidate_id || '',
+      jobId: prismaConversation.job_id || '',
+      candidateId: prismaConversation.candidate_id || '',
       participants,
-      lastMessageId: prismaConversation.last_message_id || prismaConversation.lastMessageId || undefined,
-      createdAt: prismaConversation.created_at ? new Date(prismaConversation.created_at) : new Date(prismaConversation.createdAt),
-      updatedAt: prismaConversation.updated_at ? new Date(prismaConversation.updated_at) : new Date(prismaConversation.updatedAt),
+      lastMessageId: prismaConversation.last_message_id || undefined,
+      createdAt: prismaConversation.created_at,
+      updatedAt: prismaConversation.updated_at,
     };
   }
 }

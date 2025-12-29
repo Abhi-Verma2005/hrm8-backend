@@ -120,9 +120,9 @@ export class ApplicationModel {
     // Check if application already exists
     const existing = await prisma.application.findUnique({
       where: {
-        candidateId_jobId: {
-          candidateId: applicationData.candidateId,
-          jobId: applicationData.jobId,
+        candidate_id_job_id: {
+          candidate_id: applicationData.candidateId,
+          job_id: applicationData.jobId,
         },
       },
     });
@@ -133,23 +133,23 @@ export class ApplicationModel {
 
     const application = await prisma.application.create({
       data: {
-        candidateId: applicationData.candidateId,
-        jobId: applicationData.jobId,
+        candidate_id: applicationData.candidateId,
+        job_id: applicationData.jobId,
         status: applicationData.status || 'NEW',
         stage: applicationData.stage || 'NEW_APPLICATION',
-        resumeUrl: applicationData.resumeUrl,
-        coverLetterUrl: applicationData.coverLetterUrl,
-        portfolioUrl: applicationData.portfolioUrl,
-        linkedInUrl: applicationData.linkedInUrl,
-        websiteUrl: applicationData.websiteUrl,
-        customAnswers: applicationData.customAnswers as any,
-        questionnaireData: applicationData.questionnaireData as any,
+        resume_url: applicationData.resumeUrl,
+        cover_letter_url: applicationData.coverLetterUrl,
+        portfolio_url: applicationData.portfolioUrl,
+        linked_in_url: applicationData.linkedInUrl,
+        website_url: applicationData.websiteUrl,
+        custom_answers: applicationData.customAnswers as any,
+        questionnaire_data: applicationData.questionnaireData as any,
         tags: applicationData.tags || [],
-        manuallyAdded: applicationData.manuallyAdded || false,
-        addedBy: applicationData.addedBy,
-        addedAt: applicationData.manuallyAdded ? new Date() : undefined,
-        isNew: true,
-        isRead: false,
+        manually_added: applicationData.manuallyAdded || false,
+        added_by: applicationData.addedBy,
+        added_at: applicationData.manuallyAdded ? new Date() : undefined,
+        is_new: true,
+        is_read: false,
       },
     });
 
@@ -167,7 +167,7 @@ export class ApplicationModel {
           include: {
             education: true,
             skills: true,
-            workExperience: true,
+            work_experience: true,
           }
         },
         job: {
@@ -190,7 +190,7 @@ export class ApplicationModel {
    */
   static async findByCandidateId(candidateId: string): Promise<ApplicationData[]> {
     const applications = await prisma.application.findMany({
-      where: { candidateId },
+      where: { candidate_id: candidateId },
       include: {
         job: {
           include: {
@@ -198,7 +198,7 @@ export class ApplicationModel {
           },
         },
       },
-      orderBy: { appliedDate: 'desc' },
+      orderBy: { applied_date: 'desc' },
     });
 
     return applications.map((app) => this.mapPrismaToApplication(app));
@@ -210,9 +210,9 @@ export class ApplicationModel {
   static async hasApplication(candidateId: string, jobId: string): Promise<boolean> {
     const application = await prisma.application.findUnique({
       where: {
-        candidateId_jobId: {
-          candidateId,
-          jobId,
+        candidate_id_job_id: {
+          candidate_id: candidateId,
+          job_id: jobId,
         },
       },
     });
@@ -224,17 +224,17 @@ export class ApplicationModel {
    */
   static async findByJobId(jobId: string): Promise<ApplicationData[]> {
     const applications = await prisma.application.findMany({
-      where: { jobId },
+      where: { job_id: jobId },
       include: {
         candidate: true,
-        ApplicationRoundProgress: {
+        application_round_progress: {
           orderBy: {
             updated_at: 'desc',
           },
           take: 1,
         },
       },
-      orderBy: { appliedDate: 'desc' },
+      orderBy: { applied_date: 'desc' },
     });
 
     return applications.map((app) => this.mapPrismaToApplication(app));
@@ -250,13 +250,33 @@ export class ApplicationModel {
     // Exclude relation fields (candidate, job) from update data
     const { candidate, job, ...updateFields } = updateData as any;
     
+    const mappedUpdateData: any = {};
+    if (updateFields.status) mappedUpdateData.status = updateFields.status;
+    if (updateFields.stage) mappedUpdateData.stage = updateFields.stage;
+    if (updateFields.resumeUrl) mappedUpdateData.resume_url = updateFields.resumeUrl;
+    if (updateFields.coverLetterUrl) mappedUpdateData.cover_letter_url = updateFields.coverLetterUrl;
+    if (updateFields.portfolioUrl) mappedUpdateData.portfolio_url = updateFields.portfolioUrl;
+    if (updateFields.linkedInUrl) mappedUpdateData.linked_in_url = updateFields.linkedInUrl;
+    if (updateFields.websiteUrl) mappedUpdateData.website_url = updateFields.websiteUrl;
+    if (updateFields.customAnswers) mappedUpdateData.custom_answers = updateFields.customAnswers as any;
+    if (updateFields.questionnaireData) mappedUpdateData.questionnaire_data = updateFields.questionnaireData as any;
+    if (updateFields.isRead !== undefined) mappedUpdateData.is_read = updateFields.isRead;
+    if (updateFields.isNew !== undefined) mappedUpdateData.is_new = updateFields.isNew;
+    if (updateFields.tags) mappedUpdateData.tags = updateFields.tags;
+    if (updateFields.score !== undefined) mappedUpdateData.score = updateFields.score;
+    if (updateFields.rank !== undefined) mappedUpdateData.rank = updateFields.rank;
+    if (updateFields.aiAnalysis) mappedUpdateData.ai_analysis = updateFields.aiAnalysis;
+    if (updateFields.shortlisted !== undefined) mappedUpdateData.shortlisted = updateFields.shortlisted;
+    if (updateFields.shortlistedAt !== undefined) mappedUpdateData.shortlisted_at = updateFields.shortlistedAt;
+    if (updateFields.shortlistedBy !== undefined) mappedUpdateData.shortlisted_by = updateFields.shortlistedBy;
+    if (updateFields.manuallyAdded !== undefined) mappedUpdateData.manually_added = updateFields.manuallyAdded;
+    if (updateFields.addedBy) mappedUpdateData.added_by = updateFields.addedBy;
+    if (updateFields.addedAt) mappedUpdateData.added_at = updateFields.addedAt;
+    if (updateFields.recruiterNotes) mappedUpdateData.recruiter_notes = updateFields.recruiterNotes;
+
     const application = await prisma.application.update({
       where: { id },
-      data: {
-        ...updateFields,
-        customAnswers: updateFields.customAnswers as any,
-        questionnaireData: updateFields.questionnaireData as any,
-      },
+      data: mappedUpdateData,
     });
 
     return this.mapPrismaToApplication(application);
@@ -269,8 +289,8 @@ export class ApplicationModel {
     await prisma.application.update({
       where: { id },
       data: {
-        isRead: true,
-        isNew: false,
+        is_read: true,
+        is_new: false,
       },
     });
   }
@@ -350,7 +370,7 @@ export class ApplicationModel {
       where: { id },
       data: {
         score,
-        aiAnalysis: aiAnalysis || null,
+        ai_analysis: aiAnalysis || null,
       },
     });
 
@@ -380,8 +400,8 @@ export class ApplicationModel {
       where: { id },
       data: {
         shortlisted: true,
-        shortlistedAt: new Date(),
-        shortlistedBy,
+        shortlisted_at: new Date(),
+        shortlisted_by: shortlistedBy,
       },
     });
 
@@ -396,8 +416,8 @@ export class ApplicationModel {
       where: { id },
       data: {
         shortlisted: false,
-        shortlistedAt: null,
-        shortlistedBy: null,
+        shortlisted_at: null,
+        shortlisted_by: null,
       },
     });
 
@@ -425,7 +445,7 @@ export class ApplicationModel {
   ): Promise<ApplicationData> {
     const application = await prisma.application.update({
       where: { id },
-      data: { recruiterNotes },
+      data: { recruiter_notes: recruiterNotes },
     });
 
     return this.mapPrismaToApplication(application);
@@ -446,7 +466,7 @@ export class ApplicationModel {
     const updateData: any = {};
 
     if (data.score !== undefined) {
-      updateData.manualScreeningScore = data.score;
+      updateData.manual_screening_score = data.score;
       // Also update the main score field
       updateData.score = data.score;
     }
@@ -455,22 +475,22 @@ export class ApplicationModel {
       // Ensure status is a valid ManualScreeningStatus enum value
       const validStatuses = ['PENDING', 'PASSED', 'FAILED'];
       if (validStatuses.includes(data.status)) {
-        updateData.manualScreeningStatus = data.status;
+        updateData.manual_screening_status = data.status;
       }
     }
 
     if (data.notes !== undefined) {
-      updateData.screeningNotes = data.notes;
+      updateData.screening_notes = data.notes;
       // Also update recruiter notes if not already set
-      if (!updateData.recruiterNotes) {
-        updateData.recruiterNotes = data.notes;
+      if (!updateData.recruiter_notes) {
+        updateData.recruiter_notes = data.notes;
       }
     }
 
     if (data.completed !== undefined) {
-      updateData.manualScreeningCompleted = data.completed;
+      updateData.manual_screening_completed = data.completed;
       if (data.completed) {
-        updateData.manualScreeningDate = new Date();
+        updateData.manual_screening_date = new Date();
       }
     }
 
@@ -497,39 +517,33 @@ export class ApplicationModel {
   private static mapPrismaToApplication(prismaApplication: any): ApplicationData {
     const application: ApplicationData = {
       id: prismaApplication.id,
-      candidateId: prismaApplication.candidateId,
-      jobId: prismaApplication.jobId,
+      candidateId: prismaApplication.candidate_id,
+      jobId: prismaApplication.job_id,
       status: prismaApplication.status,
       stage: prismaApplication.stage,
-      appliedDate: prismaApplication.appliedDate,
-      resumeUrl: prismaApplication.resumeUrl,
-      coverLetterUrl: prismaApplication.coverLetterUrl,
-      portfolioUrl: prismaApplication.portfolioUrl,
-      linkedInUrl: prismaApplication.linkedInUrl,
-      websiteUrl: prismaApplication.websiteUrl,
-      customAnswers: prismaApplication.customAnswers as any,
-      questionnaireData: prismaApplication.questionnaireData as any,
-      isRead: prismaApplication.isRead,
-      isNew: prismaApplication.isNew,
+      appliedDate: prismaApplication.applied_date,
+      resumeUrl: prismaApplication.resume_url,
+      coverLetterUrl: prismaApplication.cover_letter_url,
+      portfolioUrl: prismaApplication.portfolio_url,
+      linkedInUrl: prismaApplication.linked_in_url,
+      websiteUrl: prismaApplication.website_url,
+      customAnswers: prismaApplication.custom_answers as any,
+      questionnaireData: prismaApplication.questionnaire_data as any,
+      isRead: prismaApplication.is_read,
+      isNew: prismaApplication.is_new,
       tags: prismaApplication.tags || [],
       score: prismaApplication.score ?? undefined,
       rank: prismaApplication.rank ?? undefined,
-      aiAnalysis: prismaApplication.aiAnalysis || undefined,
+      aiAnalysis: prismaApplication.ai_analysis || undefined,
       shortlisted: prismaApplication.shortlisted ?? false,
-      // Manual screening fields (if needed in ApplicationData interface)
-      // manualScreeningStatus: prismaApplication.manual_screening_status,
-      // manualScreeningScore: prismaApplication.manual_screening_score,
-      // manualScreeningCompleted: prismaApplication.manual_screening_completed,
-      // manualScreeningDate: prismaApplication.manual_screening_date,
-      // screeningNotes: prismaApplication.screening_notes,
-      shortlistedAt: prismaApplication.shortlistedAt ?? undefined,
-      shortlistedBy: prismaApplication.shortlistedBy ?? undefined,
-      manuallyAdded: prismaApplication.manuallyAdded ?? false,
-      addedBy: prismaApplication.addedBy ?? undefined,
-      addedAt: prismaApplication.addedAt ?? undefined,
-      recruiterNotes: prismaApplication.recruiterNotes ?? undefined,
-      createdAt: prismaApplication.createdAt,
-      updatedAt: prismaApplication.updatedAt,
+      shortlistedAt: prismaApplication.shortlisted_at ?? undefined,
+      shortlistedBy: prismaApplication.shortlisted_by ?? undefined,
+      manuallyAdded: prismaApplication.manually_added ?? false,
+      addedBy: prismaApplication.added_by ?? undefined,
+      addedAt: prismaApplication.added_at ?? undefined,
+      recruiterNotes: prismaApplication.recruiter_notes ?? undefined,
+      createdAt: prismaApplication.created_at,
+      updatedAt: prismaApplication.updated_at,
     };
 
     // Include candidate data if available
@@ -537,15 +551,15 @@ export class ApplicationModel {
       application.candidate = {
         id: prismaApplication.candidate.id,
         email: prismaApplication.candidate.email,
-        firstName: prismaApplication.candidate.firstName,
-        lastName: prismaApplication.candidate.lastName,
+        firstName: prismaApplication.candidate.first_name,
+        lastName: prismaApplication.candidate.last_name,
         phone: prismaApplication.candidate.phone ?? undefined,
         photo: prismaApplication.candidate.photo ?? undefined,
-        linkedInUrl: prismaApplication.candidate.linkedInUrl ?? undefined,
+        linkedInUrl: prismaApplication.candidate.linked_in_url ?? undefined,
         city: prismaApplication.candidate.city ?? undefined,
         state: prismaApplication.candidate.state ?? undefined,
         country: prismaApplication.candidate.country ?? undefined,
-        emailVerified: prismaApplication.candidate.emailVerified,
+        emailVerified: prismaApplication.candidate.email_verified,
         status: prismaApplication.candidate.status,
         education: prismaApplication.candidate.education?.map((edu: any) => ({
           id: edu.id,
@@ -563,7 +577,7 @@ export class ApplicationModel {
           name: skill.name,
           level: skill.level,
         })),
-        workExperience: prismaApplication.candidate.workExperience?.map((exp: any) => ({
+        workExperience: prismaApplication.candidate.work_experience?.map((exp: any) => ({
           id: exp.id,
           company: exp.company,
           role: exp.role,
@@ -589,10 +603,12 @@ export class ApplicationModel {
     }
 
     // Include roundId from ApplicationRoundProgress if available
-    if (prismaApplication.ApplicationRoundProgress && prismaApplication.ApplicationRoundProgress.length > 0) {
+    if (prismaApplication.application_round_progress && prismaApplication.application_round_progress.length > 0) {
+      const progress = prismaApplication.application_round_progress[0];
+      application.roundId = progress.job_round_id;
+    } else if (prismaApplication.ApplicationRoundProgress && prismaApplication.ApplicationRoundProgress.length > 0) {
       const progress = prismaApplication.ApplicationRoundProgress[0];
-      // Handle potential case/mapping differences (snake_case in schema vs camelCase in client)
-      application.roundId = progress.job_round_id || progress.jobRoundId;
+      application.roundId = progress.job_round_id;
     }
 
     return application;

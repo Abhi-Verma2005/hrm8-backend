@@ -10,7 +10,6 @@ import { JobModel } from '../../models/Job';
 import { JobRoundModel } from '../../models/JobRound';
 import { GoogleCalendarService } from '../integrations/GoogleCalendarService';
 import { prisma } from '../../lib/prisma';
-import crypto from 'crypto';
 import { CandidateModel } from '../../models/Candidate';
 import { InterviewInvitationEmailService } from './InterviewInvitationEmailService';
 import { emailService } from '../email/EmailService';
@@ -227,7 +226,7 @@ export class InterviewService {
           },
         },
         create: {
-          id: crypto.randomUUID(),
+          
           applicationId: params.applicationId,
           jobRoundId: params.jobRoundId,
           videoInterviewId: interview.id,
@@ -975,7 +974,7 @@ export class InterviewService {
           },
         },
         create: {
-          id: crypto.randomUUID(),
+          
           applicationId: params.applicationId,
           jobRoundId: params.jobRoundId,
           videoInterviewId: interview.id,

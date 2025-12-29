@@ -21,7 +21,7 @@ export class JobRoundModel {
       where: { id },
     });
 
-    return round;
+    return round ? this.mapPrismaToJobRound(round) : null;
   }
 
   static async findByJobId(jobId: string): Promise<JobRoundData[]> {
@@ -30,19 +30,19 @@ export class JobRoundModel {
       orderBy: { order: 'asc' },
     });
 
-    return rounds;
+    return rounds.map((round) => this.mapPrismaToJobRound(round));
   }
 
   static async findByJobIdAndFixedKey(jobId: string, fixedKey: string): Promise<JobRoundData | null> {
     const round = await prisma.jobRound.findFirst({
       where: {
-        job_id:jobId,
-        isFixed: true,
-        fixedKey,
+        job_id: jobId,
+        is_fixed: true,
+        fixed_key: fixedKey,
       },
     });
 
-    return round;
+    return round ? this.mapPrismaToJobRound(round) : null;
   }
 
   static async create(data: {
@@ -54,10 +54,18 @@ export class JobRoundModel {
     fixedKey?: string | null;
   }): Promise<JobRoundData> {
     const round = await prisma.jobRound.create({
-      data,
+      data: {
+        job_id: data.jobId,
+        name: data.name,
+        order: data.order,
+        type: data.type,
+        is_fixed: data.isFixed ?? false,
+        fixed_key: data.fixedKey,
+        updated_at: new Date(),
+      },
     });
 
-    return round;
+    return this.mapPrismaToJobRound(round);
   }
 
   static async update(
@@ -65,11 +73,19 @@ export class JobRoundModel {
     data: Partial<Pick<JobRoundData, 'name' | 'order' | 'type'>>
   ): Promise<JobRoundData | null> {
     try {
+      const updateData: any = {
+        updated_at: new Date(),
+      };
+
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.order !== undefined) updateData.order = data.order;
+      if (data.type !== undefined) updateData.type = data.type;
+
       const round = await prisma.jobRound.update({
         where: { id },
-        data,
+        data: updateData,
       });
-      return round;
+      return this.mapPrismaToJobRound(round);
     } catch {
       return null;
     }
@@ -79,6 +95,20 @@ export class JobRoundModel {
     await prisma.jobRound.delete({
       where: { id },
     });
+  }
+
+  private static mapPrismaToJobRound(prismaRound: any): JobRoundData {
+    return {
+      id: prismaRound.id,
+      jobId: prismaRound.job_id,
+      name: prismaRound.name,
+      order: prismaRound.order,
+      type: prismaRound.type,
+      isFixed: prismaRound.is_fixed,
+      fixedKey: prismaRound.fixed_key,
+      createdAt: prismaRound.created_at,
+      updatedAt: prismaRound.updated_at,
+    };
   }
 }
 

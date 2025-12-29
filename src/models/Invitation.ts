@@ -15,17 +15,17 @@ export class InvitationModel {
   ): Promise<Invitation> {
     const invitation = await prisma.invitation.create({
       data: {
-        companyId: invitationData.companyId,
-        invitedBy: invitationData.invitedBy,
+        company_id: invitationData.companyId,
+        invited_by: invitationData.invitedBy,
         email: invitationData.email.toLowerCase(),
         token: invitationData.token,
         status: invitationData.status,
-        expiresAt: invitationData.expiresAt,
-        acceptedAt: invitationData.acceptedAt,
+        expires_at: invitationData.expiresAt,
+        accepted_at: invitationData.acceptedAt,
       },
     });
 
-    return this.mapPrismaToInvitation(invitation);
+    return this.mapPrismaToInvitation(invitation as any);
   }
 
   /**
@@ -36,7 +36,7 @@ export class InvitationModel {
       where: { id },
     });
 
-    return invitation ? this.mapPrismaToInvitation(invitation) : null;
+    return invitation ? this.mapPrismaToInvitation(invitation as any) : null;
   }
 
   /**
@@ -47,7 +47,7 @@ export class InvitationModel {
       where: { token },
     });
 
-    return invitation ? this.mapPrismaToInvitation(invitation) : null;
+    return invitation ? this.mapPrismaToInvitation(invitation as any) : null;
   }
 
   /**
@@ -56,10 +56,10 @@ export class InvitationModel {
   static async findByEmail(email: string): Promise<Invitation[]> {
     const invitations = await prisma.invitation.findMany({
       where: { email: email.toLowerCase() },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
-    return invitations.map((inv) => this.mapPrismaToInvitation(inv));
+    return invitations.map((inv) => this.mapPrismaToInvitation(inv as any));
   }
 
   /**
@@ -67,11 +67,11 @@ export class InvitationModel {
    */
   static async findByCompanyId(companyId: string): Promise<Invitation[]> {
     const invitations = await prisma.invitation.findMany({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' },
+      where: { company_id: companyId },
+      orderBy: { created_at: 'desc' },
     });
 
-    return invitations.map((inv) => this.mapPrismaToInvitation(inv));
+    return invitations.map((inv) => this.mapPrismaToInvitation(inv as any));
   }
 
   /**
@@ -83,12 +83,12 @@ export class InvitationModel {
   ): Promise<Invitation> {
     const updateData: {
       status: InvitationStatus;
-      acceptedAt?: Date;
+      accepted_at?: Date;
     } = { status };
 
     // Set acceptedAt if status is ACCEPTED
     if (status === InvitationStatus.ACCEPTED) {
-      updateData.acceptedAt = new Date();
+      updateData.accepted_at = new Date();
     }
 
     const invitation = await prisma.invitation.update({
@@ -96,7 +96,7 @@ export class InvitationModel {
       data: updateData,
     });
 
-    return this.mapPrismaToInvitation(invitation);
+    return this.mapPrismaToInvitation(invitation as any);
   }
 
   /**
@@ -107,13 +107,13 @@ export class InvitationModel {
     const invitations = await prisma.invitation.findMany({
       where: {
         status: InvitationStatus.PENDING,
-        expiresAt: {
+        expires_at: {
           lt: now,
         },
       },
     });
 
-    return invitations.map((inv) => this.mapPrismaToInvitation(inv));
+    return invitations.map((inv) => this.mapPrismaToInvitation(inv as any));
   }
 
   /**
@@ -124,7 +124,7 @@ export class InvitationModel {
     const result = await prisma.invitation.deleteMany({
       where: {
         status: InvitationStatus.PENDING,
-        expiresAt: {
+        expires_at: {
           lt: now,
         },
       },
@@ -152,7 +152,7 @@ export class InvitationModel {
     const count = await prisma.invitation.count({
       where: {
         email: email.toLowerCase(),
-        companyId,
+        company_id: companyId,
         status: InvitationStatus.PENDING,
       },
     });
@@ -165,25 +165,25 @@ export class InvitationModel {
    */
   private static mapPrismaToInvitation(prismaInvitation: {
     id: string;
-    companyId: string;
-    invitedBy: string;
+    company_id: string;
+    invited_by: string;
     email: string;
     token: string;
     status: InvitationStatus;
-    expiresAt: Date;
-    acceptedAt: Date | null;
-    createdAt: Date;
+    expires_at: Date;
+    accepted_at: Date | null;
+    created_at: Date;
   }): Invitation {
     return {
       id: prismaInvitation.id,
-      companyId: prismaInvitation.companyId,
-      invitedBy: prismaInvitation.invitedBy,
+      companyId: prismaInvitation.company_id,
+      invitedBy: prismaInvitation.invited_by,
       email: prismaInvitation.email,
       token: prismaInvitation.token,
       status: prismaInvitation.status,
-      expiresAt: prismaInvitation.expiresAt,
-      acceptedAt: prismaInvitation.acceptedAt || undefined,
-      createdAt: prismaInvitation.createdAt,
+      expiresAt: prismaInvitation.expires_at,
+      acceptedAt: prismaInvitation.accepted_at || undefined,
+      createdAt: prismaInvitation.created_at,
     };
   }
 }
