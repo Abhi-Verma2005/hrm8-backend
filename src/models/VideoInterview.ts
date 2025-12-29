@@ -199,7 +199,7 @@ export class VideoInterviewModel {
   /**
    * Map Prisma videoInterview to VideoInterviewData
    */
-  private static mapPrismaToVideoInterview(prismaInterview: any): VideoInterviewData {
+  public static mapPrismaToVideoInterview(prismaInterview: any): VideoInterviewData {
     return {
       id: prismaInterview.id,
       applicationId: prismaInterview.application_id,

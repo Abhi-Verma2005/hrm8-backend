@@ -35,6 +35,7 @@ export class ApplicationController {
         return;
       }
 
+      const { CandidateDocumentService } = await import('../../services/candidate/CandidateDocumentService');
       const resume = await CandidateDocumentService.findByUrl(application.resumeUrl);
       
       if (!resume) {
@@ -554,12 +555,12 @@ export class ApplicationController {
       const { prisma } = await import('../../lib/prisma');
       const roundProgress = await prisma.applicationRoundProgress.findMany({
         where: {
-          Application: {
-            jobId,
+          application: {
+            job_id: jobId,
           },
         },
         include: {
-          JobRound: true,
+          job_round: true,
         },
         orderBy: {
           updated_at: 'desc',
@@ -569,11 +570,11 @@ export class ApplicationController {
       // Group by applicationId and get the latest (most recent) round for each
       const progressByApplication = new Map<string, any>();
       roundProgress.forEach((progress) => {
-        const existing = progressByApplication.get(progress.applicationId);
-        // Use updatedAt to determine the latest round activity, as re-entering a round
-        // updates the existing record via upsert without changing createdAt
-        if (!existing || new Date(progress.updatedAt) > new Date(existing.updatedAt)) {
-          progressByApplication.set(progress.applicationId, progress);
+        const existing = progressByApplication.get(progress.application_id);
+        // Use updated_at to determine the latest round activity, as re-entering a round
+        // updates the existing record via upsert without changing created_at
+        if (!existing || new Date(progress.updated_at) > new Date(existing.updated_at)) {
+          progressByApplication.set(progress.application_id, progress);
         }
       });
 
@@ -581,8 +582,8 @@ export class ApplicationController {
       const roundProgressData: Record<string, { roundId: string; roundName?: string; completed: boolean }> = {};
       progressByApplication.forEach((progress, applicationId) => {
         roundProgressData[applicationId] = {
-          roundId: progress.jobRoundId,
-          roundName: progress.JobRound?.name,
+          roundId: progress.job_round_id,
+          roundName: progress.job_round?.name,
           completed: progress.completed,
         };
       });
@@ -1256,7 +1257,7 @@ export class ApplicationController {
           const existingInvitation = await tx.jobInvitation.findFirst({
             where: {
               email: candidate.email.toLowerCase(),
-              jobId,
+              job_id: jobId,
               status: JobInvitationStatus.PENDING,
             },
           });
@@ -1268,30 +1269,30 @@ export class ApplicationController {
           // Create job invitation using transaction client
           const created = await tx.jobInvitation.create({
             data: {
-              jobId,
-              candidateId,
+              job_id: jobId,
+              candidate_id: candidateId,
               email: candidate.email.toLowerCase(),
               token,
               status: JobInvitationStatus.PENDING,
-              invitedBy: req.user.id,
-              expiresAt,
+              invited_by: req.user!.id,
+              expires_at: expiresAt,
             },
           });
 
           // Map to JobInvitationData format
           return {
             id: created.id,
-            jobId: created.jobId,
-            candidateId: created.candidateId || undefined,
+            jobId: created.job_id,
+            candidateId: created.candidate_id || undefined,
             email: created.email,
             token: created.token,
             status: created.status,
-            invitedBy: created.invitedBy,
-            expiresAt: created.expiresAt,
-            acceptedAt: created.acceptedAt || undefined,
-            applicationId: created.applicationId || undefined,
-            createdAt: created.createdAt,
-            updatedAt: created.updatedAt,
+            invitedBy: created.invited_by,
+            expiresAt: created.expires_at,
+            acceptedAt: created.accepted_at || undefined,
+            applicationId: created.application_id || undefined,
+            createdAt: created.created_at,
+            updatedAt: created.updated_at,
           };
         });
       } catch (error: any) {

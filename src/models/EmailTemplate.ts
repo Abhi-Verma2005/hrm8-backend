@@ -25,31 +25,31 @@ export class EmailTemplateModel {
     const template = await prisma.emailTemplate.findUnique({
       where: { id },
     });
-    return template;
+    return template ? this.mapPrismaToEmailTemplate(template) : null;
   }
 
   static async findByCompanyId(companyId: string): Promise<EmailTemplateData[]> {
     const templates = await prisma.emailTemplate.findMany({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' },
+      where: { company_id: companyId },
+      orderBy: { created_at: 'desc' },
     });
-    return templates;
+    return templates.map(t => this.mapPrismaToEmailTemplate(t));
   }
 
   static async findByJobId(jobId: string): Promise<EmailTemplateData[]> {
     const templates = await prisma.emailTemplate.findMany({
-      where: { jobId },
-      orderBy: { createdAt: 'desc' },
+      where: { job_id: jobId },
+      orderBy: { created_at: 'desc' },
     });
-    return templates;
+    return templates.map(t => this.mapPrismaToEmailTemplate(t));
   }
 
   static async findByJobRoundId(jobRoundId: string): Promise<EmailTemplateData[]> {
     const templates = await prisma.emailTemplate.findMany({
-      where: { jobRoundId },
-      orderBy: { createdAt: 'desc' },
+      where: { job_round_id: jobRoundId },
+      orderBy: { created_at: 'desc' },
     });
-    return templates;
+    return templates.map(t => this.mapPrismaToEmailTemplate(t));
   }
 
   static async findByType(
@@ -58,13 +58,13 @@ export class EmailTemplateModel {
   ): Promise<EmailTemplateData[]> {
     const templates = await prisma.emailTemplate.findMany({
       where: {
-        companyId,
+        company_id: companyId,
         type,
-        isActive: true,
+        is_active: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
-    return templates;
+    return templates.map(t => this.mapPrismaToEmailTemplate(t));
   }
 
   static async findDefault(
@@ -73,13 +73,13 @@ export class EmailTemplateModel {
   ): Promise<EmailTemplateData | null> {
     const template = await prisma.emailTemplate.findFirst({
       where: {
-        companyId,
+        company_id: companyId,
         type,
-        isDefault: true,
-        isActive: true,
+        is_default: true,
+        is_active: true,
       },
     });
-    return template;
+    return template ? this.mapPrismaToEmailTemplate(template) : null;
   }
 
   static async create(data: {
@@ -98,22 +98,23 @@ export class EmailTemplateModel {
   }): Promise<EmailTemplateData> {
     const template = await prisma.emailTemplate.create({
       data: {
-        companyId: data.companyId,
-        jobId: data.jobId || null,
-        jobRoundId: data.jobRoundId || null,
+        company_id: data.companyId,
+        job_id: data.jobId || null,
+        job_round_id: data.jobRoundId || null,
         name: data.name,
         type: data.type,
         subject: data.subject,
         body: data.body,
         variables: data.variables || [],
-        isActive: data.isActive ?? true,
-        isDefault: data.isDefault ?? false,
-        isAiGenerated: data.isAiGenerated ?? false,
+        is_active: data.isActive ?? true,
+        is_default: data.isDefault ?? false,
+        is_ai_generated: data.isAiGenerated ?? false,
         version: 1,
-        createdBy: data.createdBy,
+        created_by: data.createdBy,
+        updated_at: new Date(),
       },
     });
-    return template;
+    return this.mapPrismaToEmailTemplate(template);
   }
 
   static async update(
@@ -126,15 +127,27 @@ export class EmailTemplateModel {
       });
       if (!existing) return null;
 
+      const mappedData: any = { ...data };
+      if (data.isActive !== undefined) {
+        mappedData.is_active = data.isActive;
+        delete mappedData.isActive;
+      }
+      if (data.isDefault !== undefined) {
+        mappedData.is_default = data.isDefault;
+        delete mappedData.isDefault;
+      }
+
       const template = await prisma.emailTemplate.update({
         where: { id },
         data: {
-          ...data,
+          ...mappedData,
           version: existing.version + 1,
+          updated_at: new Date(),
         },
       });
-      return template;
-    } catch {
+      return this.mapPrismaToEmailTemplate(template);
+    } catch (error) {
+      console.error('Error updating email template:', error);
       return null;
     }
   }
@@ -155,12 +168,12 @@ export class EmailTemplateModel {
       // First, unset all other defaults of this type
       await prisma.emailTemplate.updateMany({
         where: {
-          companyId,
+          company_id: companyId,
           type,
-          isDefault: true,
+          is_default: true,
         },
         data: {
-          isDefault: false,
+          is_default: false,
         },
       });
 
@@ -168,7 +181,8 @@ export class EmailTemplateModel {
       await prisma.emailTemplate.update({
         where: { id: templateId },
         data: {
-          isDefault: true,
+          is_default: true,
+          updated_at: new Date(),
         },
       });
       return true;
@@ -176,5 +190,25 @@ export class EmailTemplateModel {
       return false;
     }
   }
-}
 
+  private static mapPrismaToEmailTemplate(prismaTemplate: any): EmailTemplateData {
+    return {
+      id: prismaTemplate.id,
+      companyId: prismaTemplate.company_id,
+      jobId: prismaTemplate.job_id,
+      jobRoundId: prismaTemplate.job_round_id,
+      name: prismaTemplate.name,
+      type: prismaTemplate.type,
+      subject: prismaTemplate.subject,
+      body: prismaTemplate.body,
+      variables: prismaTemplate.variables,
+      isActive: prismaTemplate.is_active,
+      isDefault: prismaTemplate.is_default,
+      isAiGenerated: prismaTemplate.is_ai_generated,
+      version: prismaTemplate.version,
+      createdBy: prismaTemplate.created_by,
+      createdAt: prismaTemplate.created_at,
+      updatedAt: prismaTemplate.updated_at,
+    };
+  }
+}

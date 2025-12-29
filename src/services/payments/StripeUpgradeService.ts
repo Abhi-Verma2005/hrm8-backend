@@ -53,7 +53,7 @@ export class StripeUpgradeService {
     };
 
     await CompanyProfileModel.updateByCompanyId(companyId, {
-      profileData: updatedProfileData as unknown as Prisma.JsonObject,
+      profile_data: updatedProfileData as unknown as Prisma.JsonObject,
     });
   }
 }

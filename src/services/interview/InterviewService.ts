@@ -114,36 +114,7 @@ export class InterviewService {
     });
     
     if (existingInterviews.length > 0) {
-      // Map back to VideoInterviewData format
-      const existing = existingInterviews[0];
-      return {
-        id: existing.id,
-        applicationId: existing.application_id,
-        candidateId: existing.candidate_id,
-        jobId: existing.job_id,
-        jobRoundId: existing.job_round_id,
-        scheduledDate: existing.scheduled_date,
-        duration: existing.duration,
-        meetingLink: existing.meeting_link || undefined,
-        status: existing.status,
-        type: existing.type,
-        interviewerIds: (existing as any).interviewer_ids,
-        isAutoScheduled: (existing as any).is_auto_scheduled ?? false,
-        rescheduledFrom: (existing as any).rescheduled_from,
-        rescheduledAt: (existing as any).rescheduled_at,
-        rescheduledBy: (existing as any).rescheduled_by,
-        cancellationReason: (existing as any).cancellation_reason,
-        noShowReason: (existing as any).no_show_reason,
-        overallScore: (existing as any).overall_score,
-        recommendation: (existing as any).recommendation,
-        ratingCriteriaScores: (existing as any).rating_criteria_scores,
-        recordingUrl: (existing as any).recording_url,
-        transcript: (existing as any).transcript,
-        feedback: (existing as any).feedback,
-        notes: (existing as any).notes,
-        createdAt: existing.created_at,
-        updatedAt: existing.updated_at,
-      };
+      return VideoInterviewModel.mapPrismaToVideoInterview(existingInterviews[0]);
     }
 
     // Load application and job details
@@ -170,7 +141,7 @@ export class InterviewService {
     }
 
     // Find available time slot
-    const timeSlot = await this.findAvailableTimeSlot(config, params.applicationId);
+    const timeSlot = await this.findAvailableTimeSlot(config);
 
     // Generate meeting link if video interview (EXTERNAL API CALL)
     let meetingLink: string | null = null;
@@ -238,34 +209,7 @@ export class InterviewService {
         },
       });
       
-      return {
-          id: interview.id,
-          applicationId: interview.application_id,
-          candidateId: interview.candidate_id,
-          jobId: interview.job_id,
-          jobRoundId: interview.job_round_id,
-          scheduledDate: interview.scheduled_date,
-          duration: interview.duration,
-          meetingLink: interview.meeting_link || undefined,
-          status: interview.status,
-          type: interview.type,
-          interviewerIds: (interview as any).interviewer_ids,
-          isAutoScheduled: (interview as any).is_auto_scheduled ?? false,
-          rescheduledFrom: (interview as any).rescheduled_from,
-          rescheduledAt: (interview as any).rescheduled_at,
-          rescheduledBy: (interview as any).rescheduled_by,
-          cancellationReason: (interview as any).cancellation_reason,
-          noShowReason: (interview as any).no_show_reason,
-          overallScore: (interview as any).overall_score,
-          recommendation: (interview as any).recommendation,
-          ratingCriteriaScores: (interview as any).rating_criteria_scores,
-          recordingUrl: (interview as any).recording_url,
-          transcript: (interview as any).transcript,
-          feedback: (interview as any).feedback,
-          notes: (interview as any).notes,
-          createdAt: interview.created_at,
-          updatedAt: interview.updated_at,
-      };
+      return VideoInterviewModel.mapPrismaToVideoInterview(interview);
     }).then(async (interview) => {
         // Send interview invitation email (after transaction commits)
         try {
@@ -281,8 +225,7 @@ export class InterviewService {
    * Find available time slot for scheduling
    */
   private static async findAvailableTimeSlot(
-    config: any,
-    applicationId?: string
+    config: any
   ): Promise<{ startDate: Date; interviewerIds: any[] }> {
     const windowDays = config.autoScheduleWindowDays || 7;
     const now = new Date();
@@ -471,17 +414,17 @@ export class InterviewService {
 
       // Update interview
       const updatedInterview = await VideoInterviewModel.update(interview.id, {
-        scheduled_date: params.newScheduledDate,
+        scheduledDate: params.newScheduledDate,
         status: 'SCHEDULED', // Reset to scheduled
-        rescheduled_from: originalInterviewId, // Always point to original, not current
-        rescheduled_at: new Date(),
-        rescheduled_by: params.rescheduledBy,
-        is_auto_scheduled: false, // Manual reschedule
-        interviewer_ids: preservedInterviewerIds, // Preserve interviewer assignments
+        rescheduledFrom: originalInterviewId, // Always point to original, not current
+        rescheduledAt: new Date(),
+        rescheduledBy: params.rescheduledBy,
+        isAutoScheduled: false, // Manual reschedule
+        interviewerIds: preservedInterviewerIds, // Preserve interviewer assignments
         notes: params.reason
           ? `${interview.notes || ''}\nRescheduled: ${params.reason}`.trim()
           : interview.notes,
-      } as any);
+      });
 
       // Update ApplicationRoundProgress to link to this interview
       if (interview.jobRoundId && interview.applicationId) {
@@ -748,7 +691,7 @@ export class InterviewService {
       }
 
       // Get candidate info - explicitly fetch if not included
-      let candidate = application.candidate;
+      let candidate: any = application.candidate;
       if (!candidate) {
         candidate = await CandidateModel.findById(application.candidateId);
         if (!candidate) {
@@ -807,7 +750,7 @@ export class InterviewService {
       }
 
       // Get candidate info - explicitly fetch if not included
-      let candidate = application.candidate;
+      let candidate: any = application.candidate;
       if (!candidate) {
         candidate = await CandidateModel.findById(application.candidateId);
         if (!candidate) {
@@ -865,7 +808,7 @@ export class InterviewService {
       }
 
       // Get candidate info - explicitly fetch if not included
-      let candidate = application.candidate;
+      let candidate: any = application.candidate;
       if (!candidate) {
         candidate = await CandidateModel.findById(application.candidateId);
         if (!candidate) {
@@ -951,19 +894,19 @@ export class InterviewService {
 
     // Create interview
     const interview = await VideoInterviewModel.create({
-      application_id: params.applicationId,
-      candidate_id: application.candidateId,
-      job_id: application.jobId,
-      job_round_id: params.jobRoundId || null,
-      scheduled_date: params.scheduledDate,
+      applicationId: params.applicationId,
+      candidateId: application.candidateId,
+      jobId: application.jobId,
+      jobRoundId: params.jobRoundId || null,
+      scheduledDate: params.scheduledDate,
       duration: params.duration,
-      meeting_link: params.meetingLink || null,
+      meetingLink: params.meetingLink || null,
       status: 'SCHEDULED',
       type: params.type,
-      interviewer_ids: params.interviewerIds || [],
-      is_auto_scheduled: false,
+      interviewerIds: params.interviewerIds || [],
+      isAutoScheduled: false,
       notes: params.notes || null,
-    } as any);
+    });
 
     // Update ApplicationRoundProgress if jobRoundId provided
     if (params.jobRoundId) {

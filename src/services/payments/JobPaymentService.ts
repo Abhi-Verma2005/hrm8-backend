@@ -139,14 +139,11 @@ export class JobPaymentService {
       await prisma.job.update({
         where: { id: jobId },
         data: {
-          // @ts-ignore: stripeSessionId exists in schema
-          stripeSessionId: session.id,
-          paymentStatus: PaymentStatus.PENDING,
-          servicePackage,
-          // @ts-ignore: paymentAmount exists in schema
-          paymentAmount: paymentInfo.amount,
-          // @ts-ignore: paymentCurrency exists in schema
-          paymentCurrency: paymentInfo.currency,
+          stripe_session_id: session.id,
+          payment_status: PaymentStatus.PENDING,
+          service_package: servicePackage,
+          payment_amount: paymentInfo.amount,
+          payment_currency: paymentInfo.currency,
         },
       });
 
@@ -189,18 +186,13 @@ export class JobPaymentService {
     await prisma.job.update({
       where: { id: jobId },
       data: {
-        paymentStatus: PaymentStatus.PAID,
-        // @ts-ignore: stripeSessionId exists in schema
-        stripeSessionId,
-        stripePaymentIntentId: stripePaymentIntentId || undefined,
-        // @ts-ignore: paymentAmount exists in schema
-        paymentAmount: amount,
-        // @ts-ignore: paymentCurrency exists in schema
-        paymentCurrency: currency,
-        // @ts-ignore: paymentCompletedAt exists in schema
-        paymentCompletedAt: new Date(),
-        // @ts-ignore: paymentFailedAt exists in schema
-        paymentFailedAt: null,
+        payment_status: PaymentStatus.PAID,
+        stripe_session_id: stripeSessionId,
+        stripe_payment_intent_id: stripePaymentIntentId || undefined,
+        payment_amount: amount,
+        payment_currency: currency,
+        payment_completed_at: new Date(),
+        payment_failed_at: null,
       },
     });
   }
@@ -217,9 +209,8 @@ export class JobPaymentService {
     await prisma.job.update({
       where: { id: jobId },
       data: {
-        paymentStatus: PaymentStatus.FAILED,
-        // @ts-ignore: paymentFailedAt exists in schema
-        paymentFailedAt: new Date(),
+        payment_status: PaymentStatus.FAILED,
+        payment_failed_at: new Date(),
       },
     });
   }
@@ -248,11 +239,11 @@ export class JobPaymentService {
     }
 
     return {
-      paymentStatus: (prismaJob as any).paymentStatus ?? null,
-      servicePackage: (prismaJob as any).servicePackage ?? null,
-      paymentAmount: (prismaJob as any).paymentAmount ?? null,
-      paymentCurrency: (prismaJob as any).paymentCurrency ?? null,
-      paymentCompletedAt: (prismaJob as any).paymentCompletedAt ?? null,
+      paymentStatus: (prismaJob as any).payment_status ?? null,
+      servicePackage: (prismaJob as any).service_package ?? null,
+      paymentAmount: (prismaJob as any).payment_amount ?? null,
+      paymentCurrency: (prismaJob as any).payment_currency ?? null,
+      paymentCompletedAt: (prismaJob as any).payment_completed_at ?? null,
     };
   }
 
@@ -268,8 +259,8 @@ export class JobPaymentService {
     const prismaJob = await prisma.job.findUnique({
       where: { id: jobId },
       select: {
-        servicePackage: true,
-        paymentStatus: true,
+        service_package: true,
+        payment_status: true,
       },
     });
 
@@ -278,12 +269,12 @@ export class JobPaymentService {
     }
 
     // Self-managed jobs can always be published
-    if (prismaJob.servicePackage === 'self-managed' || !prismaJob.servicePackage) {
+    if (prismaJob.service_package === 'self-managed' || !prismaJob.service_package) {
       return true;
     }
 
     // Paid packages require payment
-    return prismaJob.paymentStatus === PaymentStatus.PAID;
+    return prismaJob.payment_status === PaymentStatus.PAID;
   }
 
   /**
