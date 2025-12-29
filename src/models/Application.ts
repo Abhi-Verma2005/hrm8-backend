@@ -602,12 +602,9 @@ export class ApplicationModel {
       };
     }
 
-    // Include roundId from ApplicationRoundProgress if available
+    // Include roundId from application_round_progress if available
     if (prismaApplication.application_round_progress && prismaApplication.application_round_progress.length > 0) {
       const progress = prismaApplication.application_round_progress[0];
-      application.roundId = progress.job_round_id;
-    } else if (prismaApplication.ApplicationRoundProgress && prismaApplication.ApplicationRoundProgress.length > 0) {
-      const progress = prismaApplication.ApplicationRoundProgress[0];
       application.roundId = progress.job_round_id;
     }
 

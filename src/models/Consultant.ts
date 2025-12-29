@@ -195,11 +195,10 @@ export class ConsultantModel {
     if (data.photo !== undefined) updateData.photo = data.photo;
     if (data.status !== undefined) updateData.status = data.status;
     if (data.regionId !== undefined) {
-      if (data.regionId === null || data.regionId === '') {
-        updateData.region_id = null as any;
-      } else {
-        updateData.region_id = data.regionId;
+      if (!data.regionId || data.regionId === '') {
+        throw new Error('Consultants must always be assigned to a region. regionId cannot be empty or null.');
       }
+      updateData.region_id = data.regionId;
     }
     if (data.address !== undefined) updateData.address = data.address?.trim() || null;
     if (data.city !== undefined) updateData.city = data.city?.trim() || null;
@@ -272,19 +271,12 @@ export class ConsultantModel {
   }
 
   /**
-   * Unassign consultant from region
+   * Unassign consultant from region - This is actually not allowed by schema (region_id is mandatory)
+   * Instead, we should reassign to a default or global region if needed, 
+   * but for now we'll throw an error or mark it as requiring a new region.
    */
   static async unassignFromRegion(id: string): Promise<ConsultantData> {
-    const updateData: any = {
-      region_id: null as any,
-    };
-    
-    const consultant = await prisma.consultant.update({
-      where: { id },
-      data: updateData,
-    });
-
-    return this.mapPrismaToConsultant(consultant);
+    throw new Error('Consultants must always be assigned to a region. Use assignToRegion instead.');
   }
 
   /**

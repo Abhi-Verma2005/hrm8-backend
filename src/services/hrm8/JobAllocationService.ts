@@ -101,9 +101,9 @@ export class JobAllocationService {
       await prisma.job.update({
         where: { id: jobId },
         data: { 
-          regionId: consultant.regionId,
-          assignedConsultantId: consultantId,
-          assignmentSource: assignmentSource || null,
+          region_id: consultant.regionId,
+          assigned_consultant_id: consultantId,
+          assignment_source: assignmentSource || null,
         },
       });
 
@@ -131,7 +131,7 @@ export class JobAllocationService {
         if (oldConsultantId !== consultantId) {
           await prisma.consultant.update({
             where: { id: oldConsultantId },
-            data: { currentJobs: { decrement: 1 } },
+            data: { current_jobs: { decrement: 1 } },
           });
         }
       }
@@ -140,7 +140,7 @@ export class JobAllocationService {
       if (!oldConsultantIds.has(consultantId)) {
         await prisma.consultant.update({
           where: { id: consultantId },
-          data: { currentJobs: { increment: 1 } },
+          data: { current_jobs: { increment: 1 } },
         });
       }
 
@@ -179,7 +179,7 @@ export class JobAllocationService {
       // Update job's regionId
       await prisma.job.update({
         where: { id: jobId },
-        data: { regionId },
+        data: { region_id: regionId },
       });
 
       // Create or update assignment record
@@ -217,7 +217,7 @@ export class JobAllocationService {
         // Decrement consultant's currentJobs counter
         await prisma.consultant.update({
           where: { id: assignment.consultantId },
-          data: { currentJobs: { decrement: 1 } },
+          data: { current_jobs: { decrement: 1 } },
         });
       }
 
@@ -225,9 +225,9 @@ export class JobAllocationService {
       await prisma.job.update({
         where: { id: jobId },
         data: { 
-          regionId: null,
-          assignedConsultantId: null,
-          assignmentSource: null,
+          region_id: null,
+          assigned_consultant_id: null,
+          assignment_source: null,
         },
       });
 
@@ -388,27 +388,27 @@ export class JobAllocationService {
   }): Promise<any[]> {
     try {
       const where: any = {
-        assignedConsultantId: null,
+        assigned_consultant_id: null,
         status: {
           in: [JobStatus.OPEN, JobStatus.ON_HOLD], // Only show OPEN and ON_HOLD jobs
         },
       };
 
       if (filters?.regionId) {
-        where.regionId = filters.regionId;
+        where.region_id = filters.regionId;
       }
 
       if (filters?.companyId) {
-        where.companyId = filters.companyId;
+        where.company_id = filters.companyId;
       }
 
       // Add pagination to prevent loading all jobs into memory
-      const limit = filters?.limit || 100; // Default to 100, max reasonable for UI
+      const limit = filters?.limit || 20; // Default to 20, max reasonable for UI
       const offset = filters?.offset || 0;
 
       const prismaJobs = await prisma.job.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { created_at: 'desc' },
         take: limit,
         skip: offset,
       });
@@ -419,68 +419,68 @@ export class JobAllocationService {
         // Use the same mapping logic as JobModel.findById but inline
         return {
           id: prismaJob.id,
-          companyId: prismaJob.companyId,
-          createdBy: prismaJob.createdBy,
-          jobCode: prismaJob.jobCode || undefined,
+          companyId: prismaJob.company_id,
+          createdBy: prismaJob.created_by,
+          jobCode: prismaJob.job_code || undefined,
           title: prismaJob.title,
           description: prismaJob.description,
-          jobSummary: prismaJob.jobSummary || undefined,
+          jobSummary: prismaJob.job_summary || undefined,
           status: prismaJob.status as JobStatus,
-          hiringMode: prismaJob.hiringMode as HiringMode,
+          hiringMode: prismaJob.hiring_mode as HiringMode,
           location: prismaJob.location,
           department: prismaJob.department || undefined,
-          workArrangement: prismaJob.workArrangement as WorkArrangement,
-          employmentType: prismaJob.employmentType as EmploymentType,
-          numberOfVacancies: prismaJob.numberOfVacancies,
-          salaryMin: prismaJob.salaryMin || undefined,
-          salaryMax: prismaJob.salaryMax || undefined,
-          salaryCurrency: prismaJob.salaryCurrency,
-          salaryDescription: prismaJob.salaryDescription || undefined,
+          workArrangement: prismaJob.work_arrangement as WorkArrangement,
+          employmentType: prismaJob.employment_type as EmploymentType,
+          numberOfVacancies: prismaJob.number_of_vacancies,
+          salaryMin: prismaJob.salary_min || undefined,
+          salaryMax: prismaJob.salary_max || undefined,
+          salaryCurrency: prismaJob.salary_currency,
+          salaryDescription: prismaJob.salary_description || undefined,
           category: prismaJob.category || undefined,
-          promotionalTags: prismaJob.promotionalTags,
+          promotionalTags: prismaJob.promotional_tags,
           featured: prismaJob.featured,
           stealth: prismaJob.stealth,
           visibility: prismaJob.visibility,
           requirements: prismaJob.requirements || [],
           responsibilities: prismaJob.responsibilities || [],
-          termsAccepted: prismaJob.termsAccepted,
-          termsAcceptedAt: prismaJob.termsAcceptedAt || undefined,
-          termsAcceptedBy: prismaJob.termsAcceptedBy || undefined,
-          postingDate: prismaJob.postingDate || undefined,
-          expiryDate: prismaJob.expiryDate || undefined,
-          closeDate: prismaJob.closeDate || undefined,
-          hiringTeam: prismaJob.hiringTeam
-            ? (typeof prismaJob.hiringTeam === 'string'
-                ? JSON.parse(prismaJob.hiringTeam)
-                : prismaJob.hiringTeam)
+          termsAccepted: prismaJob.terms_accepted,
+          termsAcceptedAt: prismaJob.terms_accepted_at || undefined,
+          termsAcceptedBy: prismaJob.terms_accepted_by || undefined,
+          postingDate: prismaJob.posting_date || undefined,
+          expiryDate: prismaJob.expiry_date || undefined,
+          closeDate: prismaJob.close_date || undefined,
+          hiringTeam: prismaJob.hiring_team
+            ? (typeof prismaJob.hiring_team === 'string'
+                ? JSON.parse(prismaJob.hiring_team)
+                : prismaJob.hiring_team)
             : undefined,
-          applicationForm: prismaJob.applicationForm
-            ? (typeof prismaJob.applicationForm === 'string'
-                ? JSON.parse(prismaJob.applicationForm)
-                : prismaJob.applicationForm)
+          applicationForm: prismaJob.application_form
+            ? (typeof prismaJob.application_form === 'string'
+                ? JSON.parse(prismaJob.application_form)
+                : prismaJob.application_form)
             : undefined,
-          videoInterviewingEnabled: prismaJob.videoInterviewingEnabled,
-          alertsEnabled: prismaJob.alertsEnabled
-            ? (typeof prismaJob.alertsEnabled === 'string'
-                ? JSON.parse(prismaJob.alertsEnabled)
-                : prismaJob.alertsEnabled)
+          videoInterviewingEnabled: prismaJob.video_interviewing_enabled,
+          alertsEnabled: prismaJob.alerts_enabled
+            ? (typeof prismaJob.alerts_enabled === 'string'
+                ? JSON.parse(prismaJob.alerts_enabled)
+                : prismaJob.alerts_enabled)
             : undefined,
-          shareLink: prismaJob.shareLink || undefined,
-          referralLink: prismaJob.referralLink || undefined,
-          savedAsTemplate: prismaJob.savedAsTemplate || false,
-          templateId: prismaJob.templateId || undefined,
-          jobTargetPromotionId: prismaJob.jobTargetPromotionId || undefined,
-          jobTargetChannels: prismaJob.jobTargetChannels || [],
-          jobTargetBudget: prismaJob.jobTargetBudget || undefined,
-          jobTargetBudgetSpent: prismaJob.jobTargetBudgetSpent || undefined,
-          jobTargetStatus: prismaJob.jobTargetStatus || undefined,
-          jobTargetApproved: prismaJob.jobTargetApproved || false,
-          regionId: prismaJob.regionId || undefined,
-          assignmentMode: prismaJob.assignmentMode || undefined,
-          assignmentSource: prismaJob.assignmentSource || undefined,
-          assignedConsultantId: prismaJob.assignedConsultantId || undefined,
-          createdAt: prismaJob.createdAt,
-          updatedAt: prismaJob.updatedAt,
+          shareLink: prismaJob.share_link || undefined,
+          referralLink: prismaJob.referral_link || undefined,
+          savedAsTemplate: prismaJob.saved_as_template || false,
+          templateId: prismaJob.template_id || undefined,
+          jobTargetPromotionId: prismaJob.job_target_promotion_id || undefined,
+          jobTargetChannels: prismaJob.job_target_channels || [],
+          jobTargetBudget: prismaJob.job_target_budget || undefined,
+          jobTargetBudgetSpent: prismaJob.job_target_budget_spent || undefined,
+          jobTargetStatus: prismaJob.job_target_status || undefined,
+          jobTargetApproved: prismaJob.job_target_approved || false,
+          regionId: prismaJob.region_id || undefined,
+          assignmentMode: prismaJob.assignment_mode || undefined,
+          assignmentSource: prismaJob.assignment_source || undefined,
+          assignedConsultantId: prismaJob.assigned_consultant_id || undefined,
+          createdAt: prismaJob.created_at,
+          updatedAt: prismaJob.updated_at,
         } as Job;
       });
 

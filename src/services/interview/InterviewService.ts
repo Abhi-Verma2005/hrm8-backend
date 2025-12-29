@@ -105,8 +105,8 @@ export class InterviewService {
     // Check if interview already exists for this application/round (check all active statuses)
     const existingInterviews = await prisma.videoInterview.findMany({
       where: {
-        jobRoundId: params.jobRoundId,
-        applicationId: params.applicationId,
+        job_round_id: params.jobRoundId,
+        application_id: params.applicationId,
         status: {
           in: ['SCHEDULED', 'RESCHEDULED', 'IN_PROGRESS'],
         },
@@ -118,31 +118,31 @@ export class InterviewService {
       const existing = existingInterviews[0];
       return {
         id: existing.id,
-        applicationId: existing.applicationId,
-        candidateId: existing.candidateId,
-        jobId: existing.jobId,
-        jobRoundId: existing.jobRoundId,
-        scheduledDate: existing.scheduledDate,
+        applicationId: existing.application_id,
+        candidateId: existing.candidate_id,
+        jobId: existing.job_id,
+        jobRoundId: existing.job_round_id,
+        scheduledDate: existing.scheduled_date,
         duration: existing.duration,
-        meetingLink: existing.meetingLink,
+        meetingLink: existing.meeting_link || undefined,
         status: existing.status,
         type: existing.type,
-        interviewerIds: existing.interviewerIds,
-        isAutoScheduled: existing.isAutoScheduled ?? false,
-        rescheduledFrom: existing.rescheduledFrom,
-        rescheduledAt: existing.rescheduledAt,
-        rescheduledBy: existing.rescheduledBy,
-        cancellationReason: existing.cancellationReason,
-        noShowReason: existing.noShowReason,
-        overallScore: existing.overallScore,
-        recommendation: existing.recommendation,
-        ratingCriteriaScores: existing.ratingCriteriaScores,
-        recordingUrl: existing.recordingUrl,
-        transcript: existing.transcript,
-        feedback: existing.feedback,
-        notes: existing.notes,
-        createdAt: existing.createdAt,
-        updatedAt: existing.updatedAt,
+        interviewerIds: (existing as any).interviewer_ids,
+        isAutoScheduled: (existing as any).is_auto_scheduled ?? false,
+        rescheduledFrom: (existing as any).rescheduled_from,
+        rescheduledAt: (existing as any).rescheduled_at,
+        rescheduledBy: (existing as any).rescheduled_by,
+        cancellationReason: (existing as any).cancellation_reason,
+        noShowReason: (existing as any).no_show_reason,
+        overallScore: (existing as any).overall_score,
+        recommendation: (existing as any).recommendation,
+        ratingCriteriaScores: (existing as any).rating_criteria_scores,
+        recordingUrl: (existing as any).recording_url,
+        transcript: (existing as any).transcript,
+        feedback: (existing as any).feedback,
+        notes: (existing as any).notes,
+        createdAt: existing.created_at,
+        updatedAt: existing.updated_at,
       };
     }
 
@@ -199,18 +199,18 @@ export class InterviewService {
       // Create interview (within transaction)
       const interview = await tx.videoInterview.create({
         data: {
-          applicationId: params.applicationId,
-          candidateId: application.candidateId,
-          jobId: application.jobId,
+          application_id: params.applicationId,
+          candidate_id: application.candidateId,
+          job_id: application.jobId,
           job_round_id: params.jobRoundId,
-          scheduledDate: timeSlot.startDate,
+          scheduled_date: timeSlot.startDate,
           duration: config.defaultDuration!,
-          meetingLink,
+          meeting_link: meetingLink,
           status: 'SCHEDULED',
           type: this.mapInterviewFormatToType(config.interviewFormat) as any,
-          interviewerIds: timeSlot.interviewerIds || [],
+          interviewer_ids: timeSlot.interviewerIds || [],
           is_auto_scheduled: true,
-          recordingUrl: null,
+          recording_url: null,
           transcript: undefined,
           feedback: undefined,
           notes: null,
@@ -220,50 +220,51 @@ export class InterviewService {
       // Update ApplicationRoundProgress (use transaction)
       await tx.applicationRoundProgress.upsert({
         where: {
-          applicationId_jobRoundId: {
-            applicationId: params.applicationId,
-            jobRoundId: params.jobRoundId,
+          application_id_job_round_id: {
+            application_id: params.applicationId,
+            job_round_id: params.jobRoundId,
           },
         },
         create: {
-          
-          applicationId: params.applicationId,
-          jobRoundId: params.jobRoundId,
-          videoInterviewId: interview.id,
+          application_id: params.applicationId,
+          job_round_id: params.jobRoundId,
+          video_interview_id: interview.id,
           completed: false,
+          updated_at: new Date(),
         },
         update: {
-          videoInterviewId: interview.id,
+          video_interview_id: interview.id,
+          updated_at: new Date(),
         },
       });
       
       return {
           id: interview.id,
-          applicationId: interview.applicationId,
-          candidateId: interview.candidateId,
-          jobId: interview.jobId,
-          jobRoundId: interview.jobRoundId,
-          scheduledDate: interview.scheduledDate,
+          applicationId: interview.application_id,
+          candidateId: interview.candidate_id,
+          jobId: interview.job_id,
+          jobRoundId: interview.job_round_id,
+          scheduledDate: interview.scheduled_date,
           duration: interview.duration,
-          meetingLink: interview.meetingLink,
+          meetingLink: interview.meeting_link || undefined,
           status: interview.status,
           type: interview.type,
-          interviewerIds: interview.interviewerIds,
-          isAutoScheduled: interview.isAutoScheduled ?? false,
-          rescheduledFrom: interview.rescheduledFrom,
-          rescheduledAt: interview.rescheduledAt,
-          rescheduledBy: interview.rescheduledBy,
-          cancellationReason: interview.cancellationReason,
-          noShowReason: interview.noShowReason,
-          overallScore: interview.overallScore,
-          recommendation: interview.recommendation,
-          ratingCriteriaScores: interview.ratingCriteriaScores,
-          recordingUrl: interview.recordingUrl,
-          transcript: interview.transcript,
-          feedback: interview.feedback,
-          notes: interview.notes,
-          createdAt: interview.createdAt,
-          updatedAt: interview.updatedAt,
+          interviewerIds: (interview as any).interviewer_ids,
+          isAutoScheduled: (interview as any).is_auto_scheduled ?? false,
+          rescheduledFrom: (interview as any).rescheduled_from,
+          rescheduledAt: (interview as any).rescheduled_at,
+          rescheduledBy: (interview as any).rescheduled_by,
+          cancellationReason: (interview as any).cancellation_reason,
+          noShowReason: (interview as any).no_show_reason,
+          overallScore: (interview as any).overall_score,
+          recommendation: (interview as any).recommendation,
+          ratingCriteriaScores: (interview as any).rating_criteria_scores,
+          recordingUrl: (interview as any).recording_url,
+          transcript: (interview as any).transcript,
+          feedback: (interview as any).feedback,
+          notes: (interview as any).notes,
+          createdAt: interview.created_at,
+          updatedAt: interview.updated_at,
       };
     }).then(async (interview) => {
         // Send interview invitation email (after transaction commits)
@@ -392,7 +393,7 @@ export class InterviewService {
       status: {
         in: ['SCHEDULED', 'RESCHEDULED', 'IN_PROGRESS'], // Check all active statuses
       },
-      scheduledDate: {
+      scheduled_date: {
         gte: adjustedStart,
         lt: adjustedEnd,
       },
@@ -470,27 +471,27 @@ export class InterviewService {
 
       // Update interview
       const updatedInterview = await VideoInterviewModel.update(interview.id, {
-        scheduledDate: params.newScheduledDate,
+        scheduled_date: params.newScheduledDate,
         status: 'SCHEDULED', // Reset to scheduled
-        rescheduledFrom: originalInterviewId, // Always point to original, not current
-        rescheduledAt: new Date(),
-        rescheduledBy: params.rescheduledBy,
-        isAutoScheduled: false, // Manual reschedule
-        interviewerIds: preservedInterviewerIds, // Preserve interviewer assignments
+        rescheduled_from: originalInterviewId, // Always point to original, not current
+        rescheduled_at: new Date(),
+        rescheduled_by: params.rescheduledBy,
+        is_auto_scheduled: false, // Manual reschedule
+        interviewer_ids: preservedInterviewerIds, // Preserve interviewer assignments
         notes: params.reason
           ? `${interview.notes || ''}\nRescheduled: ${params.reason}`.trim()
           : interview.notes,
-      });
+      } as any);
 
       // Update ApplicationRoundProgress to link to this interview
       if (interview.jobRoundId && interview.applicationId) {
         await tx.applicationRoundProgress.updateMany({
           where: {
-            applicationId: interview.applicationId,
-            jobRoundId: interview.jobRoundId,
+            application_id: interview.applicationId,
+            job_round_id: interview.jobRoundId,
           },
           data: {
-            videoInterviewId: updatedInterview.id,
+            video_interview_id: updatedInterview.id,
           },
         });
       }
@@ -950,38 +951,39 @@ export class InterviewService {
 
     // Create interview
     const interview = await VideoInterviewModel.create({
-      applicationId: params.applicationId,
-      candidateId: application.candidateId,
-      jobId: application.jobId,
-      jobRoundId: params.jobRoundId || null,
-      scheduledDate: params.scheduledDate,
+      application_id: params.applicationId,
+      candidate_id: application.candidateId,
+      job_id: application.jobId,
+      job_round_id: params.jobRoundId || null,
+      scheduled_date: params.scheduledDate,
       duration: params.duration,
-      meetingLink: params.meetingLink || null,
+      meeting_link: params.meetingLink || null,
       status: 'SCHEDULED',
       type: params.type,
-      interviewerIds: params.interviewerIds || [],
-      isAutoScheduled: false,
+      interviewer_ids: params.interviewerIds || [],
+      is_auto_scheduled: false,
       notes: params.notes || null,
-    });
+    } as any);
 
     // Update ApplicationRoundProgress if jobRoundId provided
     if (params.jobRoundId) {
       await prisma.applicationRoundProgress.upsert({
         where: {
-          applicationId_jobRoundId: {
-            applicationId: params.applicationId,
-            jobRoundId: params.jobRoundId,
+          application_id_job_round_id: {
+            application_id: params.applicationId,
+            job_round_id: params.jobRoundId,
           },
         },
         create: {
-          
-          applicationId: params.applicationId,
-          jobRoundId: params.jobRoundId,
-          videoInterviewId: interview.id,
+          application_id: params.applicationId,
+          job_round_id: params.jobRoundId,
+          video_interview_id: interview.id,
           completed: false,
+          updated_at: new Date(),
         },
         update: {
-          videoInterviewId: interview.id,
+          video_interview_id: interview.id,
+          updated_at: new Date(),
         },
       });
     }
@@ -1025,13 +1027,13 @@ export class InterviewService {
 
     if (params.status === 'COMPLETED') {
       if (params.overallScore !== undefined) {
-        updateData.overallScore = params.overallScore;
+        updateData.overall_score = params.overallScore;
       }
       if (params.recommendation) {
         updateData.recommendation = params.recommendation;
       }
       if (params.ratingCriteriaScores) {
-        updateData.ratingCriteriaScores = params.ratingCriteriaScores;
+        updateData.rating_criteria_scores = params.ratingCriteriaScores;
       }
       if (params.feedback) {
         updateData.feedback = params.feedback;
@@ -1050,12 +1052,13 @@ export class InterviewService {
     if (params.status === 'COMPLETED' && interview.jobRoundId && interview.applicationId) {
       await prisma.applicationRoundProgress.updateMany({
         where: {
-          applicationId: interview.applicationId,
-          jobRoundId: interview.jobRoundId,
+          application_id: interview.applicationId,
+          job_round_id: interview.jobRoundId,
         },
         data: {
           completed: true,
-          completedAt: new Date(),
+          completed_at: new Date(),
+          updated_at: new Date(),
         },
       });
 
@@ -1116,15 +1119,15 @@ export class InterviewService {
 
     const interviews = await prisma.videoInterview.findMany({
       where,
-      orderBy: { scheduledDate: 'asc' },
+      orderBy: { scheduled_date: 'asc' },
       include: {
-        Application: {
+        application: {
           include: {
             candidate: {
               select: {
                 id: true,
-                firstName: true,
-                lastName: true,
+                first_name: true,
+                last_name: true,
                 email: true,
                 phone: true,
                 photo: true,
@@ -1135,9 +1138,9 @@ export class InterviewService {
             },
           },
         },
-        JobRound: {
+        job_round: {
           include: {
-            Job: {
+            job: {
               select: {
                 id: true,
                 title: true,
@@ -1150,50 +1153,50 @@ export class InterviewService {
 
     return interviews.map((i: any) => ({
       id: i.id,
-      applicationId: i.applicationId,
-      candidateId: i.candidateId,
-      candidate: i.Application?.candidate ? {
-        id: i.Application.candidate.id,
-        firstName: i.Application.candidate.firstName,
-        lastName: i.Application.candidate.lastName,
-        email: i.Application.candidate.email,
-        phone: i.Application.candidate.phone,
-        photo: i.Application.candidate.photo,
-        city: i.Application.candidate.city,
-        state: i.Application.candidate.state,
-        country: i.Application.candidate.country,
+      applicationId: i.application_id,
+      candidateId: i.candidate_id,
+      candidate: i.application?.candidate ? {
+        id: i.application.candidate.id,
+        firstName: i.application.candidate.first_name,
+        lastName: i.application.candidate.last_name,
+        email: i.application.candidate.email,
+        phone: i.application.candidate.phone,
+        photo: i.application.candidate.photo,
+        city: i.application.candidate.city,
+        state: i.application.candidate.state,
+        country: i.application.candidate.country,
       } : undefined,
-      jobId: i.jobId,
-      jobRoundId: i.jobRoundId,
-      jobRound: i.JobRound ? {
-        id: i.JobRound.id,
-        name: i.JobRound.name,
-        job: i.JobRound.Job ? {
-          id: i.JobRound.Job.id,
-          title: i.JobRound.Job.title,
+      jobId: i.job_id,
+      jobRoundId: i.job_round_id,
+      jobRound: i.job_round ? {
+        id: i.job_round.id,
+        name: i.job_round.name,
+        job: i.job_round.job ? {
+          id: i.job_round.job.id,
+          title: i.job_round.job.title,
         } : undefined,
       } : undefined,
-      scheduledDate: i.scheduledDate,
+      scheduledDate: i.scheduled_date,
       duration: i.duration,
-      meetingLink: i.meetingLink,
+      meetingLink: i.meeting_link,
       status: i.status,
       type: i.type,
-      interviewerIds: i.interviewerIds,
-      isAutoScheduled: i.isAutoScheduled ?? false,
-      rescheduledFrom: i.rescheduledFrom,
-      rescheduledAt: i.rescheduledAt,
-      rescheduledBy: i.rescheduledBy,
-      cancellationReason: i.cancellationReason,
-      noShowReason: i.noShowReason,
-      overallScore: i.overallScore,
+      interviewerIds: i.interviewer_ids,
+      isAutoScheduled: i.is_auto_scheduled ?? false,
+      rescheduledFrom: i.rescheduled_from,
+      rescheduledAt: i.rescheduled_at,
+      rescheduledBy: i.rescheduled_by,
+      cancellationReason: i.cancellation_reason,
+      noShowReason: i.no_show_reason,
+      overallScore: i.overall_score,
       recommendation: i.recommendation,
-      ratingCriteriaScores: i.ratingCriteriaScores,
-      recordingUrl: i.recordingUrl,
+      ratingCriteriaScores: i.rating_criteria_scores,
+      recordingUrl: i.recording_url,
       transcript: i.transcript,
       feedback: i.feedback,
       notes: i.notes,
-      createdAt: i.createdAt,
-      updatedAt: i.updatedAt,
+      createdAt: i.created_at,
+      updatedAt: i.updated_at,
     }));
   }
 }

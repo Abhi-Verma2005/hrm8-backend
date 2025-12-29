@@ -37,13 +37,13 @@ export class RegionalRevenueModel {
   }): Promise<RegionalRevenueData> {
     const revenue = await prisma.regionalRevenue.create({
       data: {
-        regionId: revenueData.regionId,
-        licenseeId: revenueData.licenseeId,
-        periodStart: revenueData.periodStart,
-        periodEnd: revenueData.periodEnd,
-        totalRevenue: revenueData.totalRevenue,
-        licenseeShare: revenueData.licenseeShare,
-        hrm8Share: revenueData.hrm8Share,
+        region_id: revenueData.regionId,
+        licensee_id: revenueData.licenseeId,
+        period_start: revenueData.periodStart,
+        period_end: revenueData.periodEnd,
+        total_revenue: revenueData.totalRevenue,
+        licensee_share: revenueData.licenseeShare,
+        hrm8_share: revenueData.hrm8Share,
         status: revenueData.status || RevenueStatus.PENDING,
       },
     });
@@ -75,20 +75,20 @@ export class RegionalRevenueModel {
   ): Promise<RegionalRevenueData[]> {
     const revenues = await prisma.regionalRevenue.findMany({
       where: {
-        regionId,
+        region_id: regionId,
         ...(filters?.status && { status: filters.status }),
         ...(filters?.periodStart && {
-          periodStart: {
+          period_start: {
             gte: filters.periodStart,
           },
         }),
         ...(filters?.periodEnd && {
-          periodEnd: {
+          period_end: {
             lte: filters.periodEnd,
           },
         }),
       },
-      orderBy: { periodStart: 'desc' },
+      orderBy: { period_start: 'desc' },
     });
 
     return revenues.map((revenue) => this.mapPrismaToRevenue(revenue));
@@ -105,10 +105,10 @@ export class RegionalRevenueModel {
   ): Promise<RegionalRevenueData[]> {
     const revenues = await prisma.regionalRevenue.findMany({
       where: {
-        licenseeId,
+        licensee_id: licenseeId,
         ...(filters?.status && { status: filters.status }),
       },
-      orderBy: { periodStart: 'desc' },
+      orderBy: { period_start: 'desc' },
     });
 
     return revenues.map((revenue) => this.mapPrismaToRevenue(revenue));
@@ -126,21 +126,21 @@ export class RegionalRevenueModel {
   }): Promise<RegionalRevenueData[]> {
     const revenues = await prisma.regionalRevenue.findMany({
       where: {
-        ...(filters?.regionId && { regionId: filters.regionId }),
-        ...(filters?.licenseeId && { licenseeId: filters.licenseeId }),
+        ...(filters?.regionId && { region_id: filters.regionId }),
+        ...(filters?.licenseeId && { licensee_id: filters.licenseeId }),
         ...(filters?.status && { status: filters.status }),
         ...(filters?.periodStart && {
-          periodStart: {
+          period_start: {
             gte: filters.periodStart,
           },
         }),
         ...(filters?.periodEnd && {
-          periodEnd: {
+          period_end: {
             lte: filters.periodEnd,
           },
         }),
       },
-      orderBy: { periodStart: 'desc' },
+      orderBy: { period_start: 'desc' },
     });
 
     return revenues.map((revenue) => this.mapPrismaToRevenue(revenue));
@@ -153,11 +153,11 @@ export class RegionalRevenueModel {
     const revenue = await prisma.regionalRevenue.update({
       where: { id },
       data: {
-        ...(data.totalRevenue !== undefined && { totalRevenue: data.totalRevenue }),
-        ...(data.licenseeShare !== undefined && { licenseeShare: data.licenseeShare }),
-        ...(data.hrm8Share !== undefined && { hrm8Share: data.hrm8Share }),
+        ...(data.totalRevenue !== undefined && { total_revenue: data.totalRevenue }),
+        ...(data.licenseeShare !== undefined && { licensee_share: data.licenseeShare }),
+        ...(data.hrm8Share !== undefined && { hrm8_share: data.hrm8Share }),
         ...(data.status !== undefined && { status: data.status }),
-        ...(data.paidAt !== undefined && { paidAt: data.paidAt }),
+        ...(data.paidAt !== undefined && { paid_at: data.paidAt }),
       },
     });
 
@@ -189,17 +189,17 @@ export class RegionalRevenueModel {
   private static mapPrismaToRevenue(prismaRevenue: any): RegionalRevenueData {
     return {
       id: prismaRevenue.id,
-      regionId: prismaRevenue.regionId,
-      licenseeId: prismaRevenue.licenseeId || undefined,
-      periodStart: prismaRevenue.periodStart,
-      periodEnd: prismaRevenue.periodEnd,
-      totalRevenue: prismaRevenue.totalRevenue,
-      licenseeShare: prismaRevenue.licenseeShare,
-      hrm8Share: prismaRevenue.hrm8Share,
+      regionId: prismaRevenue.region_id,
+      licenseeId: prismaRevenue.licensee_id || undefined,
+      periodStart: prismaRevenue.period_start,
+      periodEnd: prismaRevenue.period_end,
+      totalRevenue: prismaRevenue.total_revenue,
+      licenseeShare: prismaRevenue.licensee_share,
+      hrm8Share: prismaRevenue.hrm8_share,
       status: prismaRevenue.status,
-      paidAt: prismaRevenue.paidAt || undefined,
-      createdAt: prismaRevenue.createdAt,
-      updatedAt: prismaRevenue.updatedAt,
+      paidAt: prismaRevenue.paid_at || undefined,
+      createdAt: prismaRevenue.created_at,
+      updatedAt: prismaRevenue.updated_at,
     };
   }
 }

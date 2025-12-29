@@ -468,11 +468,11 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
               console.log(`✅ Conversation found: ${conversation.id}`);
               console.log(
                 `👥 Conversation participants:`,
-                conversation.participants.map((p) => `${p.participantType}:${p.participantEmail}`)
+                conversation.participants.map((p) => `${p.participant_type}:${p.participant_email}`)
               );
 
               const isParticipant = conversation.participants.some(
-                (p) => p.participantId === currentConnection.userId
+                (p) => p.participant_id === currentConnection.userId
               );
 
               if (!isParticipant) {
@@ -525,7 +525,7 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
                     conversationId,
                     messages: conversationMessages.map((msg) => ({
                       ...msg,
-                      isOwn: msg.senderId === currentConnection!.userId,
+                      isOwn: msg.sender_id === currentConnection!.userId,
                     })),
                   },
                 })
@@ -618,23 +618,30 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
               // Verify conversation exists and user has access
               const msgConversation = await ConversationService.getConversation(msgConvId);
 
-              if (
-                !msgConversation ||
-                !msgConversation.participants.some(
-                  (p) => p.participantId === currentConnection.userId
-                )
-              ) {
+              if (!msgConversation) {
+                console.log(`❌ Conversation not found: ${msgConvId}`);
+                sendError(ws, 'Conversation not found', 4004);
+                return;
+              }
+
+              const isParticipant = msgConversation.participants.some(
+                (p) => p.participant_id === currentConnection.userId
+              );
+
+              if (!isParticipant) {
                 console.log(
-                  `🚫 Access denied to conversation ${msgConvId} for user ${currentConnection.userEmail}`
+                  `🚫 Access denied - ${currentConnection.userEmail} not in participants list`
                 );
                 sendError(ws, 'Access denied to this conversation', 4003);
                 return;
               }
 
-              console.log(`✅ Conversation access verified for ${msgConvId}`);
+              console.log(
+                `✅ User ${currentConnection.userEmail} is authorized for conversation ${msgConvId}`
+              );
               console.log(
                 `👥 Conversation participants:`,
-                msgConversation.participants.map((p) => `${p.participantType}:${p.participantEmail}`)
+                msgConversation.participants.map((p) => `${p.participant_type}:${p.participant_email}`)
               );
               logRoomState(msgConvId);
 
