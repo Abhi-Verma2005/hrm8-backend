@@ -25,16 +25,24 @@ export class IntegrationAdminService {
   }) {
     return prisma.globalIntegration.upsert({
       where: { provider: data.provider },
-      update: data,
+      update: {
+        name: data.name,
+        category: data.category,
+        api_key: data.apiKey,
+        api_secret: data.apiSecret,
+        endpoint_url: data.endpointUrl,
+        config: data.config,
+        is_active: data.isActive,
+      },
       create: {
         provider: data.provider,
         name: data.name,
         category: data.category,
-        apiKey: data.apiKey,
-        apiSecret: data.apiSecret,
-        endpointUrl: data.endpointUrl,
+        api_key: data.apiKey,
+        api_secret: data.apiSecret,
+        endpoint_url: data.endpointUrl,
         config: data.config,
-        isActive: data.isActive ?? true
+        is_active: data.isActive ?? true
       }
     });
   }

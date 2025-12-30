@@ -29,11 +29,11 @@ export class PasswordResetTokenModel {
   }): Promise<PasswordResetTokenData> {
     const token = await prisma.passwordResetToken.create({
       data: {
-        userId: data.userId,
-        tokenHash: data.tokenHash,
-        expiresAt: data.expiresAt,
-        requestedIp: data.requestedIp,
-        requestedUserAgent: data.requestedUserAgent,
+        user_id: data.userId,
+        token_hash: data.tokenHash,
+        expires_at: data.expiresAt,
+        requested_ip: data.requestedIp,
+        requested_user_agent: data.requestedUserAgent,
       },
     });
 
@@ -45,7 +45,7 @@ export class PasswordResetTokenModel {
    */
   static async findByTokenHash(tokenHash: string): Promise<PasswordResetTokenData | null> {
     const token = await prisma.passwordResetToken.findUnique({
-      where: { tokenHash },
+      where: { token_hash: tokenHash },
     });
 
     return token ? this.mapToData(token) : null;
@@ -57,8 +57,8 @@ export class PasswordResetTokenModel {
   static async invalidateActiveTokensForUser(userId: string): Promise<number> {
     const result = await prisma.passwordResetToken.deleteMany({
       where: {
-        userId,
-        usedAt: null,
+        user_id: userId,
+        used_at: null,
       },
     });
 
@@ -71,7 +71,7 @@ export class PasswordResetTokenModel {
   static async markAsUsed(id: string): Promise<void> {
     await prisma.passwordResetToken.update({
       where: { id },
-      data: { usedAt: new Date() },
+      data: { used_at: new Date() },
     });
   }
 
@@ -81,7 +81,7 @@ export class PasswordResetTokenModel {
   static async deleteExpiredTokens(): Promise<number> {
     const result = await prisma.passwordResetToken.deleteMany({
       where: {
-        expiresAt: {
+        expires_at: {
           lt: new Date(),
         },
       },
@@ -90,25 +90,16 @@ export class PasswordResetTokenModel {
     return result.count;
   }
 
-  private static mapToData(token: {
-    id: string;
-    userId: string;
-    tokenHash: string;
-    expiresAt: Date;
-    usedAt: Date | null;
-    requestedIp: string | null;
-    requestedUserAgent: string | null;
-    createdAt: Date;
-  }): PasswordResetTokenData {
+  private static mapToData(token: any): PasswordResetTokenData {
     return {
       id: token.id,
-      userId: token.userId,
-      tokenHash: token.tokenHash,
-      expiresAt: token.expiresAt,
-      usedAt: token.usedAt,
-      requestedIp: token.requestedIp,
-      requestedUserAgent: token.requestedUserAgent,
-      createdAt: token.createdAt,
+      userId: token.user_id,
+      tokenHash: token.token_hash,
+      expiresAt: token.expires_at,
+      usedAt: token.used_at,
+      requestedIp: token.requested_ip,
+      requestedUserAgent: token.requested_user_agent,
+      createdAt: token.created_at,
     };
   }
 }

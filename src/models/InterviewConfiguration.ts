@@ -5,7 +5,6 @@
 
 import { prisma } from '../lib/prisma';
 import { InterviewFormat, ScoringMethod, PassCriteria, FailCriteria } from '@prisma/client';
-import crypto from 'crypto';
 
 export interface InterviewConfigurationData {
   id: string;
@@ -18,7 +17,7 @@ export interface InterviewConfigurationData {
   requireAllInterviewers: boolean;
   
   // Interview Format
-  interviewFormat: string; // LIVE_VIDEO, PHONE, IN_PERSON, PANEL
+  interviewFormat: InterviewFormat; // LIVE_VIDEO, PHONE, IN_PERSON, PANEL
   defaultDuration?: number | null;
   requiresInterviewer: boolean;
   
@@ -34,14 +33,14 @@ export interface InterviewConfigurationData {
   useCustomCriteria: boolean;
   ratingCriteria?: any;
   passThreshold?: number | null;
-  scoringMethod?: string | null;
+  scoringMethod?: ScoringMethod | null;
   
   // Automated Progression
   autoMoveOnPass: boolean;
-  passCriteria?: string | null;
+  passCriteria?: PassCriteria | null;
   nextRoundOnPassId?: string | null;
   autoRejectOnFail: boolean;
-  failCriteria?: string | null;
+  failCriteria?: FailCriteria | null;
   rejectRoundId?: string | null;
   requiresManualReview: boolean;
   
@@ -71,7 +70,7 @@ export class InterviewConfigurationModel {
     autoSchedule?: boolean;
     requireBeforeProgression?: boolean;
     requireAllInterviewers?: boolean;
-    interviewFormat?: string;
+    interviewFormat?: InterviewFormat;
     defaultDuration?: number;
     requiresInterviewer?: boolean;
     autoScheduleWindowDays?: number;
@@ -83,12 +82,12 @@ export class InterviewConfigurationModel {
     useCustomCriteria?: boolean;
     ratingCriteria?: any;
     passThreshold?: number;
-    scoringMethod?: string;
+    scoringMethod?: ScoringMethod;
     autoMoveOnPass?: boolean;
-    passCriteria?: string;
+    passCriteria?: PassCriteria;
     nextRoundOnPassId?: string;
     autoRejectOnFail?: boolean;
-    failCriteria?: string;
+    failCriteria?: FailCriteria;
     rejectRoundId?: string;
     requiresManualReview?: boolean;
     templateId?: string;
@@ -98,13 +97,12 @@ export class InterviewConfigurationModel {
   }): Promise<InterviewConfigurationData> {
     const config = await prisma.interviewConfiguration.create({
       data: {
-         // Assuming id is needed if not auto-generated
         job_round_id: data.jobRoundId,
         enabled: data.enabled ?? false,
         auto_schedule: data.autoSchedule ?? true,
         require_before_progression: data.requireBeforeProgression ?? false,
         require_all_interviewers: data.requireAllInterviewers ?? false,
-        interview_format: (data.interviewFormat ?? 'LIVE_VIDEO') as InterviewFormat,
+        interview_format: data.interviewFormat ?? InterviewFormat.LIVE_VIDEO,
         default_duration: data.defaultDuration ?? 60,
         requires_interviewer: data.requiresInterviewer ?? true,
         auto_schedule_window_days: data.autoScheduleWindowDays,
@@ -116,12 +114,12 @@ export class InterviewConfigurationModel {
         use_custom_criteria: data.useCustomCriteria ?? false,
         rating_criteria: data.ratingCriteria,
         pass_threshold: data.passThreshold,
-        scoring_method: data.scoringMethod ? (data.scoringMethod as ScoringMethod) : null,
+        scoring_method: data.scoringMethod || null,
         auto_move_on_pass: data.autoMoveOnPass ?? false,
-        pass_criteria: data.passCriteria ? (data.passCriteria as PassCriteria) : null,
+        pass_criteria: data.passCriteria || null,
         next_round_on_pass_id: data.nextRoundOnPassId,
         auto_reject_on_fail: data.autoRejectOnFail ?? false,
-        fail_criteria: data.failCriteria ? (data.failCriteria as FailCriteria) : null,
+        fail_criteria: data.failCriteria || null,
         reject_round_id: data.rejectRoundId,
         requires_manual_review: data.requiresManualReview ?? true,
         template_id: data.templateId,
@@ -167,16 +165,16 @@ export class InterviewConfigurationModel {
     if (data.assignedInterviewerIds !== undefined) updateData.assigned_interviewer_ids = data.assignedInterviewerIds;
     
     if (data.interviewFormat !== undefined) {
-      updateData.interview_format = data.interviewFormat as InterviewFormat;
+      updateData.interview_format = data.interviewFormat;
     }
     if (data.scoringMethod !== undefined) {
-      updateData.scoring_method = data.scoringMethod ? (data.scoringMethod as ScoringMethod) : null;
+      updateData.scoring_method = data.scoringMethod || null;
     }
     if (data.passCriteria !== undefined) {
-      updateData.pass_criteria = data.passCriteria ? (data.passCriteria as PassCriteria) : null;
+      updateData.pass_criteria = data.passCriteria || null;
     }
     if (data.failCriteria !== undefined) {
-      updateData.fail_criteria = data.failCriteria ? (data.failCriteria as FailCriteria) : null;
+      updateData.fail_criteria = data.failCriteria || null;
     }
     
     updateData.updated_at = new Date();

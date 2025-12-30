@@ -2,7 +2,6 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../../types';
 import { EmailTriggerService, CreateEmailTriggerRequest, UpdateEmailTriggerRequest } from '../../services/email/EmailTriggerService';
 import { EmailTemplateModel } from '../../models/EmailTemplate';
-import { TriggerType } from '@prisma/client';
 
 export class EmailTriggerController {
   /**

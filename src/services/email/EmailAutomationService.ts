@@ -1,8 +1,6 @@
 import { EmailTriggerService } from './EmailTriggerService';
 import { EmailTemplateModel } from '../../models/EmailTemplate';
 import { emailService } from './EmailService';
-import { JobRoundModel } from '../../models/JobRound';
-import { TriggerType } from '@prisma/client';
 
 export class EmailAutomationService {
   /**

@@ -45,6 +45,7 @@ export class RegionalRevenueModel {
         licensee_share: revenueData.licenseeShare,
         hrm8_share: revenueData.hrm8Share,
         status: revenueData.status || RevenueStatus.PENDING,
+        updated_at: new Date(),
       },
     });
 
@@ -158,6 +159,7 @@ export class RegionalRevenueModel {
         ...(data.hrm8Share !== undefined && { hrm8_share: data.hrm8Share }),
         ...(data.status !== undefined && { status: data.status }),
         ...(data.paidAt !== undefined && { paid_at: data.paidAt }),
+        updated_at: new Date(),
       },
     });
 

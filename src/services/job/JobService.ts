@@ -8,6 +8,8 @@ import { JobModel } from '../../models/Job';
 import { CompanyModel } from '../../models/Company';
 import { JobAllocationService } from '../hrm8/JobAllocationService';
 import { JobPaymentService } from '../payments/JobPaymentService';
+import { JobRoundService } from './JobRoundService';
+import { CandidateJobService } from '../candidate/CandidateJobService';
 import { prisma } from '../../lib/prisma';
 import { PaymentStatus } from '@prisma/client';
 
@@ -144,7 +146,6 @@ export class JobService {
 
       // Initialize fixed rounds for the new job
       try {
-        const { JobRoundService } = await import('./JobRoundService');
         await JobRoundService.initializeFixedRounds(job.id);
         console.log('✅ Fixed rounds initialized for job:', job.id);
       } catch (roundError) {
@@ -189,7 +190,6 @@ export class JobService {
    */
   private static async processJobAlertsAsync(job: any) {
     try {
-      const { CandidateJobService } = await import('../candidate/CandidateJobService');
       await CandidateJobService.processJobAlerts(job);
     } catch (error) {
       console.error('Error in processJobAlertsAsync:', error);

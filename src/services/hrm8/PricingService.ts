@@ -6,7 +6,7 @@ export class PricingService {
    */
   static async getAllProducts() {
     return prisma.product.findMany({
-      where: { isActive: true },
+      where: { is_active: true },
       include: { tiers: true },
     });
   }
@@ -25,7 +25,14 @@ export class PricingService {
     if (data.id) {
       return prisma.product.update({
         where: { id: data.id },
-        data,
+        data: {
+          name: data.name,
+          code: data.code,
+          description: data.description,
+          category: data.category,
+          is_active: data.isActive,
+          updated_at: new Date()
+        },
       });
     }
     return prisma.product.create({
@@ -34,7 +41,8 @@ export class PricingService {
         code: data.code,
         description: data.description,
         category: data.category,
-        isActive: data.isActive ?? true,
+        is_active: data.isActive ?? true,
+        updated_at: new Date()
       },
     });
   }
@@ -43,9 +51,9 @@ export class PricingService {
    * Get all price books
    */
   static async getAllPriceBooks(regionId?: string) {
-    const where: any = { isActive: true };
+    const where: any = { is_active: true };
     if (regionId) {
-      where.regionId = regionId;
+      where.region_id = regionId;
     }
     return prisma.priceBook.findMany({
       where,
@@ -80,16 +88,16 @@ export class PricingService {
       data: {
         name: data.name,
         description: data.description,
-        isGlobal: data.isGlobal,
-        regionId: data.regionId,
+        is_global: data.isGlobal,
+        region_id: data.regionId,
         currency: data.currency,
         tiers: {
           create: data.tiers.map(tier => ({
-            productId: tier.productId,
+            product_id: tier.productId,
             name: tier.name,
-            minQuantity: tier.minQuantity,
-            maxQuantity: tier.maxQuantity,
-            unitPrice: tier.unitPrice,
+            min_quantity: tier.minQuantity,
+            max_quantity: tier.maxQuantity,
+            unit_price: tier.unitPrice,
             period: tier.period
           }))
         }
@@ -104,8 +112,7 @@ export class PricingService {
   static async assignCustomPriceBook(companyId: string, priceBookId: string) {
     return prisma.company.update({
       where: { id: companyId },
-      // @ts-ignore: priceBookId exists in schema but types might be stale
-      data: { priceBookId }
+      data: { price_book_id: priceBookId }
     });
   }
 }

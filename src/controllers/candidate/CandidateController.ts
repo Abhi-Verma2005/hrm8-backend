@@ -51,21 +51,11 @@ export class CandidateController {
             // Work Eligibility & Visa
             visaStatus: profile.visaStatus,
             workEligibility: profile.workEligibility,
-            requiresSponsorship: profile.requiresSponsorship,
             // Job Preferences
             jobTypePreference: profile.jobTypePreference,
-            expectedSalaryMin: profile.expectedSalaryMin,
-            expectedSalaryMax: profile.expectedSalaryMax,
-            salaryCurrency: profile.salaryCurrency,
             salaryPreference: profile.salaryPreference,
             willingToRelocate: profile.relocationWilling,
-            preferredLocations: profile.preferredLocations,
             remotePreference: profile.remotePreference,
-            // Privacy & Visibility
-            profileVisibility: profile.profileVisibility,
-            showContactInfo: profile.showContactInfo,
-            showSalaryExpectations: profile.showSalaryExpectations,
-            allowRecruiterContact: profile.allowRecruiterContact,
             // Account Status
             emailVerified: profile.emailVerified,
             status: profile.status,
@@ -119,21 +109,11 @@ export class CandidateController {
             // Work Eligibility & Visa
             visaStatus: updatedProfile.visaStatus,
             workEligibility: updatedProfile.workEligibility,
-            requiresSponsorship: updatedProfile.requiresSponsorship,
             // Job Preferences
             jobTypePreference: updatedProfile.jobTypePreference,
-            expectedSalaryMin: updatedProfile.expectedSalaryMin,
-            expectedSalaryMax: updatedProfile.expectedSalaryMax,
-            salaryCurrency: updatedProfile.salaryCurrency,
             salaryPreference: updatedProfile.salaryPreference,
             willingToRelocate: updatedProfile.relocationWilling,
-            preferredLocations: updatedProfile.preferredLocations,
             remotePreference: updatedProfile.remotePreference,
-            // Privacy & Visibility
-            profileVisibility: updatedProfile.profileVisibility,
-            showContactInfo: updatedProfile.showContactInfo,
-            showSalaryExpectations: updatedProfile.showSalaryExpectations,
-            allowRecruiterContact: updatedProfile.allowRecruiterContact,
             // Account Status
             emailVerified: updatedProfile.emailVerified,
             status: updatedProfile.status,

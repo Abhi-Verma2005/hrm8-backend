@@ -181,7 +181,7 @@ export class OfferService {
    */
   static async withdrawOffer(
     offerId: string,
-    userId: string,
+    _userId: string,
     reason?: string
   ): Promise<OfferData | { error: string; code?: string }> {
     const offer = await OfferModel.findById(offerId);
@@ -200,6 +200,7 @@ export class OfferService {
     try {
       return await OfferModel.update(offerId, {
         status: OfferStatus.WITHDRAWN,
+        declineReason: reason,
       });
     } catch (error: any) {
       return { error: error.message || 'Failed to withdraw offer', code: 'WITHDRAW_OFFER_FAILED' };

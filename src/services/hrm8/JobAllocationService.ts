@@ -349,7 +349,7 @@ export class JobAllocationService {
    */
   static async getPipelineForJob(
     jobId: string,
-    preferredConsultantId?: string
+    preferredConsultantId?: string | null
   ): Promise<{
     consultantId: string;
     jobId: string;

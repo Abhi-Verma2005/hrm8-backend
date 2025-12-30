@@ -13,6 +13,12 @@ import { JobRoundService } from '../job/JobRoundService';
 import { AssessmentService } from '../assessment/AssessmentService';
 import { InterviewService } from '../interview/InterviewService';
 import { CandidateScoringService } from '../ai/CandidateScoringService';
+import { CandidateDocumentService } from '../candidate/CandidateDocumentService';
+import { ResumeParserService } from '../ai/ResumeParserService';
+import { CandidateService } from '../candidate/CandidateService';
+import { CandidateQualificationsService } from '../candidate/CandidateQualificationsService';
+import { ConversationService } from '../messaging/ConversationService';
+import { ApplicationNotificationService } from '../notification/ApplicationNotificationService';
 
 export interface SubmitApplicationRequest {
   candidateId: string;
@@ -153,10 +159,6 @@ export class ApplicationService {
         (async () => {
           try {
             console.log(`📄 Attempting to auto-populate profile from resume for candidate ${candidate.id}`);
-            const { CandidateDocumentService } = await import('../candidate/CandidateDocumentService');
-            const { ResumeParserService } = await import('../ai/ResumeParserService');
-            const { CandidateService } = await import('../candidate/CandidateService');
-            const { CandidateQualificationsService } = await import('../candidate/CandidateQualificationsService');
 
             // Find resume document
             const resume = await CandidateDocumentService.findByUrl(applicationData.resumeUrl!);
@@ -166,11 +168,6 @@ export class ApplicationService {
               console.log('🤖 Parsing resume content for auto-population...');
               const parsedResumeData = await ResumeParserService.parseResume({
                 text: resume.content,
-                metadata: {
-                  fileName: resume.fileName,
-                  fileType: resume.fileType,
-                  fileSize: resume.fileSize
-                }
               });
 
               // 1. Populate Skills (only if empty)
@@ -340,7 +337,6 @@ export class ApplicationService {
 
             // Create initial system message
             try {
-              const { ConversationService } = await import('../messaging/ConversationService');
               await ConversationService.createMessage({
                 conversationId: newConversation.id,
                 senderType: ParticipantType.SYSTEM,
@@ -435,7 +431,6 @@ export class ApplicationService {
 
     // Send notification if status changed
     if (oldStatus !== status) {
-      const { ApplicationNotificationService } = await import('../notification/ApplicationNotificationService');
       ApplicationNotificationService.notifyStatusChange(
         applicationId,
         updatedApplication.candidateId,
@@ -470,14 +465,12 @@ export class ApplicationService {
 
     // Archive the conversation associated with this application
     try {
-      const { ConversationService } = await import('../messaging/ConversationService');
       const conversation = await ConversationService.findConversationByJobAndCandidate(
         application.jobId,
         application.candidateId
       );
 
       if (conversation) {
-        const { JobModel } = await import('../../models/Job');
         const job = await JobModel.findById(application.jobId);
         const jobTitle = job?.title || 'the position';
         

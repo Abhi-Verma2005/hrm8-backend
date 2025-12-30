@@ -4,7 +4,7 @@
  */
 
 import prisma from '../lib/prisma';
-import { ConsultantRole, ConsultantStatus, AvailabilityStatus, Prisma } from '@prisma/client';
+import { ConsultantRole, ConsultantStatus, AvailabilityStatus } from '@prisma/client';
 
 export interface ConsultantData {
   id: string;
@@ -275,7 +275,7 @@ export class ConsultantModel {
    * Instead, we should reassign to a default or global region if needed, 
    * but for now we'll throw an error or mark it as requiring a new region.
    */
-  static async unassignFromRegion(id: string): Promise<ConsultantData> {
+  static async unassignFromRegion(_id: string): Promise<ConsultantData> {
     throw new Error('Consultants must always be assigned to a region. Use assignToRegion instead.');
   }
 

@@ -22,7 +22,6 @@ export class JobRoundService {
   static async initializeFixedRounds(jobId: string): Promise<void> {
     // Check if fixed rounds already exist (idempotent)
     const existingFixedRounds = await JobRoundModel.findByJobId(jobId);
-    const fixedKeys = ['NEW', 'OFFER', 'HIRED', 'REJECTED'];
     const existingFixedKeys = existingFixedRounds
       .filter(r => r.isFixed && r.fixedKey)
       .map(r => r.fixedKey!);
@@ -158,12 +157,10 @@ export class JobRoundService {
         if (currentOrder === newOrder) {
           currentOrder++; // Skip the position we're moving to
         }
-        if (round.id !== request.id) {
-          await JobRoundModel.update(round.id, {
-            order: currentOrder,
-          });
-          currentOrder++;
-        }
+        await JobRoundModel.update(round.id, {
+          order: currentOrder,
+        });
+        currentOrder++;
       }
 
       // Update the target round with new order

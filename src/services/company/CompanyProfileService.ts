@@ -123,10 +123,10 @@ export class CompanyProfileService {
         : this.calculateCompletionPercentage(completedSections);
 
     return CompanyProfileModel.updateByCompanyId(companyId, {
-      profileData: updatedData as Prisma.JsonObject,
-      completedSections,
+      profile_data: updatedData as Prisma.JsonObject,
+      completed_sections: completedSections,
       status,
-      completionPercentage,
+      completion_percentage: completionPercentage,
     });
   }
 
@@ -154,9 +154,9 @@ export class CompanyProfileService {
         : this.calculateCompletionPercentage(Array.from(completedSections));
 
     return CompanyProfileModel.updateByCompanyId(profile.companyId, {
-      completedSections: Array.from(completedSections),
+      completed_sections: Array.from(completedSections),
       status,
-      completionPercentage,
+      completion_percentage: completionPercentage,
     });
   }
 
@@ -223,7 +223,7 @@ export class CompanyProfileService {
         };
 
         await CompanyProfileModel.updateByCompanyId(companyId, {
-          profileData: updatedProfileData as unknown as Prisma.JsonObject,
+          profile_data: updatedProfileData as unknown as Prisma.JsonObject,
         });
 
         // Refetch the updated profile

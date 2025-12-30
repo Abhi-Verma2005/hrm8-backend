@@ -28,39 +28,39 @@ export class EmailMessageModel {
     const message = await prisma.emailMessage.findUnique({
       where: { id },
     });
-    return message;
+    return message ? this.mapPrismaToEmailMessage(message) : null;
   }
 
   static async findByApplicationId(applicationId: string): Promise<EmailMessageData[]> {
     const messages = await prisma.emailMessage.findMany({
-      where: { applicationId },
-      orderBy: { sentAt: 'desc' },
+      where: { application_id: applicationId },
+      orderBy: { sent_at: 'desc' },
     });
-    return messages;
+    return messages.map((m) => this.mapPrismaToEmailMessage(m));
   }
 
   static async findByCandidateId(candidateId: string): Promise<EmailMessageData[]> {
     const messages = await prisma.emailMessage.findMany({
-      where: { candidateId },
-      orderBy: { sentAt: 'desc' },
+      where: { candidate_id: candidateId },
+      orderBy: { sent_at: 'desc' },
     });
-    return messages;
+    return messages.map((m) => this.mapPrismaToEmailMessage(m));
   }
 
   static async findByJobId(jobId: string): Promise<EmailMessageData[]> {
     const messages = await prisma.emailMessage.findMany({
-      where: { jobId },
-      orderBy: { sentAt: 'desc' },
+      where: { job_id: jobId },
+      orderBy: { sent_at: 'desc' },
     });
-    return messages;
+    return messages.map((m) => this.mapPrismaToEmailMessage(m));
   }
 
   static async findByJobRoundId(jobRoundId: string): Promise<EmailMessageData[]> {
     const messages = await prisma.emailMessage.findMany({
-      where: { jobRoundId },
-      orderBy: { sentAt: 'desc' },
+      where: { job_round_id: jobRoundId },
+      orderBy: { sent_at: 'desc' },
     });
-    return messages;
+    return messages.map((m) => this.mapPrismaToEmailMessage(m));
   }
 
   static async findWithFilters(filters: {
@@ -75,24 +75,24 @@ export class EmailMessageModel {
     offset?: number;
   }): Promise<EmailMessageData[]> {
     const where: any = {};
-    if (filters.candidateId) where.candidateId = filters.candidateId;
-    if (filters.applicationId) where.applicationId = filters.applicationId;
-    if (filters.jobId) where.jobId = filters.jobId;
-    if (filters.jobRoundId) where.jobRoundId = filters.jobRoundId;
+    if (filters.candidateId) where.candidate_id = filters.candidateId;
+    if (filters.applicationId) where.application_id = filters.applicationId;
+    if (filters.jobId) where.job_id = filters.jobId;
+    if (filters.jobRoundId) where.job_round_id = filters.jobRoundId;
     if (filters.status) where.status = filters.status;
     if (filters.startDate || filters.endDate) {
-      where.sentAt = {};
-      if (filters.startDate) where.sentAt.gte = filters.startDate;
-      if (filters.endDate) where.sentAt.lte = filters.endDate;
+      where.sent_at = {};
+      if (filters.startDate) where.sent_at.gte = filters.startDate;
+      if (filters.endDate) where.sent_at.lte = filters.endDate;
     }
 
     const messages = await prisma.emailMessage.findMany({
       where,
-      orderBy: { sentAt: 'desc' },
+      orderBy: { sent_at: 'desc' },
       take: filters.limit,
       skip: filters.offset,
     });
-    return messages;
+    return messages.map((m) => this.mapPrismaToEmailMessage(m));
   }
 
   static async create(data: {
@@ -112,22 +112,22 @@ export class EmailMessageModel {
   }): Promise<EmailMessageData> {
     const message = await prisma.emailMessage.create({
       data: {
-        templateId: data.templateId || null,
-        applicationId: data.applicationId || null,
-        candidateId: data.candidateId,
-        jobId: data.jobId,
-        jobRoundId: data.jobRoundId || null,
+        template_id: data.templateId || null,
+        application_id: data.applicationId || null,
+        candidate_id: data.candidateId,
+        job_id: data.jobId,
+        job_round_id: data.jobRoundId || null,
         to: data.to,
         cc: data.cc || [],
         bcc: data.bcc || [],
         subject: data.subject,
         body: data.body,
         status: data.status || 'SENT',
-        senderId: data.senderId,
-        senderEmail: data.senderEmail,
+        sender_id: data.senderId,
+        sender_email: data.senderEmail,
       },
     });
-    return message;
+    return this.mapPrismaToEmailMessage(message);
   }
 
   static async updateStatus(
@@ -142,19 +142,43 @@ export class EmailMessageModel {
   ): Promise<EmailMessageData | null> {
     try {
       const updateData: any = { status };
-      if (additionalData?.deliveredAt !== undefined) updateData.deliveredAt = additionalData.deliveredAt;
-      if (additionalData?.openedAt !== undefined) updateData.openedAt = additionalData.openedAt;
-      if (additionalData?.bouncedAt !== undefined) updateData.bouncedAt = additionalData.bouncedAt;
-      if (additionalData?.errorMessage !== undefined) updateData.errorMessage = additionalData.errorMessage;
+      if (additionalData?.deliveredAt !== undefined) updateData.delivered_at = additionalData.deliveredAt;
+      if (additionalData?.openedAt !== undefined) updateData.opened_at = additionalData.openedAt;
+      if (additionalData?.bouncedAt !== undefined) updateData.bounced_at = additionalData.bouncedAt;
+      if (additionalData?.errorMessage !== undefined) updateData.error_message = additionalData.errorMessage;
 
       const message = await prisma.emailMessage.update({
         where: { id },
         data: updateData,
       });
-      return message;
+      return this.mapPrismaToEmailMessage(message);
     } catch {
       return null;
     }
+  }
+
+  private static mapPrismaToEmailMessage(m: any): EmailMessageData {
+    return {
+      id: m.id,
+      templateId: m.template_id,
+      applicationId: m.application_id,
+      candidateId: m.candidate_id,
+      jobId: m.job_id,
+      jobRoundId: m.job_round_id,
+      to: m.to,
+      cc: m.cc || [],
+      bcc: m.bcc || [],
+      subject: m.subject,
+      body: m.body,
+      status: m.status,
+      sentAt: m.sent_at,
+      deliveredAt: m.delivered_at,
+      openedAt: m.opened_at,
+      bouncedAt: m.bounced_at,
+      errorMessage: m.error_message,
+      senderId: m.sender_id,
+      senderEmail: m.sender_email,
+    };
   }
 }
 

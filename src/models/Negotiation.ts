@@ -39,19 +39,20 @@ export class NegotiationModel {
   }): Promise<NegotiationData> {
     const negotiation = await prisma.offerNegotiation.create({
       data: {
-        offerId: negotiationData.offerId,
-        messageType: negotiationData.messageType,
+        offer_id: negotiationData.offerId,
+        message_type: negotiationData.messageType,
         message: negotiationData.message,
-        proposedChanges: negotiationData.proposedChanges,
-        senderId: negotiationData.senderId,
-        senderType: negotiationData.senderType,
-        senderName: negotiationData.senderName,
-        senderEmail: negotiationData.senderEmail,
+        proposed_changes: negotiationData.proposedChanges,
+        sender_id: negotiationData.senderId,
+        sender_type: negotiationData.senderType,
+        sender_name: negotiationData.senderName,
+        sender_email: negotiationData.senderEmail,
         responded: false,
+        updated_at: new Date(),
       },
     });
 
-    return negotiation as NegotiationData;
+    return this.mapPrismaToNegotiation(negotiation);
   }
 
   /**
@@ -62,7 +63,8 @@ export class NegotiationModel {
       where: { id },
     });
 
-    return negotiation as NegotiationData | null;
+    if (!negotiation) return null;
+    return this.mapPrismaToNegotiation(negotiation);
   }
 
   /**
@@ -70,11 +72,11 @@ export class NegotiationModel {
    */
   static async findByOfferId(offerId: string): Promise<NegotiationData[]> {
     const negotiations = await prisma.offerNegotiation.findMany({
-      where: { offerId },
-      orderBy: { createdAt: 'asc' },
+      where: { offer_id: offerId },
+      orderBy: { created_at: 'asc' },
     });
 
-    return negotiations as NegotiationData[];
+    return negotiations.map(n => this.mapPrismaToNegotiation(n));
   }
 
   /**
@@ -88,12 +90,18 @@ export class NegotiationModel {
       responseDate: Date;
     }>
   ): Promise<NegotiationData> {
+    const data: any = {};
+    if (updates.responded !== undefined) data.responded = updates.responded;
+    if (updates.response !== undefined) data.response = updates.response;
+    if (updates.responseDate !== undefined) data.response_date = updates.responseDate;
+    data.updated_at = new Date();
+
     const negotiation = await prisma.offerNegotiation.update({
       where: { id },
-      data: updates,
+      data,
     });
 
-    return negotiation as NegotiationData;
+    return this.mapPrismaToNegotiation(negotiation);
   }
 
   /**
@@ -103,6 +111,28 @@ export class NegotiationModel {
     await prisma.offerNegotiation.delete({
       where: { id },
     });
+  }
+
+  /**
+   * Helper to map Prisma result to NegotiationData
+   */
+  private static mapPrismaToNegotiation(prismaNegotiation: any): NegotiationData {
+    return {
+      id: prismaNegotiation.id,
+      offerId: prismaNegotiation.offer_id,
+      messageType: prismaNegotiation.message_type,
+      message: prismaNegotiation.message,
+      proposedChanges: prismaNegotiation.proposed_changes,
+      senderId: prismaNegotiation.sender_id,
+      senderType: prismaNegotiation.sender_type,
+      senderName: prismaNegotiation.sender_name,
+      senderEmail: prismaNegotiation.sender_email,
+      responded: prismaNegotiation.responded,
+      response: prismaNegotiation.response,
+      responseDate: prismaNegotiation.response_date,
+      createdAt: prismaNegotiation.created_at,
+      updatedAt: prismaNegotiation.updated_at,
+    };
   }
 }
 

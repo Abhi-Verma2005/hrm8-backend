@@ -19,25 +19,15 @@ export interface UpdateCandidateProfileRequest {
   country?: string;
   visaStatus?: string;
   workEligibility?: string;
-  requiresSponsorship?: boolean;
   jobTypePreference?: string[];
-  expectedSalaryMin?: string;
-  expectedSalaryMax?: string;
-  salaryCurrency?: string;
   salaryPreference?: {
     min?: number;
     max?: number;
     currency?: string;
   };
   relocationWilling?: boolean;
-  preferredLocations?: string;
   remotePreference?: string;
-
-  // Privacy & Visibility
-  profileVisibility?: string;
-  showContactInfo?: boolean;
-  showSalaryExpectations?: boolean;
-  allowRecruiterContact?: boolean;
+  resumeUrl?: string;
 }
 
 export class CandidateService {

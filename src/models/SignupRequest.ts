@@ -15,17 +15,17 @@ export class SignupRequestModel {
   ): Promise<SignupRequest> {
     const signupRequest = await prisma.signupRequest.create({
       data: {
-        companyId: signupRequestData.companyId,
+        company_id: signupRequestData.companyId,
         email: signupRequestData.email.toLowerCase(),
         name: signupRequestData.name,
-        firstName: signupRequestData.firstName,
-        lastName: signupRequestData.lastName,
-        acceptedTerms: signupRequestData.acceptedTerms,
-        passwordHash: signupRequestData.passwordHash,
-        status: signupRequestData.status,
-        reviewedBy: signupRequestData.reviewedBy,
-        reviewedAt: signupRequestData.reviewedAt,
-        rejectionReason: signupRequestData.rejectionReason,
+        first_name: signupRequestData.firstName,
+        last_name: signupRequestData.lastName,
+        accepted_terms: signupRequestData.acceptedTerms,
+        password_hash: signupRequestData.passwordHash,
+        status: signupRequestData.status as any,
+        reviewed_by: signupRequestData.reviewedBy,
+        reviewed_at: signupRequestData.reviewedAt,
+        rejection_reason: signupRequestData.rejectionReason,
       },
     });
 
@@ -53,9 +53,9 @@ export class SignupRequestModel {
     const signupRequest = await prisma.signupRequest.findFirst({
       where: {
         email: email.toLowerCase(),
-        companyId,
+        company_id: companyId,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
     return signupRequest ? this.mapPrismaToSignupRequest(signupRequest) : null;
@@ -69,10 +69,10 @@ export class SignupRequestModel {
   ): Promise<SignupRequest[]> {
     const signupRequests = await prisma.signupRequest.findMany({
       where: {
-        companyId,
-        status: SignupRequestStatus.PENDING,
+        company_id: companyId,
+        status: SignupRequestStatus.PENDING as any,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
     return signupRequests.map((sr) => this.mapPrismaToSignupRequest(sr));
@@ -85,8 +85,8 @@ export class SignupRequestModel {
     companyId: string
   ): Promise<SignupRequest[]> {
     const signupRequests = await prisma.signupRequest.findMany({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' },
+      where: { company_id: companyId },
+      orderBy: { created_at: 'desc' },
     });
 
     return signupRequests.map((sr) => this.mapPrismaToSignupRequest(sr));
@@ -102,21 +102,21 @@ export class SignupRequestModel {
     rejectionReason?: string
   ): Promise<SignupRequest> {
     const updateData: {
-      status: SignupRequestStatus;
-      reviewedBy?: string;
-      reviewedAt?: Date;
-      rejectionReason?: string;
+      status: any;
+      reviewed_by?: string;
+      reviewed_at?: Date;
+      rejection_reason?: string;
     } = {
       status,
     };
 
     if (reviewedBy) {
-      updateData.reviewedBy = reviewedBy;
-      updateData.reviewedAt = new Date();
+      updateData.reviewed_by = reviewedBy;
+      updateData.reviewed_at = new Date();
     }
 
     if (rejectionReason) {
-      updateData.rejectionReason = rejectionReason;
+      updateData.rejection_reason = rejectionReason;
     }
 
     const signupRequest = await prisma.signupRequest.update({
@@ -146,8 +146,8 @@ export class SignupRequestModel {
     const count = await prisma.signupRequest.count({
       where: {
         email: email.toLowerCase(),
-        companyId,
-        status: SignupRequestStatus.PENDING,
+        company_id: companyId,
+        status: SignupRequestStatus.PENDING as any,
       },
     });
 
@@ -157,37 +157,22 @@ export class SignupRequestModel {
   /**
    * Map Prisma signup request model to our SignupRequest interface
    */
-  private static mapPrismaToSignupRequest(prismaSignupRequest: {
-    id: string;
-    companyId: string;
-    email: string;
-    name: string;
-    firstName: string;
-    lastName: string;
-    acceptedTerms: boolean;
-    passwordHash: string;
-    status: SignupRequestStatus;
-    reviewedBy: string | null;
-    reviewedAt: Date | null;
-    rejectionReason: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): SignupRequest {
+  private static mapPrismaToSignupRequest(prismaSignupRequest: any): SignupRequest {
     return {
       id: prismaSignupRequest.id,
-      companyId: prismaSignupRequest.companyId,
+      companyId: prismaSignupRequest.company_id,
       email: prismaSignupRequest.email,
       name: prismaSignupRequest.name,
-      firstName: prismaSignupRequest.firstName,
-      lastName: prismaSignupRequest.lastName,
-      acceptedTerms: prismaSignupRequest.acceptedTerms,
-      passwordHash: prismaSignupRequest.passwordHash,
-      status: prismaSignupRequest.status,
-      reviewedBy: prismaSignupRequest.reviewedBy || undefined,
-      reviewedAt: prismaSignupRequest.reviewedAt || undefined,
-      rejectionReason: prismaSignupRequest.rejectionReason || undefined,
-      createdAt: prismaSignupRequest.createdAt,
-      updatedAt: prismaSignupRequest.updatedAt,
+      firstName: prismaSignupRequest.first_name,
+      lastName: prismaSignupRequest.last_name,
+      acceptedTerms: prismaSignupRequest.accepted_terms,
+      passwordHash: prismaSignupRequest.password_hash,
+      status: prismaSignupRequest.status as SignupRequestStatus,
+      reviewedBy: prismaSignupRequest.reviewed_by || undefined,
+      reviewedAt: prismaSignupRequest.reviewed_at || undefined,
+      rejectionReason: prismaSignupRequest.rejection_reason || undefined,
+      createdAt: prismaSignupRequest.created_at,
+      updatedAt: prismaSignupRequest.updated_at,
     };
   }
 }

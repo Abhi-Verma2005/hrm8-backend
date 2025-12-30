@@ -118,15 +118,12 @@ export class EmailTemplateService {
     const mergeFieldRegex = /\{\{(\w+)\}\}/g;
 
     // Check subject
-    const subjectMatches = template.subject.match(mergeFieldRegex) || [];
-    const subjectFields = subjectMatches.map(m => m.replace(/\{\{|\}\}/g, ''));
+    template.subject.match(mergeFieldRegex) || [];
 
     // Check body
-    const bodyMatches = template.body.match(mergeFieldRegex) || [];
-    const bodyFields = bodyMatches.map(m => m.replace(/\{\{|\}\}/g, ''));
+    template.body.match(mergeFieldRegex) || [];
 
     // Validate merge field syntax (basic validation - no unmatched braces)
-    const allFields = [...subjectFields, ...bodyFields];
     const allText = template.subject + template.body;
     
     // Check for unmatched braces

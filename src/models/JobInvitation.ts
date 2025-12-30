@@ -39,6 +39,7 @@ export class JobInvitationModel {
         expires_at: invitationData.expiresAt,
         accepted_at: invitationData.acceptedAt,
         application_id: invitationData.applicationId,
+        updated_at: new Date(),
       },
     });
 

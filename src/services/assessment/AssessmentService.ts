@@ -10,7 +10,6 @@ import { ApplicationModel } from '../../models/Application';
 import { AssessmentType, AssessmentStatus } from '@prisma/client';
 import { emailService } from '../email/EmailService';
 import { prisma } from '../../lib/prisma';
-import crypto from 'crypto';
 
 export interface CreateAssessmentRequest {
   applicationId: string;
@@ -110,11 +109,11 @@ export class AssessmentService {
     // Update ApplicationRoundProgress to link the assessment
     await prisma.applicationRoundProgress.updateMany({
       where: {
-        applicationId: applicationId,
-        jobRoundId: jobRoundId,
+        application_id: applicationId,
+        job_round_id: jobRoundId,
       },
       data: {
-        assessmentId: assessment.id,
+        assessment_id: assessment.id,
       },
     });
   }
@@ -210,7 +209,7 @@ export class AssessmentService {
 
     await emailService.sendAssessmentInvitationEmail({
       to: application.candidate.email,
-      candidateName: `${application.candidate.firstName} ${application.candidate.lastName}`,
+      candidateName: `${application.candidate.first_name} ${application.candidate.last_name}`,
       jobTitle: application.job.title,
       companyName: application.job.company?.name || 'Our Company',
       assessmentUrl,
@@ -414,7 +413,7 @@ export class AssessmentService {
 
     await emailService.sendAssessmentCompletionEmail({
       to: application.candidate.email,
-      candidateName: `${application.candidate.firstName} ${application.candidate.lastName}`,
+      candidateName: `${application.candidate.first_name} ${application.candidate.last_name}`,
       jobTitle: application.job.title,
       companyName: application.job.company?.name || 'Our Company',
       completedAt,
@@ -471,7 +470,7 @@ export class AssessmentService {
     await emailService.sendAssessmentResultsNotification({
       to: recruiter.email,
       recruiterName: recruiter.name,
-      candidateName: `${application.candidate.firstName} ${application.candidate.lastName}`,
+      candidateName: `${application.candidate.first_name} ${application.candidate.last_name}`,
       jobTitle: application.job.title,
       companyName: application.job.company?.name || 'Our Company',
       assessmentScore: scoringResult.totalScore,

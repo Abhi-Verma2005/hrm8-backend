@@ -3,6 +3,7 @@
  * Handles saved jobs, saved searches, and job alerts
  */
 
+import { prisma } from '../../lib/prisma';
 import { randomUUID } from 'crypto';
 
 export class CandidateJobService {
@@ -10,7 +11,6 @@ export class CandidateJobService {
      * Get all saved jobs for a candidate
      */
     static async getSavedJobs(candidateId: string) {
-        const { prisma } = await import('../../lib/prisma');
         return await prisma.savedJob.findMany({
             where: { candidate_id: candidateId },
             include: {
@@ -45,8 +45,6 @@ export class CandidateJobService {
      * Save a job
      */
     static async saveJob(candidateId: string, jobId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         // Check if already saved
         const existing = await prisma.savedJob.findUnique({
             where: {
@@ -74,8 +72,6 @@ export class CandidateJobService {
      * Unsave a job
      */
     static async unsaveJob(candidateId: string, jobId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         try {
             return await prisma.savedJob.delete({
                 where: {
@@ -95,72 +91,38 @@ export class CandidateJobService {
      * Get saved searches
      */
     static async getSavedSearches(candidateId: string) {
-        const { prisma } = await import('../../lib/prisma');
         return await prisma.savedSearch.findMany({
             where: { candidate_id: candidateId },
-            orderBy: { last_searched_at: 'desc' },
+            orderBy: { updated_at: 'desc' },
         });
     }
 
     /**
-     * Track a search (create or update)
+     * Track a search
      */
-    static async trackSearch(candidateId: string, query: string | undefined, filters: any) {
-        const { prisma } = await import('../../lib/prisma');
-
-        // Check if identical search exists
-        // Note: Comparing JSON filters directly might be tricky depending on key order,
-        // but for now we'll assume consistent ordering from frontend or just rely on query + simple filter check.
-        // A more robust way would be to hash the filters.
-
-        // For now, let's find by query and update if found, or create new.
-        // Since we don't have a unique constraint on query+filters, we'll do a findFirst.
-
-        const existing = await prisma.savedSearch.findFirst({
-            where: {
-                candidate_id: candidateId,
-                query: query || null,
-                // We can't easily query by JSON equality in all DBs, so we might fetch and compare in app
-                // or just rely on query text if filters are complex.
-                // Let's try to match query first.
-            }
-        });
-
-        // If we found one with same query, let's check filters (simple comparison)
-        if (existing) {
-            const existingFilters = JSON.stringify(existing.filters);
-            const newFilters = JSON.stringify(filters);
-
-            if (existingFilters === newFilters) {
-                // Update timestamp
-                return await prisma.savedSearch.update({
-                    where: { id: existing.id },
-                    data: { last_searched_at: new Date() }
-                });
-            }
-        }
-
-        // Create new if not found or filters differ
+    static async trackSearch(
+        candidateId: string,
+        query: string | undefined,
+        filters: any
+    ) {
         return await prisma.savedSearch.create({
             data: {
                 id: randomUUID(),
                 candidate_id: candidateId,
-                query,
-                filters,
+                query: query,
+                filters: filters,
                 last_searched_at: new Date(),
             }
         });
     }
 
     /**
-     * Delete saved search
+     * Delete a saved search
      */
-    static async deleteSavedSearch(candidateId: string, id: string) {
-        const { prisma } = await import('../../lib/prisma');
-
+    static async deleteSavedSearch(candidateId: string, searchId: string) {
         // Verify ownership
         const existing = await prisma.savedSearch.findFirst({
-            where: { id, candidate_id: candidateId },
+            where: { id: searchId, candidate_id: candidateId },
         });
 
         if (!existing) {
@@ -168,7 +130,7 @@ export class CandidateJobService {
         }
 
         return await prisma.savedSearch.delete({
-            where: { id },
+            where: { id: searchId },
         });
     }
 

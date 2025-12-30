@@ -120,6 +120,7 @@ export class AssessmentModel {
         invitation_token: token,
         expiry_date: data.expiryDate,
         pass_threshold: data.passThreshold,
+        updated_at: new Date(),
       },
     });
 

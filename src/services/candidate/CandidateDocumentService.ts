@@ -3,17 +3,19 @@
  * Handles CRUD operations for resumes, cover letters, and portfolio items
  */
 
+import { prisma } from '../../lib/prisma';
+import { randomUUID } from 'crypto';
+
 export class CandidateDocumentService {
     /**
      * Get all resumes for a candidate
      */
     static async getResumes(candidateId: string) {
-        const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateResume.findMany({
-            where: { candidateId: candidateId },
+            where: { candidate_id: candidateId },
             orderBy: [
-                { isDefault: 'desc' },
-                { uploadedAt: 'desc' }
+                { is_default: 'desc' },
+                { uploaded_at: 'desc' }
             ],
         });
     }
@@ -22,7 +24,6 @@ export class CandidateDocumentService {
      * Get a specific resume
      */
     static async getResume(resumeId: string) {
-        const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateResume.findUnique({
             where: { id: resumeId },
         });
@@ -32,9 +33,8 @@ export class CandidateDocumentService {
      * Find resume by URL
      */
     static async findByUrl(fileUrl: string) {
-        const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateResume.findFirst({
-            where: { fileUrl: fileUrl },
+            where: { file_url: fileUrl },
         });
     }
 
@@ -49,27 +49,24 @@ export class CandidateDocumentService {
         fileType: string,
         content?: string
     ) {
-        const { prisma } = await import('../../lib/prisma');
-
         // Get the highest version number for this candidate
         const latestResume = await prisma.candidateResume.findFirst({
-            where: { candidateId: candidateId },
+            where: { candidate_id: candidateId },
             orderBy: { version: 'desc' },
         });
 
         const nextVersion = latestResume ? latestResume.version + 1 : 1;
 
-        const { randomUUID } = await import('crypto');
         return await prisma.candidateResume.create({
             data: {
                 id: randomUUID(),
-                candidateId: candidateId,
-                fileName: fileName,
-                fileUrl: fileUrl,
-                fileSize: fileSize,
-                fileType: fileType,
+                candidate_id: candidateId,
+                file_name: fileName,
+                file_url: fileUrl,
+                file_size: fileSize,
+                file_type: fileType,
                 version: nextVersion,
-                isDefault: false, // New uploads are not default by default
+                is_default: false, // New uploads are not default by default
                 content: content,
             },
         });
@@ -79,11 +76,9 @@ export class CandidateDocumentService {
      * Set a resume as default
      */
     static async setDefaultResume(candidateId: string, resumeId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         // Verify ownership
         const resume = await prisma.candidateResume.findFirst({
-            where: { id: resumeId, candidateId: candidateId },
+            where: { id: resumeId, candidate_id: candidateId },
         });
 
         if (!resume) {
@@ -92,14 +87,14 @@ export class CandidateDocumentService {
 
         // Unset all other defaults
         await prisma.candidateResume.updateMany({
-            where: { candidateId: candidateId, isDefault: true },
-            data: { isDefault: false },
+            where: { candidate_id: candidateId, is_default: true },
+            data: { is_default: false },
         });
 
         // Set this one as default
         return await prisma.candidateResume.update({
             where: { id: resumeId },
-            data: { isDefault: true },
+            data: { is_default: true },
         });
     }
 
@@ -107,11 +102,9 @@ export class CandidateDocumentService {
      * Delete a resume
      */
     static async deleteResume(candidateId: string, resumeId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         // Verify ownership
         const resume = await prisma.candidateResume.findFirst({
-            where: { id: resumeId, candidateId: candidateId },
+            where: { id: resumeId, candidate_id: candidateId },
         });
 
         if (!resume) {
@@ -127,12 +120,11 @@ export class CandidateDocumentService {
      * Get all cover letters for a candidate
      */
     static async getCoverLetters(candidateId: string) {
-        const { prisma } = await import('../../lib/prisma');
         return await prisma.candidateCoverLetter.findMany({
-            where: { candidateId: candidateId },
+            where: { candidate_id: candidateId },
             orderBy: [
-                { isTemplate: 'desc' },
-                { updatedAt: 'desc' }
+                { is_template: 'desc' },
+                { updated_at: 'desc' }
             ],
         });
     }
@@ -153,21 +145,19 @@ export class CandidateDocumentService {
             isDraft?: boolean;
         }
     ) {
-        const { prisma } = await import('../../lib/prisma');
-        const { randomUUID } = await import('crypto');
         return await prisma.candidateCoverLetter.create({
             data: {
                 id: randomUUID(),
-                candidateId: candidateId,
+                candidate_id: candidateId,
                 title: data.title,
                 content: data.content,
-                fileUrl: data.fileUrl,
-                fileName: data.fileName,
-                fileSize: data.fileSize,
-                fileType: data.fileType,
-                isTemplate: data.isTemplate ?? false,
-                isDraft: data.isDraft ?? true,
-                updatedAt: new Date(),
+                file_url: data.fileUrl,
+                file_name: data.fileName,
+                file_size: data.fileSize,
+                file_type: data.fileType,
+                is_template: data.isTemplate ?? false,
+                is_draft: data.isDraft ?? true,
+                updated_at: new Date(),
             },
         });
     }
@@ -189,11 +179,9 @@ export class CandidateDocumentService {
             isDraft?: boolean;
         }
     ) {
-        const { prisma } = await import('../../lib/prisma');
-
         // Verify ownership
         const coverLetter = await prisma.candidateCoverLetter.findFirst({
-            where: { id: coverLetterId, candidateId: candidateId },
+            where: { id: coverLetterId, candidate_id: candidateId },
         });
 
         if (!coverLetter) {
@@ -203,13 +191,13 @@ export class CandidateDocumentService {
         const updateData: any = {};
         if (data.title !== undefined) updateData.title = data.title;
         if (data.content !== undefined) updateData.content = data.content;
-        if (data.fileUrl !== undefined) updateData.fileUrl = data.fileUrl;
-        if (data.fileName !== undefined) updateData.fileName = data.fileName;
-        if (data.fileSize !== undefined) updateData.fileSize = data.fileSize;
-        if (data.fileType !== undefined) updateData.fileType = data.fileType;
-        if (data.isTemplate !== undefined) updateData.isTemplate = data.isTemplate;
-        if (data.isDraft !== undefined) updateData.isDraft = data.isDraft;
-        updateData.updatedAt = new Date();
+        if (data.fileUrl !== undefined) updateData.file_url = data.fileUrl;
+        if (data.fileName !== undefined) updateData.file_name = data.fileName;
+        if (data.fileSize !== undefined) updateData.file_size = data.fileSize;
+        if (data.fileType !== undefined) updateData.file_type = data.fileType;
+        if (data.isTemplate !== undefined) updateData.is_template = data.isTemplate;
+        if (data.isDraft !== undefined) updateData.is_draft = data.isDraft;
+        updateData.updated_at = new Date();
 
         return await prisma.candidateCoverLetter.update({
             where: { id: coverLetterId },
@@ -221,11 +209,9 @@ export class CandidateDocumentService {
      * Delete a cover letter
      */
     static async deleteCoverLetter(candidateId: string, coverLetterId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         // Verify ownership
         const coverLetter = await prisma.candidateCoverLetter.findFirst({
-            where: { id: coverLetterId, candidateId: candidateId },
+            where: { id: coverLetterId, candidate_id: candidateId },
         });
 
         if (!coverLetter) {
@@ -241,10 +227,9 @@ export class CandidateDocumentService {
      * Get all portfolio items for a candidate
      */
     static async getPortfolioItems(candidateId: string) {
-        const { prisma } = await import('../../lib/prisma');
         return await prisma.candidatePortfolio.findMany({
-            where: { candidateId: candidateId },
-            orderBy: { createdAt: 'desc' },
+            where: { candidate_id: candidateId },
+            orderBy: { created_at: 'desc' },
         });
     }
 
@@ -265,22 +250,20 @@ export class CandidateDocumentService {
             description?: string;
         }
     ) {
-        const { prisma } = await import('../../lib/prisma');
-        const { randomUUID } = await import('crypto');
         return await prisma.candidatePortfolio.create({
             data: {
                 id: randomUUID(),
-                candidateId: candidateId,
+                candidate_id: candidateId,
                 title: data.title,
                 type: data.type,
-                fileUrl: data.fileUrl,
-                fileName: data.fileName,
-                fileSize: data.fileSize,
-                fileType: data.fileType,
-                externalUrl: data.externalUrl,
+                file_url: data.fileUrl,
+                file_name: data.fileName,
+                file_size: data.fileSize,
+                file_type: data.fileType,
+                external_url: data.externalUrl,
                 platform: data.platform,
                 description: data.description,
-                updatedAt: new Date(),
+                updated_at: new Date(),
             },
         });
     }
@@ -302,11 +285,9 @@ export class CandidateDocumentService {
             description?: string;
         }
     ) {
-        const { prisma } = await import('../../lib/prisma');
-
         // Verify ownership
         const portfolio = await prisma.candidatePortfolio.findFirst({
-            where: { id: portfolioId, candidateId: candidateId },
+            where: { id: portfolioId, candidate_id: candidateId },
         });
 
         if (!portfolio) {
@@ -315,14 +296,14 @@ export class CandidateDocumentService {
 
         const updateData: any = {};
         if (data.title !== undefined) updateData.title = data.title;
-        if (data.fileUrl !== undefined) updateData.fileUrl = data.fileUrl;
-        if (data.fileName !== undefined) updateData.fileName = data.fileName;
-        if (data.fileSize !== undefined) updateData.fileSize = data.fileSize;
-        if (data.fileType !== undefined) updateData.fileType = data.fileType;
-        if (data.externalUrl !== undefined) updateData.externalUrl = data.externalUrl;
+        if (data.fileUrl !== undefined) updateData.file_url = data.fileUrl;
+        if (data.fileName !== undefined) updateData.file_name = data.fileName;
+        if (data.fileSize !== undefined) updateData.file_size = data.fileSize;
+        if (data.fileType !== undefined) updateData.file_type = data.fileType;
+        if (data.externalUrl !== undefined) updateData.external_url = data.externalUrl;
         if (data.platform !== undefined) updateData.platform = data.platform;
         if (data.description !== undefined) updateData.description = data.description;
-        updateData.updatedAt = new Date();
+        updateData.updated_at = new Date();
 
         return await prisma.candidatePortfolio.update({
             where: { id: portfolioId },
@@ -334,11 +315,9 @@ export class CandidateDocumentService {
      * Delete a portfolio item
      */
     static async deletePortfolioItem(candidateId: string, portfolioId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         // Verify ownership
         const portfolio = await prisma.candidatePortfolio.findFirst({
-            where: { id: portfolioId, candidateId: candidateId },
+            where: { id: portfolioId, candidate_id: candidateId },
         });
 
         if (!portfolio) {

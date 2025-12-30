@@ -150,6 +150,7 @@ export class ApplicationModel {
         added_at: applicationData.manuallyAdded ? new Date() : undefined,
         is_new: true,
         is_read: false,
+        updated_at: new Date(),
       },
     });
 
@@ -274,6 +275,8 @@ export class ApplicationModel {
     if (updateFields.addedAt) mappedUpdateData.added_at = updateFields.addedAt;
     if (updateFields.recruiterNotes) mappedUpdateData.recruiter_notes = updateFields.recruiterNotes;
 
+    mappedUpdateData.updated_at = new Date();
+
     const application = await prisma.application.update({
       where: { id },
       data: mappedUpdateData,
@@ -291,6 +294,7 @@ export class ApplicationModel {
       data: {
         is_read: true,
         is_new: false,
+        updated_at: new Date(),
       },
     });
   }

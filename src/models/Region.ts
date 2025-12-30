@@ -53,6 +53,7 @@ export class RegionModel {
         owner_type: regionData.ownerType || RegionOwnerType.HRM8,
         licensee_id: regionData.licenseeId,
         is_active: regionData.isActive ?? true,
+        updated_at: new Date(),
       },
     });
 

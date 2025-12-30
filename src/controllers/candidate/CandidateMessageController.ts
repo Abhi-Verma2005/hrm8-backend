@@ -41,7 +41,7 @@ export class CandidateMessageController {
       }
 
       const isParticipant = conversation.participants.some(
-        (p) => p.participantId === candidateId
+        (p) => p.participant_id === candidateId
       );
       if (!isParticipant) {
         return res.status(403).json({ success: false, error: 'Access denied' });
@@ -102,7 +102,7 @@ export class CandidateMessageController {
             participantType: ParticipantType.CONSULTANT,
             participantId: consultant.id,
             participantEmail: consultant.email,
-            displayName: `${consultant.firstName} ${consultant.lastName}`.trim(),
+            displayName: `${consultant.first_name} ${consultant.last_name}`.trim(),
           });
         }
       }
@@ -147,7 +147,7 @@ export class CandidateMessageController {
       }
 
       const isParticipant = conversation.participants.some(
-        (p) => p.participantId === candidate.id
+        (p) => p.participant_id === candidate.id
       );
       if (!isParticipant) {
         return res.status(403).json({ success: false, error: 'Access denied' });
@@ -198,7 +198,7 @@ export class CandidateMessageController {
       }
 
       const isParticipant = conversation.participants.some(
-        (p) => p.participantId === candidate.id
+        (p) => p.participant_id === candidate.id
       );
       if (!isParticipant) {
         return res.status(403).json({ success: false, error: 'Access denied' });

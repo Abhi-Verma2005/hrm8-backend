@@ -1,4 +1,4 @@
-import { Prisma, ParticipantType, MessageContentType, ConversationStatus } from '@prisma/client';
+import { ParticipantType, MessageContentType, ConversationStatus, ConversationChannelType } from '@prisma/client';
 
 /**
  * Messaging/Conversation service using Prisma
@@ -36,14 +36,14 @@ export class ConversationService {
     return prisma.conversation.findMany({
       where: {
         participants: {
-          some: { participantId },
+          some: { participant_id: participantId },
         },
         ...(includeArchived ? {} : { status: ConversationStatus.ACTIVE }),
       },
       include: {
         participants: true,
         messages: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { created_at: 'desc' },
           take: 1,
         },
         job: {
@@ -54,8 +54,8 @@ export class ConversationService {
         },
       },
       orderBy: [
-        { lastMessageAt: 'desc' },
-        { createdAt: 'desc' }, // Fallback ordering for conversations without messages
+        { last_message_at: 'desc' },
+        { created_at: 'desc' }, // Fallback ordering for conversations without messages
       ],
     });
   }
@@ -69,7 +69,7 @@ export class ConversationService {
     candidateId?: string;
     employerUserId?: string;
     consultantId?: string;
-    channelType: Prisma.ConversationCreateInput['channelType'];
+    channelType: ConversationChannelType;
     participants: Array<{
       participantType: ParticipantType;
       participantId: string;
@@ -81,17 +81,17 @@ export class ConversationService {
     return prisma.conversation.create({
       data: {
         subject: params.subject,
-        jobId: params.jobId,
-        candidateId: params.candidateId,
-        employerUserId: params.employerUserId,
-        consultantId: params.consultantId,
-        channelType: params.channelType,
+        job_id: params.jobId,
+        candidate_id: params.candidateId,
+        employer_user_id: params.employerUserId,
+        consultant_id: params.consultantId,
+        channel_type: params.channelType,
         participants: {
           create: params.participants.map((p) => ({
-            participantType: p.participantType,
-            participantId: p.participantId,
-            participantEmail: p.participantEmail,
-            displayName: p.displayName,
+            participant_type: p.participantType,
+            participant_id: p.participantId,
+            participant_email: p.participantEmail,
+            display_name: p.displayName,
           })),
         },
       },
@@ -105,8 +105,8 @@ export class ConversationService {
   static async listMessages(conversationId: string, limit = 50, cursor?: string) {
     const { prisma } = await import('../../lib/prisma');
     return prisma.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: 'desc' },
+      where: { conversation_id: conversationId },
+      orderBy: { created_at: 'desc' },
       take: limit,
       ...(cursor
         ? {
@@ -125,8 +125,8 @@ export class ConversationService {
     const { prisma } = await import('../../lib/prisma');
     return prisma.conversation.findFirst({
       where: {
-        jobId,
-        candidateId,
+        job_id: jobId,
+        candidate_id: candidateId,
       },
       include: { participants: true },
     });
@@ -231,19 +231,19 @@ export class ConversationService {
 
     const message = await prisma.message.create({
       data: {
-        conversationId: params.conversationId,
-        senderType: params.senderType,
-        senderId: params.senderId,
-        senderEmail: params.senderEmail,
+        conversation_id: params.conversationId,
+        sender_type: params.senderType,
+        sender_id: params.senderId,
+        sender_email: params.senderEmail,
         content: params.content,
-        contentType: params.contentType || MessageContentType.TEXT,
-        inReplyToMessageId: params.inReplyToMessageId,
+        content_type: params.contentType || MessageContentType.TEXT,
+        in_reply_to_message_id: params.inReplyToMessageId,
         attachments: params.attachments
           ? {
               create: params.attachments.map((a) => ({
-                fileName: a.fileName,
-                fileUrl: a.fileUrl,
-                mimeType: a.mimeType,
+                file_name: a.fileName,
+                file_url: a.fileUrl,
+                mime_type: a.mimeType,
                 size: a.size,
               })),
             }
@@ -255,8 +255,8 @@ export class ConversationService {
     await prisma.conversation.update({
       where: { id: params.conversationId },
       data: {
-        lastMessageId: message.id,
-        lastMessageAt: message.createdAt,
+        last_message_id: message.id,
+        last_message_at: message.created_at,
       },
     });
 
@@ -270,20 +270,20 @@ export class ConversationService {
     const { prisma } = await import('../../lib/prisma');
     const unread = await prisma.message.findMany({
       where: {
-        conversationId,
-        NOT: { readBy: { has: participantId } },
+        conversation_id: conversationId,
+        NOT: { read_by: { has: participantId } },
       },
-      select: { id: true, readBy: true },
+      select: { id: true, read_by: true },
     });
 
     let updated = 0;
     for (const msg of unread) {
-      const newReadBy = Array.from(new Set([...(msg.readBy || []), participantId]));
+      const newReadBy = Array.from(new Set([...((msg as any).read_by || []), participantId]));
       await prisma.message.update({
         where: { id: msg.id },
         data: {
-          readBy: newReadBy,
-          readAt: new Date(),
+          read_by: newReadBy,
+          read_at: new Date(),
         },
       });
       updated += 1;
@@ -299,9 +299,9 @@ export class ConversationService {
     return prisma.message.count({
       where: {
         conversation: {
-          participants: { some: { participantId } },
+          participants: { some: { participant_id: participantId } },
         },
-        NOT: { readBy: { has: participantId } },
+        NOT: { read_by: { has: participantId } },
       },
     });
   }

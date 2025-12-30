@@ -44,6 +44,7 @@ export async function authenticate(
     req.user = {
       id: session.userId,
       email: session.email,
+      name: session.name,
       companyId: session.companyId,
       role: session.userRole,
     };

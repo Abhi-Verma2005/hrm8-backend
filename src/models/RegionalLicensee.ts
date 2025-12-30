@@ -74,6 +74,7 @@ export class RegionalLicenseeModel {
         finance_contact: licenseeData.financeContact?.trim(),
         compliance_contact: licenseeData.complianceContact?.trim(),
         status: licenseeData.status || LicenseeStatus.ACTIVE,
+        updated_at: new Date(),
       },
     });
 
@@ -146,6 +147,7 @@ export class RegionalLicenseeModel {
         ...(data.financeContact !== undefined && { finance_contact: data.financeContact?.trim() }),
         ...(data.complianceContact !== undefined && { compliance_contact: data.complianceContact?.trim() }),
         ...(data.status !== undefined && { status: data.status }),
+        updated_at: new Date(),
       },
     });
 
@@ -158,7 +160,10 @@ export class RegionalLicenseeModel {
   static async updateStatus(id: string, status: LicenseeStatus): Promise<void> {
     await prisma.regionalLicensee.update({
       where: { id },
-      data: { status },
+      data: { 
+        status,
+        updated_at: new Date(),
+      },
     });
   }
 

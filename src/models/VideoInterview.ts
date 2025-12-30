@@ -72,6 +72,7 @@ export class VideoInterviewModel {
         transcript: data.transcript ?? null,
         feedback: data.feedback ?? null,
         notes: data.notes ?? null,
+        updated_at: new Date(),
       },
     });
 
@@ -109,6 +110,8 @@ export class VideoInterviewModel {
     if (data.transcript !== undefined) updateData.transcript = data.transcript;
     if (data.feedback !== undefined) updateData.feedback = data.feedback;
     if (data.notes !== undefined) updateData.notes = data.notes;
+    
+    updateData.updated_at = new Date();
 
     const interview = await prisma.videoInterview.update({
       where: { id },

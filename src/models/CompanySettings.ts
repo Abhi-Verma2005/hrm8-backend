@@ -99,12 +99,12 @@ export class CompanySettingsModel {
     const settings = await prisma.companySettings.update({
       where: { company_id: companyId },
       data: {
-        timezone: data.timezone ?? undefined,
-        work_days: data.workDays ?? undefined,
-        start_time: data.startTime ?? undefined,
-        end_time: data.endTime ?? undefined,
-        lunch_start: data.lunchStart ?? undefined,
-        lunch_end: data.lunchEnd ?? undefined,
+        ...data,
+        work_days: data.workDays,
+        start_time: data.startTime,
+        end_time: data.endTime,
+        lunch_start: data.lunchStart,
+        lunch_end: data.lunchEnd,
         updated_at: new Date(),
       },
     });
