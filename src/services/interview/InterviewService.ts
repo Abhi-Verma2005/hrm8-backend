@@ -1092,7 +1092,7 @@ export class InterviewService {
     const where: any = {};
 
     if (filters?.jobId) {
-      where.jobId = filters.jobId;
+      where.job_id = filters.jobId;
     }
 
     if (filters?.jobRoundId) {
@@ -1104,12 +1104,12 @@ export class InterviewService {
     }
 
     if (filters?.startDate || filters?.endDate) {
-      where.scheduledDate = {};
+      where.scheduled_date = {};
       if (filters.startDate) {
-        where.scheduledDate.gte = filters.startDate;
+        where.scheduled_date.gte = filters.startDate;
       }
       if (filters.endDate) {
-        where.scheduledDate.lte = filters.endDate;
+        where.scheduled_date.lte = filters.endDate;
       }
     }
 
