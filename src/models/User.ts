@@ -17,12 +17,12 @@ export class UserModel {
       data: {
         email: userData.email.toLowerCase(),
         name: userData.name,
-        passwordHash: userData.passwordHash,
-        companyId: userData.companyId,
+        password_hash: userData.passwordHash,
+        company_id: userData.companyId,
         role: userData.role,
         status: userData.status,
-        assignedBy: userData.assignedBy,
-        lastLoginAt: userData.lastLoginAt,
+        assigned_by: userData.assignedBy,
+        last_login_at: userData.lastLoginAt,
       },
     });
 
@@ -37,7 +37,7 @@ export class UserModel {
       where: { id },
     });
 
-    return user ? this.mapPrismaToUser(user) : null;
+    return user ? this.mapPrismaToUser(user as any) : null;
   }
 
   /**
@@ -48,7 +48,7 @@ export class UserModel {
       where: { email: email.toLowerCase() },
     });
 
-    return user ? this.mapPrismaToUser(user) : null;
+    return user ? this.mapPrismaToUser(user as any) : null;
   }
 
   /**
@@ -56,11 +56,11 @@ export class UserModel {
    */
   static async findByCompanyId(companyId: string): Promise<User[]> {
     const users = await prisma.user.findMany({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' },
+      where: { company_id: companyId },
+      orderBy: { created_at: 'desc' },
     });
 
-    return users.map((user) => this.mapPrismaToUser(user));
+    return users.map((user) => this.mapPrismaToUser(user as any));
   }
 
   /**
@@ -72,13 +72,13 @@ export class UserModel {
   ): Promise<User[]> {
     const users = await prisma.user.findMany({
       where: {
-        companyId,
+        company_id: companyId,
         role,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
-    return users.map((user) => this.mapPrismaToUser(user));
+    return users.map((user) => this.mapPrismaToUser(user as any));
   }
 
   /**
@@ -90,7 +90,7 @@ export class UserModel {
       data: { status },
     });
 
-    return this.mapPrismaToUser(user);
+    return this.mapPrismaToUser(user as any);
   }
 
   /**
@@ -99,10 +99,10 @@ export class UserModel {
   static async updateLastLogin(id: string): Promise<User> {
     const user = await prisma.user.update({
       where: { id },
-      data: { lastLoginAt: new Date() },
+      data: { last_login_at: new Date() },
     });
 
-    return this.mapPrismaToUser(user);
+    return this.mapPrismaToUser(user as any);
   }
 
   /**
@@ -111,10 +111,10 @@ export class UserModel {
   static async updatePassword(id: string, passwordHash: string): Promise<User> {
     const user = await prisma.user.update({
       where: { id },
-      data: { passwordHash },
+      data: { password_hash: passwordHash },
     });
 
-    return this.mapPrismaToUser(user);
+    return this.mapPrismaToUser(user as any);
   }
 
   /**
@@ -164,10 +164,10 @@ export class UserModel {
   ): Promise<User> {
     const user = await prisma.user.update({
       where: { id },
-      data: { role, assignedBy },
+      data: { role, assigned_by: assignedBy },
     });
 
-    return this.mapPrismaToUser(user);
+    return this.mapPrismaToUser(user as any);
   }
 
   /**
@@ -177,27 +177,27 @@ export class UserModel {
     id: string;
     email: string;
     name: string;
-    passwordHash: string;
-    companyId: string;
+    password_hash: string;
+    company_id: string;
     role: UserRole;
     status: UserStatus;
-    assignedBy: string | null;
-    lastLoginAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
+    assigned_by: string | null;
+    last_login_at: Date | null;
+    created_at: Date;
+    updated_at: Date;
   }): User {
     return {
       id: prismaUser.id,
       email: prismaUser.email,
       name: prismaUser.name,
-      passwordHash: prismaUser.passwordHash,
-      companyId: prismaUser.companyId,
+      passwordHash: prismaUser.password_hash,
+      companyId: prismaUser.company_id,
       role: prismaUser.role,
       status: prismaUser.status,
-      assignedBy: prismaUser.assignedBy || undefined,
-      lastLoginAt: prismaUser.lastLoginAt || undefined,
-      createdAt: prismaUser.createdAt,
-      updatedAt: prismaUser.updatedAt,
+      assignedBy: prismaUser.assigned_by || undefined,
+      lastLoginAt: prismaUser.last_login_at || undefined,
+      createdAt: prismaUser.created_at,
+      updatedAt: prismaUser.updated_at,
     };
   }
 }

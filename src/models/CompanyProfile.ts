@@ -29,8 +29,8 @@ export class CompanyProfileModel {
   ): Promise<CompanyProfile> {
     const profile = await prisma.companyProfile.create({
       data: {
-        companyId,
-        profileData: {
+        company_id: companyId,
+        profile_data: {
           ...DEFAULT_PROFILE_DATA,
           ...data,
         } as Prisma.JsonObject,
@@ -45,7 +45,7 @@ export class CompanyProfileModel {
    */
   static async findByCompanyId(companyId: string): Promise<CompanyProfile | null> {
     const profile = await prisma.companyProfile.findUnique({
-      where: { companyId },
+      where: { company_id: companyId },
     });
 
     return profile ? this.mapPrismaToProfile(profile) : null;
@@ -59,7 +59,7 @@ export class CompanyProfileModel {
     data: Prisma.CompanyProfileUpdateInput
   ): Promise<CompanyProfile> {
     const profile = await prisma.companyProfile.update({
-      where: { companyId },
+      where: { company_id: companyId },
       data,
     });
 
@@ -82,27 +82,27 @@ export class CompanyProfileModel {
    */
   private static mapPrismaToProfile(profile: {
     id: string;
-    companyId: string;
+    company_id: string;
     status: CompanyProfileStatus;
-    completionPercentage: number;
-    completedSections: CompanyProfileSection[];
-    profileData: Prisma.JsonValue | null;
-    lastReminderAt: Date | null;
-    skipUntil: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
+    completion_percentage: number;
+    completed_sections: CompanyProfileSection[];
+    profile_data: Prisma.JsonValue | null;
+    last_reminder_at: Date | null;
+    skip_until: Date | null;
+    created_at: Date;
+    updated_at: Date;
   }): CompanyProfile {
     return {
       id: profile.id,
-      companyId: profile.companyId,
+      companyId: profile.company_id,
       status: profile.status,
-      completionPercentage: profile.completionPercentage,
-      completedSections: profile.completedSections || [],
-      profileData: (profile.profileData as CompanyProfileData | undefined) || undefined,
-      lastReminderAt: profile.lastReminderAt || undefined,
-      skipUntil: profile.skipUntil || undefined,
-      createdAt: profile.createdAt,
-      updatedAt: profile.updatedAt,
+      completionPercentage: profile.completion_percentage,
+      completedSections: profile.completed_sections || [],
+      profileData: (profile.profile_data as CompanyProfileData | undefined) || undefined,
+      lastReminderAt: profile.last_reminder_at || undefined,
+      skipUntil: profile.skip_until || undefined,
+      createdAt: profile.created_at,
+      updatedAt: profile.updated_at,
     };
   }
 }

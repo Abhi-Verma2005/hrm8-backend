@@ -27,11 +27,11 @@ export class ConsultantSessionModel {
   ): Promise<ConsultantSessionData> {
     const session = await prisma.consultantSession.create({
       data: {
-        sessionId,
-        consultantId,
+        session_id: sessionId,
+        consultant_id: consultantId,
         email,
-        expiresAt,
-        lastActivity: new Date(),
+        expires_at: expiresAt,
+        last_activity: new Date(),
       },
     });
 
@@ -43,7 +43,7 @@ export class ConsultantSessionModel {
    */
   static async findBySessionId(sessionId: string): Promise<ConsultantSessionData | null> {
     const session = await prisma.consultantSession.findUnique({
-      where: { sessionId },
+      where: { session_id: sessionId },
     });
 
     if (!session) {
@@ -51,7 +51,7 @@ export class ConsultantSessionModel {
     }
 
     // Check if session expired
-    if (new Date() > session.expiresAt) {
+    if (new Date() > (session as any).expires_at) {
       await this.deleteBySessionId(sessionId);
       return null;
     }
@@ -64,8 +64,8 @@ export class ConsultantSessionModel {
    */
   static async updateLastActivity(sessionId: string): Promise<void> {
     await prisma.consultantSession.update({
-      where: { sessionId },
-      data: { lastActivity: new Date() },
+      where: { session_id: sessionId },
+      data: { last_activity: new Date() },
     });
   }
 
@@ -74,7 +74,7 @@ export class ConsultantSessionModel {
    */
   static async deleteBySessionId(sessionId: string): Promise<void> {
     await prisma.consultantSession.delete({
-      where: { sessionId },
+      where: { session_id: sessionId },
     }).catch(() => {
       // Session might not exist, ignore error
     });
@@ -85,7 +85,7 @@ export class ConsultantSessionModel {
    */
   static async deleteAllByConsultantId(consultantId: string): Promise<void> {
     await prisma.consultantSession.deleteMany({
-      where: { consultantId },
+      where: { consultant_id: consultantId },
     });
   }
 
@@ -96,7 +96,7 @@ export class ConsultantSessionModel {
     const now = new Date();
     const result = await prisma.consultantSession.deleteMany({
       where: {
-        expiresAt: {
+        expires_at: {
           lt: now,
         },
       },
@@ -110,8 +110,8 @@ export class ConsultantSessionModel {
    */
   static async findByConsultantId(consultantId: string): Promise<ConsultantSessionData[]> {
     const sessions = await prisma.consultantSession.findMany({
-      where: { consultantId },
-      orderBy: { createdAt: 'desc' },
+      where: { consultant_id: consultantId },
+      orderBy: { created_at: 'desc' },
     });
 
     return sessions.map((session) => this.mapPrismaToSession(session));
@@ -120,23 +120,15 @@ export class ConsultantSessionModel {
   /**
    * Map Prisma session to ConsultantSessionData interface
    */
-  private static mapPrismaToSession(prismaSession: {
-    id: string;
-    sessionId: string;
-    consultantId: string;
-    email: string;
-    expiresAt: Date;
-    lastActivity: Date;
-    createdAt: Date;
-  }): ConsultantSessionData {
+  private static mapPrismaToSession(prismaSession: any): ConsultantSessionData {
     return {
       id: prismaSession.id,
-      sessionId: prismaSession.sessionId,
-      consultantId: prismaSession.consultantId,
+      sessionId: prismaSession.session_id,
+      consultantId: prismaSession.consultant_id,
       email: prismaSession.email,
-      expiresAt: prismaSession.expiresAt,
-      lastActivity: prismaSession.lastActivity,
-      createdAt: prismaSession.createdAt,
+      expiresAt: prismaSession.expires_at,
+      lastActivity: prismaSession.last_activity,
+      createdAt: prismaSession.created_at,
     };
   }
 }

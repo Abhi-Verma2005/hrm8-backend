@@ -49,16 +49,16 @@ export class VideoInterviewModel {
   ): Promise<VideoInterviewData> {
     const interview = await prisma.videoInterview.create({
       data: {
-        applicationId: data.applicationId,
-        candidateId: data.candidateId,
-        jobId: data.jobId,
+        application_id: data.applicationId,
+        candidate_id: data.candidateId,
+        job_id: data.jobId,
         job_round_id: data.jobRoundId ?? null,
-        scheduledDate: data.scheduledDate,
+        scheduled_date: data.scheduledDate,
         duration: data.duration,
-        meetingLink: data.meetingLink ?? null,
+        meeting_link: data.meetingLink ?? null,
         status: data.status as any,
         type: data.type as any,
-        interviewerIds: data.interviewerIds,
+        interviewer_ids: data.interviewerIds,
         is_auto_scheduled: data.isAutoScheduled ?? false,
         rescheduled_from: data.rescheduledFrom ?? null,
         rescheduled_at: data.rescheduledAt ?? null,
@@ -68,10 +68,11 @@ export class VideoInterviewModel {
         overall_score: data.overallScore ?? null,
         recommendation: data.recommendation as any ?? null,
         rating_criteria_scores: data.ratingCriteriaScores ?? null,
-        recordingUrl: data.recordingUrl ?? null,
+        recording_url: data.recordingUrl ?? null,
         transcript: data.transcript ?? null,
         feedback: data.feedback ?? null,
         notes: data.notes ?? null,
+        updated_at: new Date(),
       },
     });
 
@@ -86,16 +87,16 @@ export class VideoInterviewModel {
     data: Partial<Omit<VideoInterviewData, 'id' | 'createdAt' | 'updatedAt'>>
   ): Promise<VideoInterviewData> {
     const updateData: any = {};
-    if (data.applicationId !== undefined) updateData.applicationId = data.applicationId;
-    if (data.candidateId !== undefined) updateData.candidateId = data.candidateId;
-    if (data.jobId !== undefined) updateData.jobId = data.jobId;
+    if (data.applicationId !== undefined) updateData.application_id = data.applicationId;
+    if (data.candidateId !== undefined) updateData.candidate_id = data.candidateId;
+    if (data.jobId !== undefined) updateData.job_id = data.jobId;
     if (data.jobRoundId !== undefined) updateData.job_round_id = data.jobRoundId;
-    if (data.scheduledDate !== undefined) updateData.scheduledDate = data.scheduledDate;
+    if (data.scheduledDate !== undefined) updateData.scheduled_date = data.scheduledDate;
     if (data.duration !== undefined) updateData.duration = data.duration;
-    if (data.meetingLink !== undefined) updateData.meetingLink = data.meetingLink;
+    if (data.meetingLink !== undefined) updateData.meeting_link = data.meetingLink;
     if (data.status !== undefined) updateData.status = data.status as any;
     if (data.type !== undefined) updateData.type = data.type as any;
-    if (data.interviewerIds !== undefined) updateData.interviewerIds = data.interviewerIds;
+    if (data.interviewerIds !== undefined) updateData.interviewer_ids = data.interviewerIds;
     if (data.isAutoScheduled !== undefined) updateData.is_auto_scheduled = data.isAutoScheduled;
     if (data.rescheduledFrom !== undefined) updateData.rescheduled_from = data.rescheduledFrom;
     if (data.rescheduledAt !== undefined) updateData.rescheduled_at = data.rescheduledAt;
@@ -105,10 +106,12 @@ export class VideoInterviewModel {
     if (data.overallScore !== undefined) updateData.overall_score = data.overallScore;
     if (data.recommendation !== undefined) updateData.recommendation = data.recommendation as any;
     if (data.ratingCriteriaScores !== undefined) updateData.rating_criteria_scores = data.ratingCriteriaScores;
-    if (data.recordingUrl !== undefined) updateData.recordingUrl = data.recordingUrl;
+    if (data.recordingUrl !== undefined) updateData.recording_url = data.recordingUrl;
     if (data.transcript !== undefined) updateData.transcript = data.transcript;
     if (data.feedback !== undefined) updateData.feedback = data.feedback;
     if (data.notes !== undefined) updateData.notes = data.notes;
+    
+    updateData.updated_at = new Date();
 
     const interview = await prisma.videoInterview.update({
       where: { id },
@@ -123,9 +126,9 @@ export class VideoInterviewModel {
    */
   static async findByJobId(jobId: string): Promise<VideoInterviewData[]> {
     const interviews = await prisma.videoInterview.findMany({
-      where: { jobId },
-      include: { InterviewFeedback: true },
-      orderBy: { scheduledDate: 'asc' },
+      where: { job_id: jobId },
+      include: { interview_feedback: true },
+      orderBy: { scheduled_date: 'asc' },
     });
 
     return interviews.map((i) => this.mapPrismaToVideoInterview(i));
@@ -137,7 +140,7 @@ export class VideoInterviewModel {
   static async findById(id: string): Promise<VideoInterviewData | null> {
     const interview = await prisma.videoInterview.findUnique({
       where: { id },
-      include: { InterviewFeedback: true },
+      include: { interview_feedback: true },
     });
 
     if (!interview) {
@@ -152,9 +155,9 @@ export class VideoInterviewModel {
    */
   static async findByApplicationId(applicationId: string): Promise<VideoInterviewData[]> {
     const interviews = await prisma.videoInterview.findMany({
-      where: { applicationId },
-      include: { InterviewFeedback: true },
-      orderBy: { scheduledDate: 'asc' },
+      where: { application_id: applicationId },
+      include: { interview_feedback: true },
+      orderBy: { scheduled_date: 'asc' },
     });
 
     return interviews.map((i) => this.mapPrismaToVideoInterview(i));
@@ -170,7 +173,7 @@ export class VideoInterviewModel {
     // First, get all job IDs for this company
     const jobs = await prisma.job.findMany({
       where: {
-        companyId,
+        company_id: companyId,
         ...(options?.jobId ? { id: options.jobId } : {}),
       },
       select: { id: true },
@@ -185,12 +188,12 @@ export class VideoInterviewModel {
     // Then find all interviews for those jobs
     const interviews = await prisma.videoInterview.findMany({
       where: {
-        jobId: {
+        job_id: {
           in: jobIds,
         },
       },
-      include: { InterviewFeedback: true },
-      orderBy: { scheduledDate: 'asc' },
+      include: { interview_feedback: true },
+      orderBy: { scheduled_date: 'asc' },
     });
 
     return interviews.map((i) => this.mapPrismaToVideoInterview(i));
@@ -199,19 +202,19 @@ export class VideoInterviewModel {
   /**
    * Map Prisma videoInterview to VideoInterviewData
    */
-  private static mapPrismaToVideoInterview(prismaInterview: any): VideoInterviewData {
+  public static mapPrismaToVideoInterview(prismaInterview: any): VideoInterviewData {
     return {
       id: prismaInterview.id,
-      applicationId: prismaInterview.applicationId,
-      candidateId: prismaInterview.candidateId,
-      jobId: prismaInterview.jobId,
+      applicationId: prismaInterview.application_id,
+      candidateId: prismaInterview.candidate_id,
+      jobId: prismaInterview.job_id,
       jobRoundId: prismaInterview.job_round_id,
-      scheduledDate: prismaInterview.scheduledDate,
+      scheduledDate: prismaInterview.scheduled_date,
       duration: prismaInterview.duration,
-      meetingLink: prismaInterview.meetingLink,
+      meetingLink: prismaInterview.meeting_link,
       status: prismaInterview.status,
       type: prismaInterview.type,
-      interviewerIds: prismaInterview.interviewerIds,
+      interviewerIds: prismaInterview.interviewer_ids,
       isAutoScheduled: prismaInterview.is_auto_scheduled ?? false,
       rescheduledFrom: prismaInterview.rescheduled_from,
       rescheduledAt: prismaInterview.rescheduled_at,
@@ -221,13 +224,13 @@ export class VideoInterviewModel {
       overallScore: prismaInterview.overall_score,
       recommendation: prismaInterview.recommendation,
       ratingCriteriaScores: prismaInterview.rating_criteria_scores,
-      recordingUrl: prismaInterview.recordingUrl,
+      recordingUrl: prismaInterview.recording_url,
       transcript: prismaInterview.transcript,
       feedback: prismaInterview.feedback,
-      interviewFeedbacks: prismaInterview.InterviewFeedback ?? [],
+      interviewFeedbacks: prismaInterview.interview_feedback ?? [],
       notes: prismaInterview.notes,
-      createdAt: prismaInterview.createdAt,
-      updatedAt: prismaInterview.updatedAt,
+      createdAt: prismaInterview.created_at,
+      updatedAt: prismaInterview.updated_at,
     };
   }
 
@@ -236,8 +239,8 @@ export class VideoInterviewModel {
    */
   static async findByJobRoundId(jobRoundId: string): Promise<VideoInterviewData[]> {
     const interviews = await prisma.videoInterview.findMany({
-      where: { jobRoundId },
-      orderBy: { scheduledDate: 'asc' },
+      where: { job_round_id: jobRoundId },
+      orderBy: { scheduled_date: 'asc' },
     });
 
     return interviews.map((i) => this.mapPrismaToVideoInterview(i));

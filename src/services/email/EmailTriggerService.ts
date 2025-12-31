@@ -80,8 +80,7 @@ export class EmailTriggerService {
    * Check if triggers should fire for an application entering a round
    */
   static async checkAndTrigger(
-    jobRoundId: string,
-    applicationId: string
+    jobRoundId: string
   ): Promise<{ triggered: boolean; triggerIds: string[] }> {
     const triggers = await this.getActiveTriggersByJobRound(jobRoundId);
     const triggerIds: string[] = [];

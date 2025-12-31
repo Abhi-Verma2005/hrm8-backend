@@ -4,7 +4,7 @@
  */
 
 import { CandidateModel, CandidateData } from '../../models/Candidate';
-import { normalizeEmail } from '../../utils/email';
+import { normalizeEmail, isValidEmail } from '../../utils/email';
 import { comparePassword, hashPassword, isPasswordStrong } from '../../utils/password';
 
 export interface CandidateLoginRequest {
@@ -28,7 +28,6 @@ export class CandidateAuthService {
     registerData: CandidateRegisterRequest
   ): Promise<CandidateData | { error: string; code?: string }> {
     // Validate email format
-    const { isValidEmail } = await import('../../utils/email');
     const email = normalizeEmail(registerData.email);
     
     if (!isValidEmail(email)) {

@@ -25,14 +25,14 @@ export class HRM8UserModel {
     const user = await prisma.hRM8User.create({
       data: {
         email: userData.email.toLowerCase().trim(),
-        passwordHash: userData.passwordHash,
-        firstName: userData.firstName.trim(),
-        lastName: userData.lastName.trim(),
+        password_hash: userData.passwordHash,
+        first_name: userData.firstName.trim(),
+        last_name: userData.lastName.trim(),
         phone: userData.phone?.trim(),
         photo: userData.photo,
         role: userData.role || HRM8UserRole.REGIONAL_LICENSEE,
         status: userData.status || HRM8UserStatus.ACTIVE,
-        licenseeId: userData.licenseeId,
+        licensee_id: userData.licenseeId,
       },
     });
 
@@ -68,13 +68,13 @@ export class HRM8UserModel {
     const user = await prisma.hRM8User.update({
       where: { id },
       data: {
-        ...(data.firstName !== undefined && { firstName: data.firstName }),
-        ...(data.lastName !== undefined && { lastName: data.lastName }),
+        ...(data.firstName !== undefined && { first_name: data.firstName }),
+        ...(data.lastName !== undefined && { last_name: data.lastName }),
         ...(data.phone !== undefined && { phone: data.phone }),
         ...(data.photo !== undefined && { photo: data.photo }),
         ...(data.role !== undefined && { role: data.role }),
         ...(data.status !== undefined && { status: data.status }),
-        ...(data.licenseeId !== undefined && { licenseeId: data.licenseeId }),
+        ...(data.licenseeId !== undefined && { licensee_id: data.licenseeId }),
       },
     });
 
@@ -87,7 +87,7 @@ export class HRM8UserModel {
   static async updatePassword(id: string, passwordHash: string): Promise<void> {
     await prisma.hRM8User.update({
       where: { id },
-      data: { passwordHash },
+      data: { password_hash: passwordHash },
     });
   }
 
@@ -97,7 +97,7 @@ export class HRM8UserModel {
   static async updateLastLogin(id: string): Promise<void> {
     await prisma.hRM8User.update({
       where: { id },
-      data: { lastLoginAt: new Date() },
+      data: { last_login_at: new Date() },
     });
   }
 
@@ -114,35 +114,21 @@ export class HRM8UserModel {
   /**
    * Map Prisma user to HRM8User domain type
    */
-  private static mapPrismaToUser(prismaUser: {
-    id: string;
-    email: string;
-    passwordHash: string;
-    firstName: string;
-    lastName: string;
-    phone: string | null;
-    photo: string | null;
-    role: HRM8UserRole;
-    status: HRM8UserStatus;
-    licenseeId: string | null; // Prisma returns camelCase (maps to licensee_id in DB)
-    lastLoginAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): HRM8User {
+  private static mapPrismaToUser(prismaUser: any): HRM8User {
     return {
       id: prismaUser.id,
       email: prismaUser.email,
-      passwordHash: prismaUser.passwordHash,
-      firstName: prismaUser.firstName,
-      lastName: prismaUser.lastName,
+      passwordHash: prismaUser.password_hash,
+      firstName: prismaUser.first_name,
+      lastName: prismaUser.last_name,
       phone: prismaUser.phone || undefined,
       photo: prismaUser.photo || undefined,
       role: prismaUser.role,
       status: prismaUser.status,
-      licenseeId: prismaUser.licenseeId || undefined,
-      lastLoginAt: prismaUser.lastLoginAt || undefined,
-      createdAt: prismaUser.createdAt,
-      updatedAt: prismaUser.updatedAt,
+      licenseeId: prismaUser.licensee_id || undefined,
+      lastLoginAt: prismaUser.last_login_at || undefined,
+      createdAt: prismaUser.created_at,
+      updatedAt: prismaUser.updated_at,
     };
   }
 }

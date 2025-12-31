@@ -39,12 +39,12 @@ export class CandidateAssessmentController {
         if (assessment.job_round_id) {
             const jobRound = await prisma.jobRound.findUnique({
                 where: { id: assessment.job_round_id },
-                include: { Job: { select: { title: true } } }
+                include: { job: { select: { title: true } } }
             });
             
             if (jobRound) {
                 roundName = jobRound.name;
-                if (jobRound.Job) jobTitle = jobRound.Job.title;
+                if (jobRound.job) jobTitle = jobRound.job.title;
             }
         } 
         
@@ -95,7 +95,7 @@ export class CandidateAssessmentController {
           candidate_id: req.candidate.id,
         },
         include: {
-          AssessmentQuestion: {
+          assessment_question: {
             orderBy: { order: 'asc' },
             select: {
               id: true,
@@ -136,7 +136,7 @@ export class CandidateAssessmentController {
       let config = null;
       if (assessment.job_round_id) {
           config = await prisma.assessmentConfiguration.findUnique({
-              where: { jobRoundId: assessment.job_round_id }
+              where: { job_round_id: assessment.job_round_id }
           });
       }
 
@@ -150,7 +150,7 @@ export class CandidateAssessmentController {
              expiryDate: assessment.expiry_date,
              completedAt: assessment.completed_at,
              config: config ? {
-                 timeLimitMinutes: config.timeLimitMinutes,
+                 timeLimitMinutes: config.time_limit_minutes,
                  instructions: config.instructions
              } : null
           }

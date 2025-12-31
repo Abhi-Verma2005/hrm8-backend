@@ -8,6 +8,8 @@ import { JobModel } from '../../models/Job';
 import { CompanyModel } from '../../models/Company';
 import { JobAllocationService } from '../hrm8/JobAllocationService';
 import { JobPaymentService } from '../payments/JobPaymentService';
+import { JobRoundService } from './JobRoundService';
+import { CandidateJobService } from '../candidate/CandidateJobService';
 import { prisma } from '../../lib/prisma';
 import { PaymentStatus } from '@prisma/client';
 
@@ -112,13 +114,13 @@ export class JobService {
         const companyData = await prisma.company.findUnique({
           where: { id: companyId },
           select: {
-            regionId: true,
-            jobAssignmentMode: true,
+            region_id: true,
+            job_assignment_mode: true,
           },
         });
 
-        companyRegionId = companyData?.regionId || undefined;
-        jobAssignmentMode = companyData?.jobAssignmentMode || JobAssignmentMode.AUTO_RULES_ONLY;
+        companyRegionId = companyData?.region_id || undefined;
+        jobAssignmentMode = companyData?.job_assignment_mode || JobAssignmentMode.AUTO_RULES_ONLY;
       }
 
       // Use company's regionId as default if job doesn't have one
@@ -144,7 +146,6 @@ export class JobService {
 
       // Initialize fixed rounds for the new job
       try {
-        const { JobRoundService } = await import('./JobRoundService');
         await JobRoundService.initializeFixedRounds(job.id);
         console.log('✅ Fixed rounds initialized for job:', job.id);
       } catch (roundError) {
@@ -189,7 +190,6 @@ export class JobService {
    */
   private static async processJobAlertsAsync(job: any) {
     try {
-      const { CandidateJobService } = await import('../candidate/CandidateJobService');
       await CandidateJobService.processJobAlerts(job);
     } catch (error) {
       console.error('Error in processJobAlertsAsync:', error);
@@ -241,10 +241,10 @@ export class JobService {
     if (job.assignedConsultantId) {
       const consultant = await prisma.consultant.findUnique({
         where: { id: job.assignedConsultantId },
-        select: { firstName: true, lastName: true },
+        select: { first_name: true, last_name: true },
       });
       if (consultant) {
-        assignedConsultantName = `${consultant.firstName} ${consultant.lastName}`.trim();
+        assignedConsultantName = `${consultant.first_name} ${consultant.last_name}`.trim();
       }
     }
 
@@ -326,10 +326,10 @@ export class JobService {
     if (!canPublish) {
       const prismaJob = await prisma.job.findUnique({
         where: { id: jobId },
-        select: { servicePackage: true, paymentStatus: true },
+        select: { service_package: true, payment_status: true },
       });
 
-      if (prismaJob?.servicePackage && prismaJob.servicePackage !== 'self-managed') {
+      if (prismaJob?.service_package && prismaJob.service_package !== 'self-managed') {
         throw new Error('Payment is required before publishing this job. Please complete the payment first.');
       }
     }
@@ -344,12 +344,12 @@ export class JobService {
     try {
       const companySettings = await prisma.company.findUnique({
         where: { id: updatedJob.companyId },
-        select: { jobAssignmentMode: true },
+        select: { job_assignment_mode: true },
       });
       if (
         updatedJob.assignmentMode === AssignmentMode.AUTO &&
         !updatedJob.assignedConsultantId &&
-        companySettings?.jobAssignmentMode === JobAssignmentMode.AUTO_RULES_ONLY
+        companySettings?.job_assignment_mode === JobAssignmentMode.AUTO_RULES_ONLY
       ) {
         await JobAllocationService.autoAssignJob(updatedJob.id);
       }
@@ -391,12 +391,12 @@ export class JobService {
     try {
       const companySettings = await prisma.company.findUnique({
         where: { id: updatedJob.companyId },
-        select: { jobAssignmentMode: true },
+        select: { job_assignment_mode: true },
       });
       if (
         updatedJob.assignmentMode === AssignmentMode.AUTO &&
         !updatedJob.assignedConsultantId &&
-        companySettings?.jobAssignmentMode === JobAssignmentMode.AUTO_RULES_ONLY
+        companySettings?.job_assignment_mode === JobAssignmentMode.AUTO_RULES_ONLY
       ) {
         await JobAllocationService.autoAssignJob(updatedJob.id);
       }

@@ -13,7 +13,12 @@ import { JobRoundService } from '../job/JobRoundService';
 import { AssessmentService } from '../assessment/AssessmentService';
 import { InterviewService } from '../interview/InterviewService';
 import { CandidateScoringService } from '../ai/CandidateScoringService';
-import crypto from 'crypto';
+import { CandidateDocumentService } from '../candidate/CandidateDocumentService';
+import { ResumeParserService } from '../ai/ResumeParserService';
+import { CandidateService } from '../candidate/CandidateService';
+import { CandidateQualificationsService } from '../candidate/CandidateQualificationsService';
+import { ConversationService } from '../messaging/ConversationService';
+import { ApplicationNotificationService } from '../notification/ApplicationNotificationService';
 
 export interface SubmitApplicationRequest {
   candidateId: string;
@@ -118,20 +123,21 @@ export class ApplicationService {
         if (newRound) {
           await prisma.applicationRoundProgress.upsert({
             where: {
-              applicationId_jobRoundId: {
-                applicationId: application.id,
-                jobRoundId: newRound.id,
+              application_id_job_round_id: {
+                application_id: application.id,
+                job_round_id: newRound.id,
               },
             },
             create: {
-              id: crypto.randomUUID(),
-              applicationId: application.id,
-              jobRoundId: newRound.id,
+              application_id: application.id,
+              job_round_id: newRound.id,
               completed: false,
+              updated_at: new Date(),
             },
             update: {
               completed: false,
-              completedAt: null,
+              completed_at: null,
+              updated_at: new Date(),
             },
           });
         }
@@ -153,10 +159,6 @@ export class ApplicationService {
         (async () => {
           try {
             console.log(`📄 Attempting to auto-populate profile from resume for candidate ${candidate.id}`);
-            const { CandidateDocumentService } = await import('../candidate/CandidateDocumentService');
-            const { ResumeParserService } = await import('../ai/ResumeParserService');
-            const { CandidateService } = await import('../candidate/CandidateService');
-            const { CandidateQualificationsService } = await import('../candidate/CandidateQualificationsService');
 
             // Find resume document
             const resume = await CandidateDocumentService.findByUrl(applicationData.resumeUrl!);
@@ -166,11 +168,6 @@ export class ApplicationService {
               console.log('🤖 Parsing resume content for auto-population...');
               const parsedResumeData = await ResumeParserService.parseResume({
                 text: resume.content,
-                metadata: {
-                  fileName: resume.fileName,
-                  fileType: resume.fileType,
-                  fileSize: resume.fileSize
-                }
               });
 
               // 1. Populate Skills (only if empty)
@@ -268,7 +265,7 @@ export class ApplicationService {
       // Auto-create conversation for candidate ↔ job owner/consultant
       try {
         const existingConversation = await prisma.conversation.findFirst({
-          where: { jobId: job.id, candidateId: candidate.id },
+          where: { job_id: job.id, candidate_id: candidate.id },
         });
 
         if (!existingConversation) {
@@ -309,7 +306,7 @@ export class ApplicationService {
               participantType: ParticipantType.CONSULTANT,
               participantId: consultant.id,
               participantEmail: consultant.email,
-              displayName: `${consultant.firstName} ${consultant.lastName}`.trim(),
+              displayName: `${consultant.first_name} ${consultant.last_name}`.trim(),
             });
           }
 
@@ -319,14 +316,19 @@ export class ApplicationService {
             
             const newConversation = await prisma.conversation.create({
               data: {
-                jobId: job.id,
-                candidateId: candidate.id,
-                employerUserId: owner?.id,
-                consultantId: consultant?.id,
-                channelType: consultant ? 'CANDIDATE_CONSULTANT' : 'CANDIDATE_EMPLOYER',
+                job_id: job.id,
+                candidate_id: candidate.id,
+                employer_user_id: owner?.id,
+                consultant_id: consultant?.id,
+                channel_type: consultant ? 'CANDIDATE_CONSULTANT' : 'CANDIDATE_EMPLOYER',
                 status: 'ACTIVE',
                 participants: {
-                  create: participants,
+                  create: participants.map(p => ({
+                    participant_type: p.participantType,
+                    participant_id: p.participantId,
+                    participant_email: p.participantEmail,
+                    display_name: p.displayName,
+                  })),
                 },
               },
             });
@@ -335,7 +337,6 @@ export class ApplicationService {
 
             // Create initial system message
             try {
-              const { ConversationService } = await import('../messaging/ConversationService');
               await ConversationService.createMessage({
                 conversationId: newConversation.id,
                 senderType: ParticipantType.SYSTEM,
@@ -430,7 +431,6 @@ export class ApplicationService {
 
     // Send notification if status changed
     if (oldStatus !== status) {
-      const { ApplicationNotificationService } = await import('../notification/ApplicationNotificationService');
       ApplicationNotificationService.notifyStatusChange(
         applicationId,
         updatedApplication.candidateId,
@@ -465,14 +465,12 @@ export class ApplicationService {
 
     // Archive the conversation associated with this application
     try {
-      const { ConversationService } = await import('../messaging/ConversationService');
       const conversation = await ConversationService.findConversationByJobAndCandidate(
         application.jobId,
         application.candidateId
       );
 
       if (conversation) {
-        const { JobModel } = await import('../../models/Job');
         const job = await JobModel.findById(application.jobId);
         const jobTitle = job?.title || 'the position';
         
@@ -545,20 +543,21 @@ export class ApplicationService {
         if (newRound) {
           await prisma.applicationRoundProgress.upsert({
             where: {
-              applicationId_jobRoundId: {
-                applicationId: application.id,
-                jobRoundId: newRound.id,
+              application_id_job_round_id: {
+                application_id: application.id,
+                job_round_id: newRound.id,
               },
             },
             create: {
-              id: crypto.randomUUID(),
-              applicationId: application.id,
-              jobRoundId: newRound.id,
+              application_id: application.id,
+              job_round_id: newRound.id,
               completed: false,
+              updated_at: new Date(),
             },
             update: {
               completed: false,
-              completedAt: null,
+              completed_at: null,
+              updated_at: new Date(),
             },
           });
         }
@@ -1146,7 +1145,7 @@ export class ApplicationService {
           // Set as default if it's the first resume
           const { prisma } = await import('../../lib/prisma');
           const resumeCount = await prisma.candidateResume.count({
-            where: { candidateId: candidate.id },
+            where: { candidate_id: candidate.id },
           });
           if (resumeCount === 1) {
             await CandidateDocumentService.setDefaultResume(candidate.id, resumeDoc.id);
@@ -1248,7 +1247,7 @@ export class ApplicationService {
       try {
         const { prisma } = await import('../../lib/prisma');
         const existingConversation = await prisma.conversation.findFirst({
-          where: { jobId: job.id, candidateId: candidate.id },
+          where: { job_id: job.id, candidate_id: candidate.id },
         });
 
         if (!existingConversation) {
@@ -1288,7 +1287,7 @@ export class ApplicationService {
               participantType: ParticipantType.CONSULTANT,
               participantId: consultant.id,
               participantEmail: consultant.email,
-              displayName: `${consultant.firstName} ${consultant.lastName}`.trim(),
+              displayName: `${consultant.first_name} ${consultant.last_name}`.trim(),
             });
           }
 
@@ -1298,14 +1297,19 @@ export class ApplicationService {
             
             const newConversation = await prisma.conversation.create({
               data: {
-                jobId: job.id,
-                candidateId: candidate.id,
-                employerUserId: owner?.id,
-                consultantId: consultant?.id,
-                channelType: consultant ? 'CANDIDATE_CONSULTANT' : 'CANDIDATE_EMPLOYER',
+                job_id: job.id,
+                candidate_id: candidate.id,
+                employer_user_id: owner?.id,
+                consultant_id: consultant?.id,
+                channel_type: consultant ? 'CANDIDATE_CONSULTANT' : 'CANDIDATE_EMPLOYER',
                 status: 'ACTIVE',
                 participants: {
-                  create: participants,
+                  create: participants.map(p => ({
+                    participant_type: p.participantType,
+                    participant_id: p.participantId,
+                    participant_email: p.participantEmail,
+                    display_name: p.displayName,
+                  })),
                 },
               },
             });
@@ -1413,21 +1417,22 @@ export class ApplicationService {
     // Create or update ApplicationRoundProgress
     await prisma.applicationRoundProgress.upsert({
       where: {
-        applicationId_jobRoundId: {
-          applicationId,
-          jobRoundId,
+        application_id_job_round_id: {
+          application_id: applicationId,
+          job_round_id: jobRoundId,
         },
       },
       create: {
-        id: crypto.randomUUID(),
-        applicationId,
-        jobRoundId,
+        application_id: applicationId,
+        job_round_id: jobRoundId,
         completed: false,
+        updated_at: new Date(),
       },
       update: {
         // Reset completion if moving to a round
         completed: false,
-        completedAt: null,
+        completed_at: null,
+        updated_at: new Date(),
       },
     });
 

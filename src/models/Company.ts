@@ -27,15 +27,16 @@ export class CompanyModel {
           name: companyData.name,
           website: companyData.website,
           domain: companyData.domain,
-          countryOrRegion: companyData.countryOrRegion,
-          acceptedTerms: companyData.acceptedTerms,
-          verificationStatus: companyData.verificationStatus,
-          verificationMethod: companyData.verificationMethod,
-          verifiedAt: companyData.verificationData?.verifiedAt,
-          verifiedBy: companyData.verificationData?.verifiedBy,
-          gstNumber: companyData.verificationData?.gstNumber,
-          registrationNumber: companyData.verificationData?.registrationNumber,
-          linkedInUrl: companyData.verificationData?.linkedInUrl,
+          country_or_region: companyData.countryOrRegion,
+          accepted_terms: companyData.acceptedTerms,
+          verification_status: companyData.verificationStatus,
+          verification_method: companyData.verificationMethod,
+          verified_at: companyData.verificationData?.verifiedAt,
+          verified_by: companyData.verificationData?.verifiedBy,
+          gst_number: companyData.verificationData?.gstNumber,
+          registration_number: companyData.verificationData?.registrationNumber,
+          linked_in_url: companyData.verificationData?.linkedInUrl,
+          region_id: companyData.regionId,
         },
       });
 
@@ -118,16 +119,16 @@ export class CompanyModel {
       throw new Error(`Company with id ${id} not found. Cannot update verification status.`);
     }
 
-    const updateData: Prisma.CompanyUpdateInput = {
-      verificationStatus: status,
+    const updateData: any = {
+      verification_status: status,
     };
 
     if (method) {
-      updateData.verificationMethod = method;
+      updateData.verification_method = method;
     }
 
     if (status === CompanyVerificationStatus.VERIFIED) {
-      updateData.verifiedAt = new Date();
+      updateData.verified_at = new Date();
     }
 
     const company = await prisma.company.update({
@@ -153,10 +154,10 @@ export class CompanyModel {
     const company = await prisma.company.update({
       where: { id },
       data: {
-        gstNumber: verificationData.gstNumber,
-        registrationNumber: verificationData.registrationNumber,
-        linkedInUrl: verificationData.linkedInUrl,
-        verifiedBy: verificationData.verifiedBy,
+        gst_number: verificationData.gstNumber,
+        registration_number: verificationData.registrationNumber,
+        linked_in_url: verificationData.linkedInUrl,
+        verified_by: verificationData.verifiedBy,
       },
     });
 
@@ -170,7 +171,7 @@ export class CompanyModel {
    */
   static async findAll(limit = 100, offset = 0): Promise<Company[]> {
     const companies = await prisma.company.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
       take: limit,
       skip: offset,
     });
@@ -207,7 +208,7 @@ export class CompanyModel {
   ): Promise<Company> {
     const company = await prisma.company.update({
       where: { id: companyId },
-      data: { jobAssignmentMode: mode },
+      data: { job_assignment_mode: mode },
     });
 
     return this.mapPrismaToCompany(company);
@@ -222,7 +223,7 @@ export class CompanyModel {
   ): Promise<Company> {
     const company = await prisma.company.update({
       where: { id: companyId },
-      data: { preferredRecruiterId: consultantId },
+      data: { preferred_recruiter_id: consultantId },
     });
 
     return this.mapPrismaToCompany(company);
@@ -238,8 +239,8 @@ export class CompanyModel {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
       select: {
-        jobAssignmentMode: true,
-        preferredRecruiterId: true,
+        job_assignment_mode: true,
+        preferred_recruiter_id: true,
       },
     });
 
@@ -248,55 +249,36 @@ export class CompanyModel {
     }
 
     return {
-      jobAssignmentMode: company.jobAssignmentMode,
-      preferredRecruiterId: company.preferredRecruiterId,
+      jobAssignmentMode: company.job_assignment_mode as JobAssignmentMode,
+      preferredRecruiterId: company.preferred_recruiter_id,
     };
   }
 
   /**
    * Map Prisma company model to our Company interface
    */
-  private static mapPrismaToCompany(prismaCompany: {
-    id: string;
-    name: string;
-    website: string;
-    domain: string;
-    countryOrRegion: string;
-    acceptedTerms: boolean;
-    verificationStatus: CompanyVerificationStatus;
-    verificationMethod: VerificationMethod | null;
-    verifiedAt: Date | null;
-    verifiedBy: string | null;
-    gstNumber: string | null;
-    registrationNumber: string | null;
-    linkedInUrl: string | null;
-    regionId?: string | null;
-    jobAssignmentMode?: JobAssignmentMode;
-    preferredRecruiterId?: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): Company {
+  private static mapPrismaToCompany(prismaCompany: any): Company {
     return {
       id: prismaCompany.id,
       name: prismaCompany.name,
       website: prismaCompany.website,
       domain: prismaCompany.domain,
-      countryOrRegion: prismaCompany.countryOrRegion,
-      acceptedTerms: prismaCompany.acceptedTerms,
-      verificationStatus: prismaCompany.verificationStatus,
-      verificationMethod: prismaCompany.verificationMethod || undefined,
+      countryOrRegion: prismaCompany.country_or_region,
+      acceptedTerms: prismaCompany.accepted_terms,
+      verificationStatus: prismaCompany.verification_status,
+      verificationMethod: prismaCompany.verification_method || undefined,
       verificationData: {
-        verifiedAt: prismaCompany.verifiedAt || undefined,
-        verifiedBy: prismaCompany.verifiedBy || undefined,
-        gstNumber: prismaCompany.gstNumber || undefined,
-        registrationNumber: prismaCompany.registrationNumber || undefined,
-        linkedInUrl: prismaCompany.linkedInUrl || undefined,
+        verifiedAt: prismaCompany.verified_at || undefined,
+        verifiedBy: prismaCompany.verified_by || undefined,
+        gstNumber: prismaCompany.gst_number || undefined,
+        registrationNumber: prismaCompany.registration_number || undefined,
+        linkedInUrl: prismaCompany.linked_in_url || undefined,
       },
-      regionId: prismaCompany.regionId || undefined,
-      jobAssignmentMode: prismaCompany.jobAssignmentMode || undefined,
-      preferredRecruiterId: prismaCompany.preferredRecruiterId || undefined,
-      createdAt: prismaCompany.createdAt,
-      updatedAt: prismaCompany.updatedAt,
+      regionId: prismaCompany.region_id || undefined,
+      jobAssignmentMode: prismaCompany.job_assignment_mode || undefined,
+      preferredRecruiterId: prismaCompany.preferred_recruiter_id || undefined,
+      createdAt: prismaCompany.created_at,
+      updatedAt: prismaCompany.updated_at,
     };
   }
 }

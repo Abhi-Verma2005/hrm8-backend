@@ -27,11 +27,11 @@ export class CandidateSessionModel {
   ): Promise<CandidateSessionData> {
     const session = await prisma.candidateSession.create({
       data: {
-        sessionId,
-        candidateId,
+        session_id: sessionId,
+        candidate_id: candidateId,
         email,
-        expiresAt,
-        lastActivity: new Date(),
+        expires_at: expiresAt,
+        last_activity: new Date(),
       },
     });
 
@@ -43,7 +43,7 @@ export class CandidateSessionModel {
    */
   static async findBySessionId(sessionId: string): Promise<CandidateSessionData | null> {
     const session = await prisma.candidateSession.findUnique({
-      where: { sessionId },
+      where: { session_id: sessionId },
     });
 
     if (!session) {
@@ -51,7 +51,7 @@ export class CandidateSessionModel {
     }
 
     // Check if session expired
-    if (new Date() > session.expiresAt) {
+    if (new Date() > session.expires_at) {
       await this.deleteBySessionId(sessionId);
       return null;
     }
@@ -64,8 +64,8 @@ export class CandidateSessionModel {
    */
   static async updateLastActivity(sessionId: string): Promise<void> {
     await prisma.candidateSession.update({
-      where: { sessionId },
-      data: { lastActivity: new Date() },
+      where: { session_id: sessionId },
+      data: { last_activity: new Date() },
     });
   }
 
@@ -74,7 +74,7 @@ export class CandidateSessionModel {
    */
   static async deleteBySessionId(sessionId: string): Promise<void> {
     await prisma.candidateSession.delete({
-      where: { sessionId },
+      where: { session_id: sessionId },
     }).catch(() => {
       // Session might not exist, ignore error
     });
@@ -85,7 +85,7 @@ export class CandidateSessionModel {
    */
   static async deleteAllByCandidateId(candidateId: string): Promise<void> {
     await prisma.candidateSession.deleteMany({
-      where: { candidateId },
+      where: { candidate_id: candidateId },
     });
   }
 
@@ -96,7 +96,7 @@ export class CandidateSessionModel {
     const now = new Date();
     const result = await prisma.candidateSession.deleteMany({
       where: {
-        expiresAt: {
+        expires_at: {
           lt: now,
         },
       },
@@ -110,8 +110,8 @@ export class CandidateSessionModel {
    */
   static async findByCandidateId(candidateId: string): Promise<CandidateSessionData[]> {
     const sessions = await prisma.candidateSession.findMany({
-      where: { candidateId },
-      orderBy: { createdAt: 'desc' },
+      where: { candidate_id: candidateId },
+      orderBy: { created_at: 'desc' },
     });
 
     return sessions.map((session) => this.mapPrismaToSession(session));
@@ -120,23 +120,15 @@ export class CandidateSessionModel {
   /**
    * Map Prisma session to CandidateSessionData interface
    */
-  private static mapPrismaToSession(prismaSession: {
-    id: string;
-    sessionId: string;
-    candidateId: string;
-    email: string;
-    expiresAt: Date;
-    lastActivity: Date;
-    createdAt: Date;
-  }): CandidateSessionData {
+  private static mapPrismaToSession(prismaSession: any): CandidateSessionData {
     return {
       id: prismaSession.id,
-      sessionId: prismaSession.sessionId,
-      candidateId: prismaSession.candidateId,
+      sessionId: prismaSession.session_id,
+      candidateId: prismaSession.candidate_id,
       email: prismaSession.email,
-      expiresAt: prismaSession.expiresAt,
-      lastActivity: prismaSession.lastActivity,
-      createdAt: prismaSession.createdAt,
+      expiresAt: prismaSession.expires_at,
+      lastActivity: prismaSession.last_activity,
+      createdAt: prismaSession.created_at,
     };
   }
 }

@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../types';
 import { EmailTemplateService, CreateEmailTemplateRequest, UpdateEmailTemplateRequest } from '../../services/email/EmailTemplateService';
+import { EmailTemplateAIService } from '../../services/ai/EmailTemplateAIService';
 import { EmailTemplateType } from '@prisma/client';
 
 export class EmailTemplateController {
@@ -378,7 +379,7 @@ export class EmailTemplateController {
    * Get available variables
    * GET /api/email-templates/variables
    */
-  static async getVariables(req: AuthenticatedRequest, res: Response): Promise<void> {
+  static async getVariables(_req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const variables = EmailTemplateService.getAvailableVariables();
 

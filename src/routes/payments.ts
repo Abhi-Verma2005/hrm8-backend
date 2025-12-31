@@ -189,8 +189,8 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
             await prisma.job.update({
               where: { id: jobId },
               data: {
-                paymentStatus: 'PAID',
-                servicePackage,
+                payment_status: 'PAID',
+                service_package: servicePackage,
               }
             });
 

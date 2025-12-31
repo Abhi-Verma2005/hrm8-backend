@@ -4,6 +4,9 @@
  */
 
 import { CandidateModel, CandidateData } from '../../models/Candidate';
+import { prisma } from '../../lib/prisma';
+import { randomUUID } from 'crypto';
+import { comparePassword, isPasswordStrong, hashPassword } from '../../utils/password';
 
 export interface UpdateCandidateProfileRequest {
   firstName?: string;
@@ -16,25 +19,15 @@ export interface UpdateCandidateProfileRequest {
   country?: string;
   visaStatus?: string;
   workEligibility?: string;
-  requiresSponsorship?: boolean;
   jobTypePreference?: string[];
-  expectedSalaryMin?: string;
-  expectedSalaryMax?: string;
-  salaryCurrency?: string;
   salaryPreference?: {
     min?: number;
     max?: number;
     currency?: string;
   };
   relocationWilling?: boolean;
-  preferredLocations?: string;
   remotePreference?: string;
-
-  // Privacy & Visibility
-  profileVisibility?: string;
-  showContactInfo?: boolean;
-  showSalaryExpectations?: boolean;
-  allowRecruiterContact?: boolean;
+  resumeUrl?: string;
 }
 
 export class CandidateService {
@@ -69,22 +62,20 @@ export class CandidateService {
     }
 
     // Verify current password
-    const { comparePassword } = await import('../../utils/password');
     const isValid = await comparePassword(currentPassword, candidate.passwordHash);
     if (!isValid) {
       return { error: 'Current password is incorrect', code: 'INVALID_PASSWORD' };
     }
 
     // Validate new password strength
-    const { isPasswordStrong, hashPassword } = await import('../../utils/password');
     if (!isPasswordStrong(newPassword)) {
       return { error: 'Password must be at least 8 characters with uppercase, lowercase, and number', code: 'WEAK_PASSWORD' };
     }
 
     // Hash and update password
     try {
-      const passwordHash = await hashPassword(newPassword);
-      await CandidateModel.updatePassword(candidateId, passwordHash);
+      const newPasswordHash = await hashPassword(newPassword);
+      await CandidateModel.updatePassword(candidateId, newPasswordHash);
       return { success: true };
     } catch (error: any) {
       return { error: error.message || 'Failed to update password', code: 'UPDATE_FAILED' };
@@ -102,17 +93,14 @@ export class CandidateService {
    * Add work experience
    */
   static async addWorkExperience(candidateId: string, data: any) {
-    const { prisma } = await import('../../lib/prisma');
-    const { randomUUID } = await import('crypto');
-    
     // Map camelCase to snake_case and ensure ID
     const workExperienceData = {
       id: data.id || randomUUID(),
       candidate_id: candidateId,
       company: data.company,
       role: data.role,
-      start_date: data.startDate || data.start_date,
-      end_date: data.endDate || data.end_date,
+      start_date: new Date(data.startDate || data.start_date),
+      end_date: data.endDate || data.end_date ? new Date(data.endDate || data.end_date) : null,
       current: data.current || false,
       description: data.description,
       location: data.location,
@@ -128,8 +116,6 @@ export class CandidateService {
    * Update work experience
    */
   static async updateWorkExperience(candidateId: string, experienceId: string, data: any) {
-    const { prisma } = await import('../../lib/prisma');
-
     // Verify ownership
     const experience = await prisma.candidateWorkExperience.findFirst({
       where: { id: experienceId, candidate_id: candidateId },
@@ -139,9 +125,21 @@ export class CandidateService {
       throw new Error('Work experience not found');
     }
 
+    const updateData: any = { ...data, updated_at: new Date() };
+    
+    // Map camelCase to snake_case if they exist in data
+    if (data.startDate) {
+      updateData.start_date = new Date(data.startDate);
+      delete updateData.startDate;
+    }
+    if (data.endDate) {
+      updateData.end_date = new Date(data.endDate);
+      delete updateData.endDate;
+    }
+
     return await prisma.candidateWorkExperience.update({
       where: { id: experienceId },
-      data,
+      data: updateData,
     });
   }
 
@@ -149,8 +147,6 @@ export class CandidateService {
    * Delete work experience
    */
   static async deleteWorkExperience(candidateId: string, experienceId: string) {
-    const { prisma } = await import('../../lib/prisma');
-
     // Verify ownership
     const experience = await prisma.candidateWorkExperience.findFirst({
       where: { id: experienceId, candidate_id: candidateId },
@@ -170,8 +166,6 @@ export class CandidateService {
    * Replaces all skills for the candidate
    */
   static async updateSkills(candidateId: string, skills: { name: string; level?: string }[]) {
-    const { prisma } = await import('../../lib/prisma');
-
     // Transaction to delete old skills and add new ones
     return await prisma.$transaction(async (tx) => {
       // Delete existing skills
@@ -181,7 +175,6 @@ export class CandidateService {
 
       // Create new skills
       if (skills.length > 0) {
-        const { randomUUID } = await import('crypto');
         await tx.candidateSkill.createMany({
           data: skills.map(skill => ({
             id: randomUUID(),
@@ -202,7 +195,6 @@ export class CandidateService {
    * Get work history
    */
   static async getWorkHistory(candidateId: string) {
-    const { prisma } = await import('../../lib/prisma');
     return await prisma.candidateWorkExperience.findMany({
       where: { candidate_id: candidateId },
       orderBy: { start_date: 'desc' },
@@ -213,7 +205,6 @@ export class CandidateService {
    * Get skills
    */
   static async getSkills(candidateId: string) {
-    const { prisma } = await import('../../lib/prisma');
     return await prisma.candidateSkill.findMany({
       where: { candidate_id: candidateId },
       orderBy: { name: 'asc' },
@@ -224,7 +215,6 @@ export class CandidateService {
    * Delete all work experience for a candidate
    */
   static async deleteAllWorkExperience(candidateId: string) {
-    const { prisma } = await import('../../lib/prisma');
     return await prisma.candidateWorkExperience.deleteMany({
       where: { candidate_id: candidateId },
     });
@@ -234,10 +224,8 @@ export class CandidateService {
    * Delete all skills for a candidate
    */
   static async deleteAllSkills(candidateId: string) {
-    const { prisma } = await import('../../lib/prisma');
     return await prisma.candidateSkill.deleteMany({
       where: { candidate_id: candidateId },
     });
   }
 }
-

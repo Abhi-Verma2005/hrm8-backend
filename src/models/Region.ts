@@ -47,12 +47,13 @@ export class RegionModel {
         name: regionData.name.trim(),
         code: regionData.code.trim().toUpperCase(),
         country: regionData.country.trim(),
-        stateProvince: regionData.stateProvince?.trim(),
+        state_province: regionData.stateProvince?.trim(),
         city: regionData.city?.trim(),
         boundaries: regionData.boundaries as Prisma.InputJsonValue | undefined,
-        ownerType: regionData.ownerType || RegionOwnerType.HRM8,
-        licenseeId: regionData.licenseeId,
-        isActive: regionData.isActive ?? true,
+        owner_type: regionData.ownerType || RegionOwnerType.HRM8,
+        licensee_id: regionData.licenseeId,
+        is_active: regionData.isActive ?? true,
+        updated_at: new Date(),
       },
     });
 
@@ -71,7 +72,7 @@ export class RegionModel {
           select: {
             id: true,
             name: true,
-            legalEntityName: true,
+            legal_entity_name: true,
             email: true,
           },
         },
@@ -103,9 +104,9 @@ export class RegionModel {
   }): Promise<RegionData[]> {
     const regions = await prisma.region.findMany({
       where: {
-        ...(filters?.ownerType && { ownerType: filters.ownerType }),
-        ...(filters?.licenseeId && { licenseeId: filters.licenseeId }),
-        ...(filters?.isActive !== undefined && { isActive: filters.isActive }),
+        ...(filters?.ownerType && { owner_type: filters.ownerType }),
+        ...(filters?.licenseeId && { licensee_id: filters.licenseeId }),
+        ...(filters?.isActive !== undefined && { is_active: filters.isActive }),
         ...(filters?.country && { country: filters.country }),
       },
       include: {
@@ -113,7 +114,7 @@ export class RegionModel {
           select: {
             id: true,
             name: true,
-            legalEntityName: true,
+            legal_entity_name: true,
             email: true,
           },
         },
@@ -128,19 +129,19 @@ export class RegionModel {
    * Update region
    */
   static async update(id: string, data: Partial<RegionData>): Promise<RegionData> {
-    const updateData: Prisma.RegionUncheckedUpdateInput = {};
+    const updateData: any = {};
     
     if (data.name !== undefined) updateData.name = data.name.trim();
     if (data.code !== undefined) updateData.code = data.code.trim().toUpperCase();
     if (data.country !== undefined) updateData.country = data.country.trim();
-    if (data.stateProvince !== undefined) updateData.stateProvince = data.stateProvince?.trim() || null;
+    if (data.stateProvince !== undefined) updateData.state_province = data.stateProvince?.trim() || null;
     if (data.city !== undefined) updateData.city = data.city?.trim() || null;
     if (data.boundaries !== undefined) updateData.boundaries = data.boundaries as Prisma.InputJsonValue;
-    if (data.ownerType !== undefined) updateData.ownerType = data.ownerType;
+    if (data.ownerType !== undefined) updateData.owner_type = data.ownerType;
     if (data.licenseeId !== undefined) {
-      updateData.licenseeId = data.licenseeId ? data.licenseeId : null;
+      updateData.licensee_id = data.licenseeId ? data.licenseeId : null;
     }
-    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.isActive !== undefined) updateData.is_active = data.isActive;
 
     const region = await prisma.region.update({
       where: { id },
@@ -150,7 +151,7 @@ export class RegionModel {
           select: {
             id: true,
             name: true,
-            legalEntityName: true,
+            legal_entity_name: true,
             email: true,
           },
         },
@@ -176,15 +177,15 @@ export class RegionModel {
     const region = await prisma.region.update({
       where: { id: regionId },
       data: {
-        licenseeId,
-        ownerType: RegionOwnerType.LICENSEE,
+        licensee_id: licenseeId,
+        owner_type: RegionOwnerType.LICENSEE,
       },
       include: {
         licensee: {
           select: {
             id: true,
             name: true,
-            legalEntityName: true,
+            legal_entity_name: true,
             email: true,
           },
         },
@@ -201,15 +202,15 @@ export class RegionModel {
     const region = await prisma.region.update({
       where: { id: regionId },
       data: {
-        licenseeId: null,
-        ownerType: RegionOwnerType.HRM8,
+        licensee_id: null,
+        owner_type: RegionOwnerType.HRM8,
       },
       include: {
         licensee: {
           select: {
             id: true,
             name: true,
-            legalEntityName: true,
+            legal_entity_name: true,
             email: true,
           },
         },
@@ -228,18 +229,18 @@ export class RegionModel {
       name: prismaRegion.name,
       code: prismaRegion.code,
       country: prismaRegion.country,
-      stateProvince: prismaRegion.stateProvince || undefined,
+      stateProvince: prismaRegion.state_province || undefined,
       city: prismaRegion.city || undefined,
       boundaries: prismaRegion.boundaries as Record<string, unknown> | undefined,
-      ownerType: prismaRegion.ownerType,
-      licenseeId: prismaRegion.licenseeId || undefined,
-      isActive: prismaRegion.isActive,
-      createdAt: prismaRegion.createdAt,
-      updatedAt: prismaRegion.updatedAt,
+      ownerType: prismaRegion.owner_type,
+      licenseeId: prismaRegion.licensee_id || undefined,
+      isActive: prismaRegion.is_active,
+      createdAt: prismaRegion.created_at,
+      updatedAt: prismaRegion.updated_at,
       licensee: prismaRegion.licensee ? {
         id: prismaRegion.licensee.id,
         name: prismaRegion.licensee.name,
-        legalEntityName: prismaRegion.licensee.legalEntityName,
+        legalEntityName: prismaRegion.licensee.legal_entity_name,
         email: prismaRegion.licensee.email,
       } : null,
     };

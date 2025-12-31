@@ -105,7 +105,7 @@ if (process.env.NODE_ENV !== 'production') {
           ...(email ? { email: email.toLowerCase() } : {}),
           ...(companyId ? { companyId } : {}),
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { created_at: 'desc' },
       });
 
       if (!token) {
@@ -120,11 +120,11 @@ if (process.env.NODE_ENV !== 'production') {
         success: true,
         data: {
           token: token.token,
-          companyId: token.companyId,
+          companyId: token.company_id,
           email: token.email,
-          expiresAt: token.expiresAt,
-          usedAt: token.usedAt,
-          createdAt: token.createdAt,
+          expiresAt: token.expires_at,
+          usedAt: token.used_at,
+          createdAt: token.created_at,
         },
       });
     } catch (error) {

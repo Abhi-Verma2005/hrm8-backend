@@ -30,15 +30,16 @@ export class JobInvitationModel {
   ): Promise<JobInvitationData> {
     const invitation = await prisma.jobInvitation.create({
       data: {
-        jobId: invitationData.jobId,
-        candidateId: invitationData.candidateId,
+        job_id: invitationData.jobId,
+        candidate_id: invitationData.candidateId,
         email: invitationData.email.toLowerCase(),
         token: invitationData.token,
         status: invitationData.status,
-        invitedBy: invitationData.invitedBy,
-        expiresAt: invitationData.expiresAt,
-        acceptedAt: invitationData.acceptedAt,
-        applicationId: invitationData.applicationId,
+        invited_by: invitationData.invitedBy,
+        expires_at: invitationData.expiresAt,
+        accepted_at: invitationData.acceptedAt,
+        application_id: invitationData.applicationId,
+        updated_at: new Date(),
       },
     });
 
@@ -76,8 +77,8 @@ export class JobInvitationModel {
   ): Promise<JobInvitationData | null> {
     const invitation = await prisma.jobInvitation.findUnique({
       where: {
-        jobId_email: {
-          jobId,
+        job_id_email: {
+          job_id: jobId,
           email: email.toLowerCase(),
         },
       },
@@ -96,9 +97,9 @@ export class JobInvitationModel {
     const invitation = await prisma.jobInvitation.findFirst({
       where: {
         email: email.toLowerCase(),
-        jobId,
+        job_id: jobId,
         status: JobInvitationStatus.PENDING,
-        expiresAt: {
+        expires_at: {
           gt: new Date(),
         },
       },
@@ -120,8 +121,9 @@ export class JobInvitationModel {
       where: { id },
       data: {
         status,
-        acceptedAt,
-        applicationId,
+        accepted_at: acceptedAt,
+        application_id: applicationId,
+        updated_at: new Date(),
       },
     });
 
@@ -136,17 +138,17 @@ export class JobInvitationModel {
   ): JobInvitationData {
     return {
       id: invitation.id,
-      jobId: invitation.jobId,
-      candidateId: invitation.candidateId,
+      jobId: invitation.job_id,
+      candidateId: invitation.candidate_id,
       email: invitation.email,
       token: invitation.token,
       status: invitation.status,
-      invitedBy: invitation.invitedBy,
-      expiresAt: invitation.expiresAt,
-      acceptedAt: invitation.acceptedAt,
-      applicationId: invitation.applicationId,
-      createdAt: invitation.createdAt,
-      updatedAt: invitation.updatedAt,
+      invitedBy: invitation.invited_by,
+      expiresAt: invitation.expires_at,
+      acceptedAt: invitation.accepted_at,
+      applicationId: invitation.application_id,
+      createdAt: invitation.created_at,
+      updatedAt: invitation.updated_at,
     };
   }
 }

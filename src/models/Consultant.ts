@@ -4,7 +4,7 @@
  */
 
 import prisma from '../lib/prisma';
-import { ConsultantRole, ConsultantStatus, AvailabilityStatus, Prisma } from '@prisma/client';
+import { ConsultantRole, ConsultantStatus, AvailabilityStatus } from '@prisma/client';
 
 export interface ConsultantData {
   id: string;
@@ -49,6 +49,8 @@ export interface ConsultantData {
   totalRevenue: number;
   successRate: number;
   averageDaysToFill?: number;
+  currentLeads: number;
+  maxLeads: number;
   
   lastLoginAt?: Date;
   createdAt: Date;
@@ -83,35 +85,39 @@ export class ConsultantModel {
     currentEmployers?: number;
     maxJobs?: number;
     currentJobs?: number;
+    currentLeads?: number;
+    maxLeads?: number;
     commissionStructure?: string;
     defaultCommissionRate?: number;
   }): Promise<ConsultantData> {
     const createData: any = {
         email: consultantData.email.toLowerCase().trim(),
-        passwordHash: consultantData.passwordHash,
-        firstName: consultantData.firstName.trim(),
-        lastName: consultantData.lastName.trim(),
+        password_hash: consultantData.passwordHash,
+        first_name: consultantData.firstName.trim(),
+        last_name: consultantData.lastName.trim(),
         phone: consultantData.phone?.trim() || null,
         photo: consultantData.photo || null,
         role: consultantData.role,
         status: consultantData.status || ConsultantStatus.ACTIVE,
         address: consultantData.address?.trim() || null,
         city: consultantData.city?.trim() || null,
-        stateProvince: consultantData.stateProvince?.trim() || null,
+        state_province: consultantData.stateProvince?.trim() || null,
         country: consultantData.country?.trim() || null,
         languages: consultantData.languages ? JSON.parse(JSON.stringify(consultantData.languages)) : null,
-        industryExpertise: consultantData.industryExpertise || [],
-        resumeUrl: consultantData.resumeUrl || null,
-        paymentMethod: consultantData.paymentMethod ? JSON.parse(JSON.stringify(consultantData.paymentMethod)) : null,
-        taxInformation: consultantData.taxInformation ? JSON.parse(JSON.stringify(consultantData.taxInformation)) : null,
+        industry_expertise: consultantData.industryExpertise || [],
+        resume_url: consultantData.resumeUrl || null,
+        payment_method: consultantData.paymentMethod ? JSON.parse(JSON.stringify(consultantData.paymentMethod)) : null,
+        tax_information: consultantData.taxInformation ? JSON.parse(JSON.stringify(consultantData.taxInformation)) : null,
         availability: consultantData.availability || AvailabilityStatus.AVAILABLE,
-        maxEmployers: consultantData.maxEmployers ?? 10,
-        currentEmployers: consultantData.currentEmployers ?? 0,
-        maxJobs: consultantData.maxJobs ?? 20,
-        currentJobs: consultantData.currentJobs ?? 0,
-        commissionStructure: consultantData.commissionStructure || null,
-        defaultCommissionRate: consultantData.defaultCommissionRate || null,
-        regionId: consultantData.regionId, // Required field
+        max_employers: consultantData.maxEmployers ?? 10,
+        current_employers: consultantData.currentEmployers ?? 0,
+        max_jobs: consultantData.maxJobs ?? 20,
+        current_jobs: consultantData.currentJobs ?? 0,
+        current_leads: consultantData.currentLeads ?? 0,
+        max_leads: consultantData.maxLeads ?? 20,
+        commission_structure: consultantData.commissionStructure || null,
+        default_commission_rate: consultantData.defaultCommissionRate || null,
+        region_id: consultantData.regionId, // Required field
     };
 
     const consultant = await prisma.consultant.create({
@@ -151,7 +157,7 @@ export class ConsultantModel {
    */
   static async findByRegionId(regionId: string): Promise<ConsultantData | null> {
     const consultant = await prisma.consultant.findFirst({
-      where: { regionId },
+      where: { region_id: regionId },
     });
 
     return consultant ? this.mapPrismaToConsultant(consultant) : null;
@@ -167,11 +173,11 @@ export class ConsultantModel {
   }): Promise<ConsultantData[]> {
     const consultants = await prisma.consultant.findMany({
       where: {
-        ...(filters?.regionId && { regionId: filters.regionId }),
+        ...(filters?.regionId && { region_id: filters.regionId }),
         ...(filters?.role && { role: filters.role }),
         ...(filters?.status && { status: filters.status }),
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
     return consultants.map((consultant) => this.mapPrismaToConsultant(consultant));
@@ -181,42 +187,43 @@ export class ConsultantModel {
    * Update consultant
    */
   static async update(id: string, data: Partial<ConsultantData>): Promise<ConsultantData> {
-    const updateData: Prisma.ConsultantUncheckedUpdateInput = {};
+    const updateData: any = {};
     
-    if (data.firstName !== undefined) updateData.firstName = data.firstName.trim();
-    if (data.lastName !== undefined) updateData.lastName = data.lastName.trim();
+    if (data.firstName !== undefined) updateData.first_name = data.firstName.trim();
+    if (data.lastName !== undefined) updateData.last_name = data.lastName.trim();
     if (data.phone !== undefined) updateData.phone = data.phone?.trim();
     if (data.photo !== undefined) updateData.photo = data.photo;
     if (data.status !== undefined) updateData.status = data.status;
     if (data.regionId !== undefined) {
-      if (data.regionId === null || data.regionId === '') {
-        updateData.regionId = null as any;
-      } else {
-        updateData.regionId = data.regionId;
+      if (!data.regionId || data.regionId === '') {
+        throw new Error('Consultants must always be assigned to a region. regionId cannot be empty or null.');
       }
+      updateData.region_id = data.regionId;
     }
     if (data.address !== undefined) updateData.address = data.address?.trim() || null;
     if (data.city !== undefined) updateData.city = data.city?.trim() || null;
-    if (data.stateProvince !== undefined) updateData.stateProvince = data.stateProvince?.trim() || null;
+    if (data.stateProvince !== undefined) updateData.state_province = data.stateProvince?.trim() || null;
     if (data.country !== undefined) updateData.country = data.country?.trim() || null;
     if (data.languages !== undefined) updateData.languages = data.languages ? JSON.parse(JSON.stringify(data.languages)) : null;
-    if (data.industryExpertise !== undefined) updateData.industryExpertise = data.industryExpertise;
-    if (data.resumeUrl !== undefined) updateData.resumeUrl = data.resumeUrl || null;
-    if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod ? JSON.parse(JSON.stringify(data.paymentMethod)) : null;
-    if (data.taxInformation !== undefined) updateData.taxInformation = data.taxInformation ? JSON.parse(JSON.stringify(data.taxInformation)) : null;
+    if (data.industryExpertise !== undefined) updateData.industry_expertise = data.industryExpertise;
+    if (data.resumeUrl !== undefined) updateData.resume_url = data.resumeUrl || null;
+    if (data.paymentMethod !== undefined) updateData.payment_method = data.paymentMethod ? JSON.parse(JSON.stringify(data.paymentMethod)) : null;
+    if (data.taxInformation !== undefined) updateData.tax_information = data.taxInformation ? JSON.parse(JSON.stringify(data.taxInformation)) : null;
     if (data.availability !== undefined) updateData.availability = data.availability;
-    if (data.maxEmployers !== undefined) updateData.maxEmployers = data.maxEmployers;
-    if (data.currentEmployers !== undefined) updateData.currentEmployers = data.currentEmployers;
-    if (data.maxJobs !== undefined) updateData.maxJobs = data.maxJobs;
-    if (data.currentJobs !== undefined) updateData.currentJobs = data.currentJobs;
-    if (data.commissionStructure !== undefined) updateData.commissionStructure = data.commissionStructure || null;
-    if (data.defaultCommissionRate !== undefined) updateData.defaultCommissionRate = data.defaultCommissionRate || null;
-    if (data.totalCommissionsPaid !== undefined) updateData.totalCommissionsPaid = data.totalCommissionsPaid;
-    if (data.pendingCommissions !== undefined) updateData.pendingCommissions = data.pendingCommissions;
-    if (data.totalPlacements !== undefined) updateData.totalPlacements = data.totalPlacements;
-    if (data.totalRevenue !== undefined) updateData.totalRevenue = data.totalRevenue;
-    if (data.successRate !== undefined) updateData.successRate = data.successRate;
-    if (data.averageDaysToFill !== undefined) updateData.averageDaysToFill = data.averageDaysToFill || null;
+    if (data.maxEmployers !== undefined) updateData.max_employers = data.maxEmployers;
+    if (data.currentEmployers !== undefined) updateData.current_employers = data.currentEmployers;
+    if (data.maxJobs !== undefined) updateData.max_jobs = data.maxJobs;
+    if (data.currentJobs !== undefined) updateData.current_jobs = data.currentJobs;
+    if (data.commissionStructure !== undefined) updateData.commission_structure = data.commissionStructure || null;
+    if (data.defaultCommissionRate !== undefined) updateData.default_commission_rate = data.defaultCommissionRate || null;
+    if (data.totalCommissionsPaid !== undefined) updateData.total_commissions_paid = data.totalCommissionsPaid;
+    if (data.pendingCommissions !== undefined) updateData.pending_commissions = data.pendingCommissions;
+    if (data.totalPlacements !== undefined) updateData.total_placements = data.totalPlacements;
+    if (data.totalRevenue !== undefined) updateData.total_revenue = data.totalRevenue;
+    if (data.successRate !== undefined) updateData.success_rate = data.successRate;
+    if (data.averageDaysToFill !== undefined) updateData.average_days_to_fill = data.averageDaysToFill || null;
+    if (data.currentLeads !== undefined) updateData.current_leads = data.currentLeads;
+    if (data.maxLeads !== undefined) updateData.max_leads = data.maxLeads;
 
     const consultant = await prisma.consultant.update({
       where: { id },
@@ -232,7 +239,7 @@ export class ConsultantModel {
   static async updatePassword(id: string, passwordHash: string): Promise<void> {
     await prisma.consultant.update({
       where: { id },
-      data: { passwordHash },
+      data: { password_hash: passwordHash },
     });
   }
 
@@ -242,7 +249,7 @@ export class ConsultantModel {
   static async updateLastLogin(id: string): Promise<void> {
     await prisma.consultant.update({
       where: { id },
-      data: { lastLoginAt: new Date() },
+      data: { last_login_at: new Date() },
     });
   }
 
@@ -264,19 +271,12 @@ export class ConsultantModel {
   }
 
   /**
-   * Unassign consultant from region
+   * Unassign consultant from region - This is actually not allowed by schema (region_id is mandatory)
+   * Instead, we should reassign to a default or global region if needed, 
+   * but for now we'll throw an error or mark it as requiring a new region.
    */
-  static async unassignFromRegion(id: string): Promise<ConsultantData> {
-    const updateData: Prisma.ConsultantUncheckedUpdateInput = {
-      regionId: null as any,
-    };
-    
-    const consultant = await prisma.consultant.update({
-      where: { id },
-      data: updateData,
-    });
-
-    return this.mapPrismaToConsultant(consultant);
+  static async unassignFromRegion(_id: string): Promise<ConsultantData> {
+    throw new Error('Consultants must always be assigned to a region. Use assignToRegion instead.');
   }
 
   /**
@@ -286,39 +286,41 @@ export class ConsultantModel {
     return {
       id: prismaConsultant.id,
       email: prismaConsultant.email,
-      passwordHash: prismaConsultant.passwordHash,
-      firstName: prismaConsultant.firstName,
-      lastName: prismaConsultant.lastName,
+      passwordHash: prismaConsultant.password_hash,
+      firstName: prismaConsultant.first_name,
+      lastName: prismaConsultant.last_name,
       phone: prismaConsultant.phone || undefined,
       photo: prismaConsultant.photo || undefined,
       role: prismaConsultant.role,
       status: prismaConsultant.status,
-      regionId: prismaConsultant.regionId || undefined,
+      regionId: prismaConsultant.region_id || undefined,
       address: prismaConsultant.address || undefined,
       city: prismaConsultant.city || undefined,
-      stateProvince: prismaConsultant.stateProvince || undefined,
+      stateProvince: prismaConsultant.state_province || undefined,
       country: prismaConsultant.country || undefined,
       languages: prismaConsultant.languages as Array<{ language: string; proficiency: string }> | undefined,
-      industryExpertise: prismaConsultant.industryExpertise,
-      resumeUrl: prismaConsultant.resumeUrl || undefined,
-      paymentMethod: prismaConsultant.paymentMethod as Record<string, unknown> | undefined,
-      taxInformation: prismaConsultant.taxInformation as Record<string, unknown> | undefined,
+      industryExpertise: prismaConsultant.industry_expertise,
+      resumeUrl: prismaConsultant.resume_url || undefined,
+      paymentMethod: prismaConsultant.payment_method as Record<string, unknown> | undefined,
+      taxInformation: prismaConsultant.tax_information as Record<string, unknown> | undefined,
       availability: prismaConsultant.availability,
-      maxEmployers: prismaConsultant.maxEmployers,
-      currentEmployers: prismaConsultant.currentEmployers,
-      maxJobs: prismaConsultant.maxJobs,
-      currentJobs: prismaConsultant.currentJobs,
-      commissionStructure: prismaConsultant.commissionStructure || undefined,
-      defaultCommissionRate: prismaConsultant.defaultCommissionRate || undefined,
-      totalCommissionsPaid: prismaConsultant.totalCommissionsPaid,
-      pendingCommissions: prismaConsultant.pendingCommissions,
-      totalPlacements: prismaConsultant.totalPlacements,
-      totalRevenue: prismaConsultant.totalRevenue,
-      successRate: prismaConsultant.successRate,
-      averageDaysToFill: prismaConsultant.averageDaysToFill || undefined,
-      lastLoginAt: prismaConsultant.lastLoginAt || undefined,
-      createdAt: prismaConsultant.createdAt,
-      updatedAt: prismaConsultant.updatedAt,
+      maxEmployers: prismaConsultant.max_employers,
+      currentEmployers: prismaConsultant.current_employers,
+      maxJobs: prismaConsultant.max_jobs,
+      currentJobs: prismaConsultant.current_jobs,
+      commissionStructure: prismaConsultant.commission_structure || undefined,
+      defaultCommissionRate: prismaConsultant.default_commission_rate || undefined,
+      totalCommissionsPaid: prismaConsultant.total_commissions_paid,
+      pendingCommissions: prismaConsultant.pending_commissions,
+      totalPlacements: prismaConsultant.total_placements,
+      totalRevenue: prismaConsultant.total_revenue,
+      successRate: prismaConsultant.success_rate,
+      averageDaysToFill: prismaConsultant.average_days_to_fill || undefined,
+      currentLeads: prismaConsultant.current_leads || 0,
+      maxLeads: prismaConsultant.max_leads || 20,
+      lastLoginAt: prismaConsultant.last_login_at || undefined,
+      createdAt: prismaConsultant.created_at,
+      updatedAt: prismaConsultant.updated_at,
     };
   }
 }

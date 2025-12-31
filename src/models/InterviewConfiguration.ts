@@ -17,7 +17,7 @@ export interface InterviewConfigurationData {
   requireAllInterviewers: boolean;
   
   // Interview Format
-  interviewFormat: string; // LIVE_VIDEO, PHONE, IN_PERSON, PANEL
+  interviewFormat: InterviewFormat; // LIVE_VIDEO, PHONE, IN_PERSON, PANEL
   defaultDuration?: number | null;
   requiresInterviewer: boolean;
   
@@ -33,14 +33,14 @@ export interface InterviewConfigurationData {
   useCustomCriteria: boolean;
   ratingCriteria?: any;
   passThreshold?: number | null;
-  scoringMethod?: string | null;
+  scoringMethod?: ScoringMethod | null;
   
   // Automated Progression
   autoMoveOnPass: boolean;
-  passCriteria?: string | null;
+  passCriteria?: PassCriteria | null;
   nextRoundOnPassId?: string | null;
   autoRejectOnFail: boolean;
-  failCriteria?: string | null;
+  failCriteria?: FailCriteria | null;
   rejectRoundId?: string | null;
   requiresManualReview: boolean;
   
@@ -57,10 +57,11 @@ export interface InterviewConfigurationData {
 export class InterviewConfigurationModel {
   static async findByJobRoundId(jobRoundId: string): Promise<InterviewConfigurationData | null> {
     const config = await prisma.interviewConfiguration.findUnique({
-      where: { jobRoundId },
+      where: { job_round_id: jobRoundId },
     });
 
-    return config;
+    if (!config) return null;
+    return this.mapPrismaToConfig(config);
   }
 
   static async create(data: {
@@ -69,7 +70,7 @@ export class InterviewConfigurationModel {
     autoSchedule?: boolean;
     requireBeforeProgression?: boolean;
     requireAllInterviewers?: boolean;
-    interviewFormat?: string;
+    interviewFormat?: InterviewFormat;
     defaultDuration?: number;
     requiresInterviewer?: boolean;
     autoScheduleWindowDays?: number;
@@ -81,12 +82,12 @@ export class InterviewConfigurationModel {
     useCustomCriteria?: boolean;
     ratingCriteria?: any;
     passThreshold?: number;
-    scoringMethod?: string;
+    scoringMethod?: ScoringMethod;
     autoMoveOnPass?: boolean;
-    passCriteria?: string;
+    passCriteria?: PassCriteria;
     nextRoundOnPassId?: string;
     autoRejectOnFail?: boolean;
-    failCriteria?: string;
+    failCriteria?: FailCriteria;
     rejectRoundId?: string;
     requiresManualReview?: boolean;
     templateId?: string;
@@ -96,101 +97,136 @@ export class InterviewConfigurationModel {
   }): Promise<InterviewConfigurationData> {
     const config = await prisma.interviewConfiguration.create({
       data: {
-        jobRoundId: data.jobRoundId,
+        job_round_id: data.jobRoundId,
         enabled: data.enabled ?? false,
-        autoSchedule: data.autoSchedule ?? true,
-        requireBeforeProgression: data.requireBeforeProgression ?? false,
-        requireAllInterviewers: data.requireAllInterviewers ?? false,
-        interviewFormat: (data.interviewFormat ?? 'LIVE_VIDEO') as InterviewFormat,
-        defaultDuration: data.defaultDuration ?? 60,
-        requiresInterviewer: data.requiresInterviewer ?? true,
-        autoScheduleWindowDays: data.autoScheduleWindowDays,
-        availableTimeSlots: data.availableTimeSlots,
-        bufferTimeMinutes: data.bufferTimeMinutes,
-        calendarIntegration: data.calendarIntegration,
-        autoRescheduleOnNoShow: data.autoRescheduleOnNoShow ?? false,
-        autoRescheduleOnCancel: data.autoRescheduleOnCancel ?? false,
-        useCustomCriteria: data.useCustomCriteria ?? false,
-        ratingCriteria: data.ratingCriteria,
-        passThreshold: data.passThreshold,
-        scoringMethod: data.scoringMethod ? (data.scoringMethod as ScoringMethod) : null,
-        autoMoveOnPass: data.autoMoveOnPass ?? false,
-        passCriteria: data.passCriteria ? (data.passCriteria as PassCriteria) : null,
-        nextRoundOnPassId: data.nextRoundOnPassId,
-        autoRejectOnFail: data.autoRejectOnFail ?? false,
-        failCriteria: data.failCriteria ? (data.failCriteria as FailCriteria) : null,
-        rejectRoundId: data.rejectRoundId,
-        requiresManualReview: data.requiresManualReview ?? true,
-        templateId: data.templateId,
+        auto_schedule: data.autoSchedule ?? true,
+        require_before_progression: data.requireBeforeProgression ?? false,
+        require_all_interviewers: data.requireAllInterviewers ?? false,
+        interview_format: data.interviewFormat ?? InterviewFormat.LIVE_VIDEO,
+        default_duration: data.defaultDuration ?? 60,
+        requires_interviewer: data.requiresInterviewer ?? true,
+        auto_schedule_window_days: data.autoScheduleWindowDays,
+        available_time_slots: data.availableTimeSlots,
+        buffer_time_minutes: data.bufferTimeMinutes,
+        calendar_integration: data.calendarIntegration,
+        auto_reschedule_on_no_show: data.autoRescheduleOnNoShow ?? false,
+        auto_reschedule_on_cancel: data.autoRescheduleOnCancel ?? false,
+        use_custom_criteria: data.useCustomCriteria ?? false,
+        rating_criteria: data.ratingCriteria,
+        pass_threshold: data.passThreshold,
+        scoring_method: data.scoringMethod || null,
+        auto_move_on_pass: data.autoMoveOnPass ?? false,
+        pass_criteria: data.passCriteria || null,
+        next_round_on_pass_id: data.nextRoundOnPassId,
+        auto_reject_on_fail: data.autoRejectOnFail ?? false,
+        fail_criteria: data.failCriteria || null,
+        reject_round_id: data.rejectRoundId,
+        requires_manual_review: data.requiresManualReview ?? true,
+        template_id: data.templateId,
         questions: data.questions,
         agenda: data.agenda,
-        assignedInterviewerIds: data.assignedInterviewerIds || [],
+        assigned_interviewer_ids: data.assignedInterviewerIds || [],
+        updated_at: new Date(),
       },
     });
 
-    return config;
+    return this.mapPrismaToConfig(config);
   }
 
   static async update(
     jobRoundId: string,
     data: Partial<Omit<InterviewConfigurationData, 'id' | 'jobRoundId' | 'createdAt' | 'updatedAt'>>
   ): Promise<InterviewConfigurationData | null> {
-    // Type cast enum fields for Prisma - handle them separately
     const updateData: any = {};
     
-    // Copy all fields except enums
     if (data.enabled !== undefined) updateData.enabled = data.enabled;
-    if (data.autoSchedule !== undefined) updateData.autoSchedule = data.autoSchedule;
-    if (data.requireBeforeProgression !== undefined) updateData.requireBeforeProgression = data.requireBeforeProgression;
-    if (data.requireAllInterviewers !== undefined) updateData.requireAllInterviewers = data.requireAllInterviewers;
-    if (data.defaultDuration !== undefined) updateData.defaultDuration = data.defaultDuration;
-    if (data.requiresInterviewer !== undefined) updateData.requiresInterviewer = data.requiresInterviewer;
-    if (data.autoScheduleWindowDays !== undefined) updateData.autoScheduleWindowDays = data.autoScheduleWindowDays;
-    if (data.availableTimeSlots !== undefined) updateData.availableTimeSlots = data.availableTimeSlots;
-    if (data.bufferTimeMinutes !== undefined) updateData.bufferTimeMinutes = data.bufferTimeMinutes;
-    if (data.calendarIntegration !== undefined) updateData.calendarIntegration = data.calendarIntegration;
-    if (data.autoRescheduleOnNoShow !== undefined) updateData.autoRescheduleOnNoShow = data.autoRescheduleOnNoShow;
-    if (data.autoRescheduleOnCancel !== undefined) updateData.autoRescheduleOnCancel = data.autoRescheduleOnCancel;
-    if (data.useCustomCriteria !== undefined) updateData.useCustomCriteria = data.useCustomCriteria;
-    if (data.ratingCriteria !== undefined) updateData.ratingCriteria = data.ratingCriteria;
-    if (data.passThreshold !== undefined) updateData.passThreshold = data.passThreshold;
-    if (data.autoMoveOnPass !== undefined) updateData.autoMoveOnPass = data.autoMoveOnPass;
-    if (data.nextRoundOnPassId !== undefined) updateData.nextRoundOnPassId = data.nextRoundOnPassId;
-    if (data.autoRejectOnFail !== undefined) updateData.autoRejectOnFail = data.autoRejectOnFail;
-    if (data.rejectRoundId !== undefined) updateData.rejectRoundId = data.rejectRoundId;
-    if (data.requiresManualReview !== undefined) updateData.requiresManualReview = data.requiresManualReview;
-    if (data.templateId !== undefined) updateData.templateId = data.templateId;
+    if (data.autoSchedule !== undefined) updateData.auto_schedule = data.autoSchedule;
+    if (data.requireBeforeProgression !== undefined) updateData.require_before_progression = data.requireBeforeProgression;
+    if (data.requireAllInterviewers !== undefined) updateData.require_all_interviewers = data.requireAllInterviewers;
+    if (data.defaultDuration !== undefined) updateData.default_duration = data.defaultDuration;
+    if (data.requiresInterviewer !== undefined) updateData.requires_interviewer = data.requiresInterviewer;
+    if (data.autoScheduleWindowDays !== undefined) updateData.auto_schedule_window_days = data.autoScheduleWindowDays;
+    if (data.availableTimeSlots !== undefined) updateData.available_time_slots = data.availableTimeSlots;
+    if (data.bufferTimeMinutes !== undefined) updateData.buffer_time_minutes = data.bufferTimeMinutes;
+    if (data.calendarIntegration !== undefined) updateData.calendar_integration = data.calendarIntegration;
+    if (data.autoRescheduleOnNoShow !== undefined) updateData.auto_reschedule_on_no_show = data.autoRescheduleOnNoShow;
+    if (data.autoRescheduleOnCancel !== undefined) updateData.auto_reschedule_on_cancel = data.autoRescheduleOnCancel;
+    if (data.useCustomCriteria !== undefined) updateData.use_custom_criteria = data.useCustomCriteria;
+    if (data.ratingCriteria !== undefined) updateData.rating_criteria = data.ratingCriteria;
+    if (data.passThreshold !== undefined) updateData.pass_threshold = data.passThreshold;
+    if (data.autoMoveOnPass !== undefined) updateData.auto_move_on_pass = data.autoMoveOnPass;
+    if (data.nextRoundOnPassId !== undefined) updateData.next_round_on_pass_id = data.nextRoundOnPassId;
+    if (data.autoRejectOnFail !== undefined) updateData.auto_reject_on_fail = data.autoRejectOnFail;
+    if (data.rejectRoundId !== undefined) updateData.reject_round_id = data.rejectRoundId;
+    if (data.requiresManualReview !== undefined) updateData.requires_manual_review = data.requiresManualReview;
+    if (data.templateId !== undefined) updateData.template_id = data.templateId;
     if (data.questions !== undefined) updateData.questions = data.questions;
     if (data.agenda !== undefined) updateData.agenda = data.agenda;
-    if (data.assignedInterviewerIds !== undefined) updateData.assignedInterviewerIds = data.assignedInterviewerIds;
+    if (data.assignedInterviewerIds !== undefined) updateData.assigned_interviewer_ids = data.assignedInterviewerIds;
     
-    // Handle enum fields with proper type casting
     if (data.interviewFormat !== undefined) {
-      updateData.interviewFormat = data.interviewFormat as InterviewFormat;
+      updateData.interview_format = data.interviewFormat;
     }
     if (data.scoringMethod !== undefined) {
-      updateData.scoringMethod = data.scoringMethod ? (data.scoringMethod as ScoringMethod) : null;
+      updateData.scoring_method = data.scoringMethod || null;
     }
     if (data.passCriteria !== undefined) {
-      updateData.passCriteria = data.passCriteria ? (data.passCriteria as PassCriteria) : null;
+      updateData.pass_criteria = data.passCriteria || null;
     }
     if (data.failCriteria !== undefined) {
-      updateData.failCriteria = data.failCriteria ? (data.failCriteria as FailCriteria) : null;
+      updateData.fail_criteria = data.failCriteria || null;
     }
     
-    updateData.updatedAt = new Date();
+    updateData.updated_at = new Date();
 
     const config = await prisma.interviewConfiguration.update({
-      where: { jobRoundId },
+      where: { job_round_id: jobRoundId },
       data: updateData,
     });
 
-    return config;
+    return this.mapPrismaToConfig(config);
   }
 
   static async delete(jobRoundId: string): Promise<void> {
     await prisma.interviewConfiguration.delete({
-      where: { jobRoundId },
+      where: { job_round_id: jobRoundId },
     });
+  }
+
+  private static mapPrismaToConfig(config: any): InterviewConfigurationData {
+    return {
+      id: config.id,
+      jobRoundId: config.job_round_id,
+      enabled: config.enabled,
+      autoSchedule: config.auto_schedule,
+      requireBeforeProgression: config.require_before_progression,
+      requireAllInterviewers: config.require_all_interviewers,
+      interviewFormat: config.interview_format,
+      defaultDuration: config.default_duration,
+      requiresInterviewer: config.requires_interviewer,
+      autoScheduleWindowDays: config.auto_schedule_window_days,
+      availableTimeSlots: config.available_time_slots,
+      bufferTimeMinutes: config.buffer_time_minutes,
+      calendarIntegration: config.calendar_integration,
+      autoRescheduleOnNoShow: config.auto_reschedule_on_no_show,
+      autoRescheduleOnCancel: config.auto_reschedule_on_cancel,
+      useCustomCriteria: config.use_custom_criteria,
+      ratingCriteria: config.rating_criteria,
+      passThreshold: config.pass_threshold,
+      scoringMethod: config.scoring_method,
+      autoMoveOnPass: config.auto_move_on_pass,
+      passCriteria: config.pass_criteria,
+      nextRoundOnPassId: config.next_round_on_pass_id,
+      autoRejectOnFail: config.auto_reject_on_fail,
+      failCriteria: config.fail_criteria,
+      rejectRoundId: config.reject_round_id,
+      requiresManualReview: config.requires_manual_review,
+      templateId: config.template_id,
+      questions: config.questions,
+      agenda: config.agenda,
+      assignedInterviewerIds: config.assigned_interviewer_ids,
+      createdAt: config.created_at,
+      updatedAt: config.updated_at,
+    };
   }
 }

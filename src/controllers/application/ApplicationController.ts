@@ -7,13 +7,21 @@ import { Request, Response } from 'express';
 import { ApplicationService, SubmitApplicationRequest } from '../../services/application/ApplicationService';
 import { CandidateAuthenticatedRequest } from '../../middleware/candidateAuth';
 import { AuthenticatedRequest } from '../../types';
-import { ApplicationStage } from '@prisma/client';
+import { ApplicationStage, JobInvitationStatus } from '@prisma/client';
 import { CandidateModel } from '../../models/Candidate';
 import { JobModel } from '../../models/Job';
 import { CompanyService } from '../../services/company/CompanyService';
 import { JobInvitationModel } from '../../models/JobInvitation';
 import { ApplicationModel } from '../../models/Application';
 import { CandidateDocumentService } from '../../services/candidate/CandidateDocumentService';
+import { isValidEmail, normalizeEmail } from '../../utils/email';
+import { getSessionCookieOptions } from '../../utils/session';
+import { emailService } from '../../services/email/EmailService';
+import { prisma } from '../../lib/prisma';
+import { ConversationService } from '../../services/messaging/ConversationService';
+import { UserModel } from '../../models/User';
+import { generateInvitationToken } from '../../utils/token';
+import { CandidateScoringService } from '../../services/ai/CandidateScoringService';
 
 export class ApplicationController {
   /**
@@ -66,8 +74,6 @@ export class ApplicationController {
         return;
       }
 
-      // Validate email format
-      const { isValidEmail, normalizeEmail } = await import('../../utils/email');
       const normalizedEmail = normalizeEmail(email);
       
       if (!isValidEmail(normalizedEmail)) {
@@ -172,14 +178,11 @@ export class ApplicationController {
 
       // Set session cookie for auto-login
       if (sessionId) {
-        const { getSessionCookieOptions } = await import('../../utils/session');
         res.cookie('candidateSessionId', sessionId, getSessionCookieOptions());
       }
 
       // Send email notification with login details
       try {
-        const { emailService } = await import('../../services/email/EmailService');
-        const { JobModel } = await import('../../models/Job');
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
         const applicationTrackingUrl = `${frontendUrl}/candidate/applications/${application.id}`;
         
@@ -300,8 +303,6 @@ export class ApplicationController {
 
       // Send email notification for authenticated users
       try {
-        const { emailService } = await import('../../services/email/EmailService');
-        const { JobModel } = await import('../../models/Job');
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
         const applicationTrackingUrl = `${frontendUrl}/candidate/applications/${result.id}`;
         
@@ -551,15 +552,14 @@ export class ApplicationController {
       });
 
       // Also load ApplicationRoundProgress to map applications to rounds
-      const { prisma } = await import('../../lib/prisma');
       const roundProgress = await prisma.applicationRoundProgress.findMany({
         where: {
-          Application: {
-            jobId,
+          application: {
+            job_id: jobId,
           },
         },
         include: {
-          JobRound: true,
+          job_round: true,
         },
         orderBy: {
           updated_at: 'desc',
@@ -569,11 +569,11 @@ export class ApplicationController {
       // Group by applicationId and get the latest (most recent) round for each
       const progressByApplication = new Map<string, any>();
       roundProgress.forEach((progress) => {
-        const existing = progressByApplication.get(progress.applicationId);
-        // Use updatedAt to determine the latest round activity, as re-entering a round
-        // updates the existing record via upsert without changing createdAt
-        if (!existing || new Date(progress.updatedAt) > new Date(existing.updatedAt)) {
-          progressByApplication.set(progress.applicationId, progress);
+        const existing = progressByApplication.get(progress.application_id);
+        // Use updated_at to determine the latest round activity, as re-entering a round
+        // updates the existing record via upsert without changing created_at
+        if (!existing || new Date(progress.updated_at) > new Date(existing.updated_at)) {
+          progressByApplication.set(progress.application_id, progress);
         }
       });
 
@@ -581,8 +581,8 @@ export class ApplicationController {
       const roundProgressData: Record<string, { roundId: string; roundName?: string; completed: boolean }> = {};
       progressByApplication.forEach((progress, applicationId) => {
         roundProgressData[applicationId] = {
-          roundId: progress.jobRoundId,
-          roundName: progress.JobRound?.name,
+          roundId: progress.job_round_id,
+          roundName: progress.job_round?.name,
           completed: progress.completed,
         };
       });
@@ -650,9 +650,6 @@ export class ApplicationController {
 
       // Close the conversation associated with this application before deleting
       try {
-        const { ConversationService } = await import('../../services/messaging/ConversationService');
-        const { JobModel } = await import('../../models/Job');
-        
         const conversation = await ConversationService.findConversationByJobAndCandidate(
           application.jobId,
           application.candidateId
@@ -1232,12 +1229,10 @@ export class ApplicationController {
       }
 
       // Get recruiter name
-      const { UserModel } = await import('../../models/User');
       const recruiter = await UserModel.findById(req.user.id);
-      const recruiterName = recruiter?.name;
+      const recruiterName = recruiter?.name || 'A recruiter';
 
       // Generate invitation token
-      const { generateInvitationToken } = await import('../../utils/token');
       const token = generateInvitationToken();
       
       // Set expiration (7 days from now)
@@ -1245,8 +1240,6 @@ export class ApplicationController {
       expiresAt.setDate(expiresAt.getDate() + 7);
 
       // Wrap invitation creation in transaction for atomicity
-      const { prisma } = await import('../../lib/prisma');
-      const { JobInvitationStatus } = await import('../../types');
       
       let invitation;
       try {
@@ -1256,7 +1249,7 @@ export class ApplicationController {
           const existingInvitation = await tx.jobInvitation.findFirst({
             where: {
               email: candidate.email.toLowerCase(),
-              jobId,
+              job_id: jobId,
               status: JobInvitationStatus.PENDING,
             },
           });
@@ -1268,30 +1261,30 @@ export class ApplicationController {
           // Create job invitation using transaction client
           const created = await tx.jobInvitation.create({
             data: {
-              jobId,
-              candidateId,
+              job_id: jobId,
+              candidate_id: candidateId,
               email: candidate.email.toLowerCase(),
               token,
               status: JobInvitationStatus.PENDING,
-              invitedBy: req.user.id,
-              expiresAt,
+              invited_by: req.user!.id,
+              expires_at: expiresAt,
             },
           });
 
           // Map to JobInvitationData format
           return {
             id: created.id,
-            jobId: created.jobId,
-            candidateId: created.candidateId || undefined,
+            jobId: created.job_id,
+            candidateId: created.candidate_id || undefined,
             email: created.email,
             token: created.token,
             status: created.status,
-            invitedBy: created.invitedBy,
-            expiresAt: created.expiresAt,
-            acceptedAt: created.acceptedAt || undefined,
-            applicationId: created.applicationId || undefined,
-            createdAt: created.createdAt,
-            updatedAt: created.updatedAt,
+            invitedBy: created.invited_by,
+            expiresAt: created.expires_at,
+            acceptedAt: created.accepted_at || undefined,
+            applicationId: created.application_id || undefined,
+            createdAt: created.created_at,
+            updatedAt: created.updated_at,
           };
         });
       } catch (error: any) {
@@ -1314,7 +1307,6 @@ export class ApplicationController {
       // If email fails, invitation is still created but we should log it
       let emailSent = false;
       try {
-        const { emailService } = await import('../../services/email/EmailService');
         await emailService.sendJobInvitationEmail({
           to: candidate.email,
           jobTitle: job.title,
@@ -1582,8 +1574,6 @@ export class ApplicationController {
       }
 
       console.log(`🚀 Starting bulk scoring for ${applicationIds.length} candidates, jobId: ${jobId}`);
-
-      const { CandidateScoringService } = await import('../../services/ai/CandidateScoringService');
 
       // Set up progress tracking
       const progressUpdates: Array<{ completed: number; total: number; current: string }> = [];

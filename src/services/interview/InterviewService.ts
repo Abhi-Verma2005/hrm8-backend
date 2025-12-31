@@ -10,7 +10,6 @@ import { JobModel } from '../../models/Job';
 import { JobRoundModel } from '../../models/JobRound';
 import { GoogleCalendarService } from '../integrations/GoogleCalendarService';
 import { prisma } from '../../lib/prisma';
-import crypto from 'crypto';
 import { CandidateModel } from '../../models/Candidate';
 import { InterviewInvitationEmailService } from './InterviewInvitationEmailService';
 import { emailService } from '../email/EmailService';
@@ -106,8 +105,8 @@ export class InterviewService {
     // Check if interview already exists for this application/round (check all active statuses)
     const existingInterviews = await prisma.videoInterview.findMany({
       where: {
-        jobRoundId: params.jobRoundId,
-        applicationId: params.applicationId,
+        job_round_id: params.jobRoundId,
+        application_id: params.applicationId,
         status: {
           in: ['SCHEDULED', 'RESCHEDULED', 'IN_PROGRESS'],
         },
@@ -115,36 +114,7 @@ export class InterviewService {
     });
     
     if (existingInterviews.length > 0) {
-      // Map back to VideoInterviewData format
-      const existing = existingInterviews[0];
-      return {
-        id: existing.id,
-        applicationId: existing.applicationId,
-        candidateId: existing.candidateId,
-        jobId: existing.jobId,
-        jobRoundId: existing.jobRoundId,
-        scheduledDate: existing.scheduledDate,
-        duration: existing.duration,
-        meetingLink: existing.meetingLink,
-        status: existing.status,
-        type: existing.type,
-        interviewerIds: existing.interviewerIds,
-        isAutoScheduled: existing.isAutoScheduled ?? false,
-        rescheduledFrom: existing.rescheduledFrom,
-        rescheduledAt: existing.rescheduledAt,
-        rescheduledBy: existing.rescheduledBy,
-        cancellationReason: existing.cancellationReason,
-        noShowReason: existing.noShowReason,
-        overallScore: existing.overallScore,
-        recommendation: existing.recommendation,
-        ratingCriteriaScores: existing.ratingCriteriaScores,
-        recordingUrl: existing.recordingUrl,
-        transcript: existing.transcript,
-        feedback: existing.feedback,
-        notes: existing.notes,
-        createdAt: existing.createdAt,
-        updatedAt: existing.updatedAt,
-      };
+      return VideoInterviewModel.mapPrismaToVideoInterview(existingInterviews[0]);
     }
 
     // Load application and job details
@@ -171,7 +141,7 @@ export class InterviewService {
     }
 
     // Find available time slot
-    const timeSlot = await this.findAvailableTimeSlot(config, params.applicationId);
+    const timeSlot = await this.findAvailableTimeSlot(config);
 
     // Generate meeting link if video interview (EXTERNAL API CALL)
     let meetingLink: string | null = null;
@@ -200,18 +170,18 @@ export class InterviewService {
       // Create interview (within transaction)
       const interview = await tx.videoInterview.create({
         data: {
-          applicationId: params.applicationId,
-          candidateId: application.candidateId,
-          jobId: application.jobId,
-          jobRoundId: params.jobRoundId,
-          scheduledDate: timeSlot.startDate,
+          application_id: params.applicationId,
+          candidate_id: application.candidateId,
+          job_id: application.jobId,
+          job_round_id: params.jobRoundId,
+          scheduled_date: timeSlot.startDate,
           duration: config.defaultDuration!,
-          meetingLink,
+          meeting_link: meetingLink,
           status: 'SCHEDULED',
           type: this.mapInterviewFormatToType(config.interviewFormat) as any,
-          interviewerIds: timeSlot.interviewerIds || [],
-          isAutoScheduled: true,
-          recordingUrl: null,
+          interviewer_ids: timeSlot.interviewerIds || [],
+          is_auto_scheduled: true,
+          recording_url: null,
           transcript: undefined,
           feedback: undefined,
           notes: null,
@@ -221,51 +191,25 @@ export class InterviewService {
       // Update ApplicationRoundProgress (use transaction)
       await tx.applicationRoundProgress.upsert({
         where: {
-          applicationId_jobRoundId: {
-            applicationId: params.applicationId,
-            jobRoundId: params.jobRoundId,
+          application_id_job_round_id: {
+            application_id: params.applicationId,
+            job_round_id: params.jobRoundId,
           },
         },
         create: {
-          id: crypto.randomUUID(),
-          applicationId: params.applicationId,
-          jobRoundId: params.jobRoundId,
-          videoInterviewId: interview.id,
+          application_id: params.applicationId,
+          job_round_id: params.jobRoundId,
+          video_interview_id: interview.id,
           completed: false,
+          updated_at: new Date(),
         },
         update: {
-          videoInterviewId: interview.id,
+          video_interview_id: interview.id,
+          updated_at: new Date(),
         },
       });
       
-      return {
-          id: interview.id,
-          applicationId: interview.applicationId,
-          candidateId: interview.candidateId,
-          jobId: interview.jobId,
-          jobRoundId: interview.jobRoundId,
-          scheduledDate: interview.scheduledDate,
-          duration: interview.duration,
-          meetingLink: interview.meetingLink,
-          status: interview.status,
-          type: interview.type,
-          interviewerIds: interview.interviewerIds,
-          isAutoScheduled: interview.isAutoScheduled ?? false,
-          rescheduledFrom: interview.rescheduledFrom,
-          rescheduledAt: interview.rescheduledAt,
-          rescheduledBy: interview.rescheduledBy,
-          cancellationReason: interview.cancellationReason,
-          noShowReason: interview.noShowReason,
-          overallScore: interview.overallScore,
-          recommendation: interview.recommendation,
-          ratingCriteriaScores: interview.ratingCriteriaScores,
-          recordingUrl: interview.recordingUrl,
-          transcript: interview.transcript,
-          feedback: interview.feedback,
-          notes: interview.notes,
-          createdAt: interview.createdAt,
-          updatedAt: interview.updatedAt,
-      };
+      return VideoInterviewModel.mapPrismaToVideoInterview(interview);
     }).then(async (interview) => {
         // Send interview invitation email (after transaction commits)
         try {
@@ -281,8 +225,7 @@ export class InterviewService {
    * Find available time slot for scheduling
    */
   private static async findAvailableTimeSlot(
-    config: any,
-    applicationId?: string
+    config: any
   ): Promise<{ startDate: Date; interviewerIds: any[] }> {
     const windowDays = config.autoScheduleWindowDays || 7;
     const now = new Date();
@@ -393,7 +336,7 @@ export class InterviewService {
       status: {
         in: ['SCHEDULED', 'RESCHEDULED', 'IN_PROGRESS'], // Check all active statuses
       },
-      scheduledDate: {
+      scheduled_date: {
         gte: adjustedStart,
         lt: adjustedEnd,
       },
@@ -487,11 +430,11 @@ export class InterviewService {
       if (interview.jobRoundId && interview.applicationId) {
         await tx.applicationRoundProgress.updateMany({
           where: {
-            applicationId: interview.applicationId,
-            jobRoundId: interview.jobRoundId,
+            application_id: interview.applicationId,
+            job_round_id: interview.jobRoundId,
           },
           data: {
-            videoInterviewId: updatedInterview.id,
+            video_interview_id: updatedInterview.id,
           },
         });
       }
@@ -1022,20 +965,21 @@ export class InterviewService {
     if (params.jobRoundId) {
       await prisma.applicationRoundProgress.upsert({
         where: {
-          applicationId_jobRoundId: {
-            applicationId: params.applicationId,
-            jobRoundId: params.jobRoundId,
+          application_id_job_round_id: {
+            application_id: params.applicationId,
+            job_round_id: params.jobRoundId,
           },
         },
         create: {
-          id: crypto.randomUUID(),
-          applicationId: params.applicationId,
-          jobRoundId: params.jobRoundId,
-          videoInterviewId: interview.id,
+          application_id: params.applicationId,
+          job_round_id: params.jobRoundId,
+          video_interview_id: interview.id,
           completed: false,
+          updated_at: new Date(),
         },
         update: {
-          videoInterviewId: interview.id,
+          video_interview_id: interview.id,
+          updated_at: new Date(),
         },
       });
     }
@@ -1079,13 +1023,13 @@ export class InterviewService {
 
     if (params.status === 'COMPLETED') {
       if (params.overallScore !== undefined) {
-        updateData.overallScore = params.overallScore;
+        updateData.overall_score = params.overallScore;
       }
       if (params.recommendation) {
         updateData.recommendation = params.recommendation;
       }
       if (params.ratingCriteriaScores) {
-        updateData.ratingCriteriaScores = params.ratingCriteriaScores;
+        updateData.rating_criteria_scores = params.ratingCriteriaScores;
       }
       if (params.feedback) {
         updateData.feedback = params.feedback;
@@ -1104,12 +1048,13 @@ export class InterviewService {
     if (params.status === 'COMPLETED' && interview.jobRoundId && interview.applicationId) {
       await prisma.applicationRoundProgress.updateMany({
         where: {
-          applicationId: interview.applicationId,
-          jobRoundId: interview.jobRoundId,
+          application_id: interview.applicationId,
+          job_round_id: interview.jobRoundId,
         },
         data: {
           completed: true,
-          completedAt: new Date(),
+          completed_at: new Date(),
+          updated_at: new Date(),
         },
       });
 
@@ -1170,15 +1115,15 @@ export class InterviewService {
 
     const interviews = await prisma.videoInterview.findMany({
       where,
-      orderBy: { scheduledDate: 'asc' },
+      orderBy: { scheduled_date: 'asc' },
       include: {
-        Application: {
+        application: {
           include: {
             candidate: {
               select: {
                 id: true,
-                firstName: true,
-                lastName: true,
+                first_name: true,
+                last_name: true,
                 email: true,
                 phone: true,
                 photo: true,
@@ -1189,9 +1134,9 @@ export class InterviewService {
             },
           },
         },
-        JobRound: {
+        job_round: {
           include: {
-            Job: {
+            job: {
               select: {
                 id: true,
                 title: true,
@@ -1204,50 +1149,50 @@ export class InterviewService {
 
     return interviews.map((i: any) => ({
       id: i.id,
-      applicationId: i.applicationId,
-      candidateId: i.candidateId,
-      candidate: i.Application?.candidate ? {
-        id: i.Application.candidate.id,
-        firstName: i.Application.candidate.firstName,
-        lastName: i.Application.candidate.lastName,
-        email: i.Application.candidate.email,
-        phone: i.Application.candidate.phone,
-        photo: i.Application.candidate.photo,
-        city: i.Application.candidate.city,
-        state: i.Application.candidate.state,
-        country: i.Application.candidate.country,
+      applicationId: i.application_id,
+      candidateId: i.candidate_id,
+      candidate: i.application?.candidate ? {
+        id: i.application.candidate.id,
+        firstName: i.application.candidate.first_name,
+        lastName: i.application.candidate.last_name,
+        email: i.application.candidate.email,
+        phone: i.application.candidate.phone,
+        photo: i.application.candidate.photo,
+        city: i.application.candidate.city,
+        state: i.application.candidate.state,
+        country: i.application.candidate.country,
       } : undefined,
-      jobId: i.jobId,
-      jobRoundId: i.jobRoundId,
-      jobRound: i.JobRound ? {
-        id: i.JobRound.id,
-        name: i.JobRound.name,
-        job: i.JobRound.Job ? {
-          id: i.JobRound.Job.id,
-          title: i.JobRound.Job.title,
+      jobId: i.job_id,
+      jobRoundId: i.job_round_id,
+      jobRound: i.job_round ? {
+        id: i.job_round.id,
+        name: i.job_round.name,
+        job: i.job_round.job ? {
+          id: i.job_round.job.id,
+          title: i.job_round.job.title,
         } : undefined,
       } : undefined,
-      scheduledDate: i.scheduledDate,
+      scheduledDate: i.scheduled_date,
       duration: i.duration,
-      meetingLink: i.meetingLink,
+      meetingLink: i.meeting_link,
       status: i.status,
       type: i.type,
-      interviewerIds: i.interviewerIds,
-      isAutoScheduled: i.isAutoScheduled ?? false,
-      rescheduledFrom: i.rescheduledFrom,
-      rescheduledAt: i.rescheduledAt,
-      rescheduledBy: i.rescheduledBy,
-      cancellationReason: i.cancellationReason,
-      noShowReason: i.noShowReason,
-      overallScore: i.overallScore,
+      interviewerIds: i.interviewer_ids,
+      isAutoScheduled: i.is_auto_scheduled ?? false,
+      rescheduledFrom: i.rescheduled_from,
+      rescheduledAt: i.rescheduled_at,
+      rescheduledBy: i.rescheduled_by,
+      cancellationReason: i.cancellation_reason,
+      noShowReason: i.no_show_reason,
+      overallScore: i.overall_score,
       recommendation: i.recommendation,
-      ratingCriteriaScores: i.ratingCriteriaScores,
-      recordingUrl: i.recordingUrl,
+      ratingCriteriaScores: i.rating_criteria_scores,
+      recordingUrl: i.recording_url,
       transcript: i.transcript,
       feedback: i.feedback,
       notes: i.notes,
-      createdAt: i.createdAt,
-      updatedAt: i.updatedAt,
+      createdAt: i.created_at,
+      updatedAt: i.updated_at,
     }));
   }
 }

@@ -27,21 +27,21 @@ export class VerificationTokenModel {
   }): Promise<VerificationTokenData> {
     const verificationToken = await prisma.verificationToken.create({
       data: {
-        companyId: data.companyId,
+        company_id: data.companyId,
         email: data.email.toLowerCase(),
         token: data.token,
-        expiresAt: data.expiresAt,
+        expires_at: data.expiresAt,
       },
     });
 
     return {
       id: verificationToken.id,
-      companyId: verificationToken.companyId,
+      companyId: verificationToken.company_id,
       email: verificationToken.email,
       token: verificationToken.token,
-      expiresAt: verificationToken.expiresAt,
-      usedAt: verificationToken.usedAt,
-      createdAt: verificationToken.createdAt,
+      expiresAt: verificationToken.expires_at,
+      usedAt: verificationToken.used_at,
+      createdAt: verificationToken.created_at,
     };
   }
 
@@ -59,12 +59,12 @@ export class VerificationTokenModel {
 
     return {
       id: verificationToken.id,
-      companyId: verificationToken.companyId,
+      companyId: verificationToken.company_id,
       email: verificationToken.email,
       token: verificationToken.token,
-      expiresAt: verificationToken.expiresAt,
-      usedAt: verificationToken.usedAt,
-      createdAt: verificationToken.createdAt,
+      expiresAt: verificationToken.expires_at,
+      usedAt: verificationToken.used_at,
+      createdAt: verificationToken.created_at,
     };
   }
 
@@ -74,7 +74,7 @@ export class VerificationTokenModel {
   static async markAsUsed(tokenId: string): Promise<void> {
     await prisma.verificationToken.update({
       where: { id: tokenId },
-      data: { usedAt: new Date() },
+      data: { used_at: new Date() },
     });
   }
 
@@ -84,7 +84,7 @@ export class VerificationTokenModel {
   static async deleteExpiredTokens(): Promise<number> {
     const result = await prisma.verificationToken.deleteMany({
       where: {
-        expiresAt: {
+        expires_at: {
           lt: new Date(),
         },
       },

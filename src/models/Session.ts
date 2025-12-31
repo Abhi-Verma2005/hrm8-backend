@@ -13,6 +13,7 @@ export interface SessionData {
   companyId: string;
   userRole: UserRole;
   email: string;
+  name: string;
   expiresAt: Date;
   lastActivity: Date;
   createdAt: Date;
@@ -32,14 +33,15 @@ export class SessionModel {
   ): Promise<SessionData> {
     const session = await prisma.session.create({
       data: {
-        sessionId,
-        userId,
-        companyId,
-        userRole,
+        session_id: sessionId,
+        user_id: userId,
+        company_id: companyId,
+        user_role: userRole,
         email,
-        expiresAt,
-        lastActivity: new Date(),
+        expires_at: expiresAt,
+        last_activity: new Date(),
       },
+      include: { user: { select: { name: true } } },
     });
 
     return this.mapPrismaToSession(session);
@@ -50,7 +52,8 @@ export class SessionModel {
    */
   static async findBySessionId(sessionId: string): Promise<SessionData | null> {
     const session = await prisma.session.findUnique({
-      where: { sessionId },
+      where: { session_id: sessionId },
+      include: { user: { select: { name: true } } },
     });
 
     if (!session) {
@@ -58,7 +61,7 @@ export class SessionModel {
     }
 
     // Check if session expired
-    if (new Date() > session.expiresAt) {
+    if (new Date() > session.expires_at) {
       await this.deleteBySessionId(sessionId);
       return null;
     }
@@ -71,8 +74,8 @@ export class SessionModel {
    */
   static async updateLastActivity(sessionId: string): Promise<void> {
     await prisma.session.update({
-      where: { sessionId },
-      data: { lastActivity: new Date() },
+      where: { session_id: sessionId },
+      data: { last_activity: new Date() },
     });
   }
 
@@ -81,7 +84,7 @@ export class SessionModel {
    */
   static async deleteBySessionId(sessionId: string): Promise<void> {
     await prisma.session.delete({
-      where: { sessionId },
+      where: { session_id: sessionId },
     }).catch(() => {
       // Session might not exist, ignore error
     });
@@ -92,7 +95,7 @@ export class SessionModel {
    */
   static async deleteAllByUserId(userId: string): Promise<void> {
     await prisma.session.deleteMany({
-      where: { userId },
+      where: { user_id: userId },
     });
   }
 
@@ -103,7 +106,7 @@ export class SessionModel {
     const now = new Date();
     const result = await prisma.session.deleteMany({
       where: {
-        expiresAt: {
+        expires_at: {
           lt: now,
         },
       },
@@ -117,8 +120,9 @@ export class SessionModel {
    */
   static async findByUserId(userId: string): Promise<SessionData[]> {
     const sessions = await prisma.session.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
+      where: { user_id: userId },
+      include: { user: { select: { name: true } } },
+      orderBy: { created_at: 'desc' },
     });
 
     return sessions.map((session) => this.mapPrismaToSession(session));
@@ -127,27 +131,18 @@ export class SessionModel {
   /**
    * Map Prisma session to SessionData interface
    */
-  private static mapPrismaToSession(prismaSession: {
-    id: string;
-    sessionId: string;
-    userId: string;
-    companyId: string;
-    userRole: UserRole;
-    email: string;
-    expiresAt: Date;
-    lastActivity: Date;
-    createdAt: Date;
-  }): SessionData {
+  private static mapPrismaToSession(prismaSession: any): SessionData {
     return {
       id: prismaSession.id,
-      sessionId: prismaSession.sessionId,
-      userId: prismaSession.userId,
-      companyId: prismaSession.companyId,
-      userRole: prismaSession.userRole,
+      sessionId: prismaSession.session_id,
+      userId: prismaSession.user_id,
+      companyId: prismaSession.company_id,
+      userRole: prismaSession.user_role,
       email: prismaSession.email,
-      expiresAt: prismaSession.expiresAt,
-      lastActivity: prismaSession.lastActivity,
-      createdAt: prismaSession.createdAt,
+      name: prismaSession.user?.name || '',
+      expiresAt: prismaSession.expires_at,
+      lastActivity: prismaSession.last_activity,
+      createdAt: prismaSession.created_at,
     };
   }
 }

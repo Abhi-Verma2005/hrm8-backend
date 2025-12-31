@@ -4,7 +4,7 @@ import { EmailTemplateController } from '../controllers/email/EmailTemplateContr
 import { EmailTriggerController } from '../controllers/email/EmailTriggerController';
 import { EmailInboxController } from '../controllers/email/EmailInboxController';
 
-const router = Router();
+const router: Router = Router();
 
 // Email Template Routes
 router.get('/email-templates', authenticate, EmailTemplateController.getTemplates);

@@ -12,7 +12,7 @@ export class FinanceService {
   }) {
     const where: any = {};
     if (filters.status) where.status = filters.status;
-    if (filters.companyId) where.companyId = filters.companyId;
+    if (filters.companyId) where.company_id = filters.companyId;
 
     if (filters.agingDays) {
       const date = new Date();
@@ -26,7 +26,7 @@ export class FinanceService {
 
     return prisma.bill.findMany({
       where,
-      include: { Company: true },
+      include: { company: true },
       orderBy: { due_date: 'asc' }
     });
   }
@@ -39,9 +39,9 @@ export class FinanceService {
     // 1. Aggregate RegionalRevenue for this licensee in the period
     const revenues = await prisma.regionalRevenue.findMany({
       where: {
-        licenseeId,
-        periodStart: { gte: periodStart },
-        periodEnd: { lte: periodEnd },
+        licensee_id: licenseeId,
+        period_start: { gte: periodStart },
+        period_end: { lte: periodEnd },
         status: RevenueStatus.CONFIRMED // Only confirmed revenue
       }
     });
@@ -50,22 +50,22 @@ export class FinanceService {
       return { error: 'No confirmed revenue found for this period' };
     }
 
-    const totalRevenue = revenues.reduce((sum, r) => sum + r.totalRevenue, 0);
-    const licenseeShare = revenues.reduce((sum, r) => sum + r.licenseeShare, 0);
-    const hrm8Share = revenues.reduce((sum, r) => sum + r.hrm8Share, 0);
+    const totalRevenue = revenues.reduce((sum, r) => sum + r.total_revenue, 0);
+    const licenseeShare = revenues.reduce((sum, r) => sum + r.licensee_share, 0);
+    const hrm8Share = revenues.reduce((sum, r) => sum + r.hrm8_share, 0);
 
     // 2. Create Settlement record
     // Note: 'PENDING' string is used as default in schema, checking if it is an enum? 
     // Schema says: status String @default("PENDING")
     const settlement = await prisma.settlement.create({
       data: {
-        licenseeId,
-        periodStart,
-        periodEnd,
-        totalRevenue,
-        licenseeShare,
-        hrm8Share,
-        status: 'PENDING'
+        licensee_id: licenseeId,
+        period_start: periodStart,
+        period_end: periodEnd,
+        total_revenue: totalRevenue,
+        licensee_share: licenseeShare,
+        hrm8_share: hrm8Share,
+        status: 'PENDING',
       }
     });
 
@@ -85,7 +85,7 @@ export class FinanceService {
         status: { in: [BillStatus.PENDING, BillStatus.OVERDUE] },
         due_date: { lt: date }
       },
-      include: { Company: true }
+      include: { company: true }
     });
   }
 }

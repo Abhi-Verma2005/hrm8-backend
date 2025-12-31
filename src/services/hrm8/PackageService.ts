@@ -48,12 +48,12 @@ export class PackageService {
     try {
       // Check CompanyProfile for subscription tier
       const profile = await prisma.companyProfile.findUnique({
-        where: { companyId },
-        select: { profileData: true },
+        where: { company_id: companyId },
+        select: { profile_data: true },
       });
 
-      if (profile?.profileData) {
-        const profileData = profile.profileData as any;
+      if (profile?.profile_data) {
+        const profileData = profile.profile_data as any;
         
         // Check if subscriptionTier is in billing section
         if (profileData.billing?.subscriptionTier) {

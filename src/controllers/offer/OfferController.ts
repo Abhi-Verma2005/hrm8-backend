@@ -3,7 +3,7 @@
  * Handles HTTP requests for offer management endpoints
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { OfferService, CreateOfferRequest } from '../../services/offer/OfferService';
 import { NegotiationService, InitiateNegotiationRequest, RespondToNegotiationRequest } from '../../services/offer/NegotiationService';
 import { OfferDocumentService, CreateDocumentRequest, UploadDocumentRequest, ReviewDocumentRequest } from '../../services/offer/OfferDocumentService';

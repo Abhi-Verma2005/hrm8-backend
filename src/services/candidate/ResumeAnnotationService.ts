@@ -3,7 +3,7 @@
  * Handles CRUD operations for resume annotations (highlights, comments)
  */
 
-import { ResumeAnnotation } from '@prisma/client';
+import { prisma } from '../../lib/prisma';
 
 export interface CreateAnnotationRequest {
   resume_id: string;
@@ -21,7 +21,6 @@ export class ResumeAnnotationService {
    * Get all annotations for a resume
    */
   static async getAnnotations(resume_id: string) {
-    const { prisma } = await import('../../lib/prisma');
     return await prisma.resumeAnnotation.findMany({
       where: { resume_id },
       orderBy: { created_at: 'asc' },
@@ -32,7 +31,6 @@ export class ResumeAnnotationService {
    * Create a new annotation
    */
   static async createAnnotation(data: CreateAnnotationRequest) {
-    const { prisma } = await import('../../lib/prisma');
     return await prisma.resumeAnnotation.create({
       data: {
         resume_id: data.resume_id,
@@ -51,8 +49,6 @@ export class ResumeAnnotationService {
    * Delete an annotation
    */
   static async deleteAnnotation(annotationId: string, userId: string) {
-    const { prisma } = await import('../../lib/prisma');
-    
     // verify ownership
     const annotation = await prisma.resumeAnnotation.findUnique({
       where: { id: annotationId },

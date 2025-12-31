@@ -18,147 +18,140 @@ export class JobModel {
     
     try {
       const prismaData: any = {
-        companyId: jobData.companyId,
-        createdBy: jobData.createdBy,
-        jobCode: jobData.jobCode,
+        company_id: jobData.companyId,
+        created_by: jobData.createdBy,
+        job_code: jobData.jobCode,
         title: jobData.title,
         description: jobData.description,
-        jobSummary: jobData.jobSummary,
+        job_summary: jobData.jobSummary,
         status: jobData.status,
-        hiringMode: jobData.hiringMode,
+        hiring_mode: jobData.hiringMode,
         location: jobData.location,
         department: jobData.department,
-        workArrangement: jobData.workArrangement,
-        employmentType: jobData.employmentType,
-        numberOfVacancies: jobData.numberOfVacancies,
-        salaryMin: jobData.salaryMin,
-        salaryMax: jobData.salaryMax,
-        salaryCurrency: jobData.salaryCurrency,
-        salaryDescription: jobData.salaryDescription,
+        work_arrangement: jobData.workArrangement,
+        employment_type: jobData.employmentType,
+        number_of_vacancies: jobData.numberOfVacancies || 1,
+        salary_min: jobData.salaryMin,
+        salary_max: jobData.salaryMax,
+        salary_currency: jobData.salaryCurrency || 'USD',
+        salary_description: jobData.salaryDescription,
         category: jobData.category,
-        promotionalTags: jobData.promotionalTags,
-        featured: jobData.featured,
-        stealth: jobData.stealth,
-        visibility: jobData.visibility,
-        requirements: jobData.requirements,
-        responsibilities: jobData.responsibilities,
-        termsAccepted: jobData.termsAccepted,
-        termsAcceptedAt: jobData.termsAcceptedAt,
-        termsAcceptedBy: jobData.termsAcceptedBy,
-        postingDate: jobData.postingDate,
-        expiryDate: jobData.expiryDate,
-        closeDate: jobData.closeDate,
+        promotional_tags: jobData.promotionalTags || [],
+        featured: jobData.featured || false,
+        stealth: jobData.stealth || false,
+        visibility: jobData.visibility || 'public',
+        requirements: jobData.requirements || [],
+        responsibilities: jobData.responsibilities || [],
+        terms_accepted: jobData.termsAccepted || false,
+        terms_accepted_at: jobData.termsAcceptedAt,
+        terms_accepted_by: jobData.termsAcceptedBy,
+        posting_date: jobData.postingDate,
+        expiry_date: jobData.expiryDate,
+        close_date: jobData.closeDate,
+        video_interviewing_enabled: jobData.videoInterviewingEnabled || false,
+        archived: jobData.archived || false,
+        archived_at: jobData.archivedAt,
+        archived_by: jobData.archivedBy,
+        automated_screening_enabled: jobData.automatedScreeningEnabled || false,
+        pre_interview_questionnaire_enabled: jobData.preInterviewQuestionnaireEnabled || false,
+        screening_criteria: jobData.screeningCriteria,
+        screening_enabled: jobData.screeningEnabled || false,
       };
 
       if (jobData.hiringTeam !== undefined) {
-        // Prisma JSON fields accept objects/arrays directly, not strings
-        // Handle both array and stringified JSON cases
         if (Array.isArray(jobData.hiringTeam)) {
-          prismaData.hiringTeam = jobData.hiringTeam.length > 0 ? jobData.hiringTeam : null;
+          prismaData.hiring_team = jobData.hiringTeam.length > 0 ? jobData.hiringTeam : null;
         } else if (typeof jobData.hiringTeam === 'string') {
-          // If it's a string, try to parse it
           try {
             const parsed = JSON.parse(jobData.hiringTeam);
-            prismaData.hiringTeam = Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+            prismaData.hiring_team = Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
           } catch {
-            prismaData.hiringTeam = null;
+            prismaData.hiring_team = null;
           }
         } else {
-          prismaData.hiringTeam = null;
+          prismaData.hiring_team = null;
         }
       }
 
       if (jobData.applicationForm !== undefined) {
-        // Prisma JSON fields accept objects directly, not strings
-        prismaData.applicationForm = jobData.applicationForm ? jobData.applicationForm : null;
+        prismaData.application_form = jobData.applicationForm ? jobData.applicationForm : null;
       }
 
-      // Post-launch fields
-      if ((jobData as any).alertsEnabled !== undefined) {
-        prismaData.alertsEnabled = (jobData as any).alertsEnabled ? (jobData as any).alertsEnabled : null;
+      if (jobData.alertsEnabled !== undefined) {
+        prismaData.alerts_enabled = jobData.alertsEnabled ? jobData.alertsEnabled : null;
       }
-      if ((jobData as any).shareLink !== undefined) {
-        prismaData.shareLink = (jobData as any).shareLink || null;
+      
+      if (jobData.shareLink !== undefined) {
+        prismaData.share_link = jobData.shareLink || null;
       }
-      if ((jobData as any).referralLink !== undefined) {
-        prismaData.referralLink = (jobData as any).referralLink || null;
+      
+      if (jobData.referralLink !== undefined) {
+        prismaData.referral_link = jobData.referralLink || null;
       }
-      if ((jobData as any).savedAsTemplate !== undefined) {
-        prismaData.savedAsTemplate = (jobData as any).savedAsTemplate || false;
+      
+      if (jobData.savedAsTemplate !== undefined) {
+        prismaData.saved_as_template = jobData.savedAsTemplate || false;
       }
-      if ((jobData as any).templateId !== undefined) {
-        prismaData.templateId = (jobData as any).templateId || null;
+      
+      if (jobData.templateId !== undefined) {
+        prismaData.template_id = jobData.templateId || null;
       }
 
       // JobTarget fields
-      if ((jobData as any).jobTargetPromotionId !== undefined) {
-        prismaData.jobTargetPromotionId = (jobData as any).jobTargetPromotionId || null;
+      if (jobData.jobTargetPromotionId !== undefined) {
+        prismaData.job_target_promotion_id = jobData.jobTargetPromotionId || null;
       }
-      if ((jobData as any).jobTargetChannels !== undefined) {
-        prismaData.jobTargetChannels = (jobData as any).jobTargetChannels || [];
+      if (jobData.jobTargetChannels !== undefined) {
+        prismaData.job_target_channels = jobData.jobTargetChannels || [];
       }
-      if ((jobData as any).jobTargetBudget !== undefined) {
-        prismaData.jobTargetBudget = (jobData as any).jobTargetBudget || null;
+      if (jobData.jobTargetBudget !== undefined) {
+        prismaData.job_target_budget = jobData.jobTargetBudget || null;
       }
-      if ((jobData as any).jobTargetBudgetSpent !== undefined) {
-        prismaData.jobTargetBudgetSpent = (jobData as any).jobTargetBudgetSpent || 0;
+      if (jobData.jobTargetBudgetSpent !== undefined) {
+        prismaData.job_target_budget_spent = jobData.jobTargetBudgetSpent || 0;
       }
-      if ((jobData as any).jobTargetStatus !== undefined) {
-        prismaData.jobTargetStatus = (jobData as any).jobTargetStatus || null;
+      if (jobData.jobTargetStatus !== undefined) {
+        prismaData.job_target_status = jobData.jobTargetStatus || null;
       }
-      if ((jobData as any).jobTargetApproved !== undefined) {
-        prismaData.jobTargetApproved = (jobData as any).jobTargetApproved || false;
+      if (jobData.jobTargetApproved !== undefined) {
+        prismaData.job_target_approved = jobData.jobTargetApproved || false;
       }
       
       // Assignment fields
-      if ((jobData as any).assignmentMode !== undefined) {
-        prismaData.assignmentMode = (jobData as any).assignmentMode;
+      if (jobData.assignmentMode !== undefined) {
+        prismaData.assignment_mode = jobData.assignmentMode;
       }
-      if ((jobData as any).regionId !== undefined && (jobData as any).regionId !== null) {
-        prismaData.regionId = (jobData as any).regionId;
+      if (jobData.regionId !== undefined && jobData.regionId !== null) {
+        prismaData.region_id = jobData.regionId;
       }
-      if ((jobData as any).assignedConsultantId !== undefined) {
-        prismaData.assignedConsultantId = (jobData as any).assignedConsultantId || null;
-      }
-
-      // Screening fields
-      if ((jobData as any).screening_enabled !== undefined) {
-        prismaData.screening_enabled = (jobData as any).screening_enabled;
-      }
-      if ((jobData as any).automated_screening_enabled !== undefined) {
-        prismaData.automated_screening_enabled = (jobData as any).automated_screening_enabled;
-      }
-      if ((jobData as any).screening_criteria !== undefined) {
-        prismaData.screening_criteria = (jobData as any).screening_criteria || null;
-      }
-      if ((jobData as any).pre_interview_questionnaire_enabled !== undefined) {
-        prismaData.pre_interview_questionnaire_enabled = (jobData as any).pre_interview_questionnaire_enabled;
+      if (jobData.assignedConsultantId !== undefined) {
+        prismaData.assigned_consultant_id = jobData.assignedConsultantId || null;
       }
 
       // Payment fields
-      if ((jobData as any).servicePackage !== undefined) {
-        prismaData.servicePackage = (jobData as any).servicePackage || null;
+      if (jobData.servicePackage !== undefined) {
+        prismaData.service_package = jobData.servicePackage || null;
       }
-      if ((jobData as any).paymentStatus !== undefined) {
-        prismaData.paymentStatus = (jobData as any).paymentStatus || null;
+      if (jobData.paymentStatus !== undefined) {
+        prismaData.payment_status = jobData.paymentStatus || null;
       }
-      if ((jobData as any).paymentAmount !== undefined) {
-        prismaData.paymentAmount = (jobData as any).paymentAmount || null;
+      if (jobData.paymentAmount !== undefined) {
+        prismaData.payment_amount = jobData.paymentAmount || null;
       }
-      if ((jobData as any).paymentCurrency !== undefined) {
-        prismaData.paymentCurrency = (jobData as any).paymentCurrency || null;
+      if (jobData.paymentCurrency !== undefined) {
+        prismaData.payment_currency = jobData.paymentCurrency || null;
       }
-      if ((jobData as any).stripeSessionId !== undefined) {
-        prismaData.stripeSessionId = (jobData as any).stripeSessionId || null;
+      if (jobData.stripeSessionId !== undefined) {
+        prismaData.stripe_session_id = jobData.stripeSessionId || null;
       }
-      if ((jobData as any).stripePaymentIntentId !== undefined) {
-        prismaData.stripePaymentIntentId = (jobData as any).stripePaymentIntentId || null;
+      if (jobData.stripePaymentIntentId !== undefined) {
+        prismaData.stripe_payment_intent_id = jobData.stripePaymentIntentId || null;
       }
-      if ((jobData as any).paymentCompletedAt !== undefined) {
-        prismaData.paymentCompletedAt = (jobData as any).paymentCompletedAt || null;
+      if (jobData.paymentCompletedAt !== undefined) {
+        prismaData.payment_completed_at = jobData.paymentCompletedAt || null;
       }
-      if ((jobData as any).paymentFailedAt !== undefined) {
-        prismaData.paymentFailedAt = (jobData as any).paymentFailedAt || null;
+      if (jobData.paymentFailedAt !== undefined) {
+        prismaData.payment_failed_at = jobData.paymentFailedAt || null;
       }
 
       const job = await prisma.job.create({
@@ -192,11 +185,11 @@ export class JobModel {
    */
   static async findByCompanyId(companyId: string): Promise<Job[]> {
     const jobs = await prisma.job.findMany({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' },
+      where: { company_id: companyId },
+      orderBy: { created_at: 'desc' },
     });
 
-    return jobs.map((job) => this.mapPrismaToJob(job));
+    return jobs.map((job) => this.mapPrismaToJob(job as any));
   }
 
   /**
@@ -211,7 +204,7 @@ export class JobModel {
       hiringMode?: HiringMode;
     }
   ): Promise<Job[]> {
-    const where: any = { companyId };
+    const where: any = { company_id: companyId };
 
     if (filters.status) {
       where.status = filters.status;
@@ -223,15 +216,15 @@ export class JobModel {
       where.location = filters.location;
     }
     if (filters.hiringMode) {
-      where.hiringMode = filters.hiringMode;
+      where.hiring_mode = filters.hiringMode;
     }
 
     const jobs = await prisma.job.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
-    return jobs.map((job) => this.mapPrismaToJob(job));
+    return jobs.map((job) => this.mapPrismaToJob(job as any));
   }
 
   /**
@@ -245,7 +238,7 @@ export class JobModel {
     const where: any = {};
 
     if (filters.regionId) {
-      where.regionId = filters.regionId;
+      where.region_id = filters.regionId;
     }
 
     if (filters.status) {
@@ -254,10 +247,10 @@ export class JobModel {
 
     const jobs = await prisma.job.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
 
-    return jobs.map((job) => this.mapPrismaToJob(job));
+    return jobs.map((job) => this.mapPrismaToJob(job as any));
   }
 
   /**
@@ -293,12 +286,12 @@ export class JobModel {
 
     // Filter by employment type
     if (filters.employmentType) {
-      where.employmentType = filters.employmentType.toUpperCase();
+      where.employment_type = filters.employmentType.toUpperCase();
     }
 
     // Filter by work arrangement
     if (filters.workArrangement) {
-      where.workArrangement = filters.workArrangement.toUpperCase().replace('-', '_');
+      where.work_arrangement = filters.workArrangement.toUpperCase().replace('-', '_');
     }
 
     // Filter by category
@@ -328,14 +321,14 @@ export class JobModel {
           AND: [
             {
               OR: [
-                { salaryMax: { gte: filters.salaryMin } },
-                { salaryMax: null },
+                { salary_max: { gte: filters.salaryMin } },
+                { salary_max: null },
               ],
             },
             {
               OR: [
-                { salaryMin: { lte: filters.salaryMax } },
-                { salaryMin: null },
+                { salary_min: { lte: filters.salaryMax } },
+                { salary_min: null },
               ],
             },
           ],
@@ -344,16 +337,16 @@ export class JobModel {
         // Only min specified: job's max should be >= min (or no max)
         salaryConditions.push({
           OR: [
-            { salaryMax: { gte: filters.salaryMin } },
-            { salaryMax: null },
+            { salary_max: { gte: filters.salaryMin } },
+            { salary_max: null },
           ],
         });
       } else if (filters.salaryMax !== undefined) {
         // Only max specified: job's min should be <= max (or no min)
         salaryConditions.push({
           OR: [
-            { salaryMin: { lte: filters.salaryMax } },
-            { salaryMin: null },
+            { salary_min: { lte: filters.salaryMax } },
+            { salary_min: null },
           ],
         });
       }
@@ -379,7 +372,7 @@ export class JobModel {
           OR: [
             { title: { contains: filters.search, mode: 'insensitive' } },
             { description: { contains: filters.search, mode: 'insensitive' } },
-            { jobSummary: { contains: filters.search, mode: 'insensitive' } },
+            { job_summary: { contains: filters.search, mode: 'insensitive' } },
           ],
         },
       ];
@@ -391,8 +384,8 @@ export class JobModel {
       ...(where.AND || []),
       {
         OR: [
-          { expiryDate: null },
-          { expiryDate: { gte: now } },
+          { expiry_date: null },
+          { expiry_date: { gte: now } },
         ],
       },
     ];
@@ -414,7 +407,7 @@ export class JobModel {
         },
         orderBy: [
           { featured: 'desc' },
-          { postingDate: 'desc' },
+          { posting_date: 'desc' },
         ],
         take: limitNum,
         skip: offsetNum,
@@ -424,7 +417,7 @@ export class JobModel {
 
     return {
       jobs: jobs.map((job) => ({
-        ...this.mapPrismaToJob(job),
+        ...this.mapPrismaToJob(job as any),
         company: job.company ? {
           id: job.company.id,
           name: job.company.name,
@@ -450,8 +443,8 @@ export class JobModel {
       visibility: 'public',
       archived: false,
       OR: [
-        { expiryDate: null },
-        { expiryDate: { gte: now } },
+        { expiry_date: null },
+        { expiry_date: { gte: now } },
       ],
     };
 
@@ -493,140 +486,145 @@ export class JobModel {
    * Update job
    */
   static async update(id: string, jobData: Partial<Omit<Job, 'id' | 'companyId' | 'createdBy' | 'createdAt' | 'updatedAt'>>): Promise<Job> {
-      const updateData: any = {
-        jobCode: jobData.jobCode,
-        title: jobData.title,
-        description: jobData.description,
-        jobSummary: jobData.jobSummary,
-        status: jobData.status,
-        hiringMode: jobData.hiringMode,
-        location: jobData.location,
-        department: jobData.department,
-        workArrangement: jobData.workArrangement,
-        employmentType: jobData.employmentType,
-        numberOfVacancies: jobData.numberOfVacancies,
-        salaryMin: jobData.salaryMin,
-        salaryMax: jobData.salaryMax,
-        salaryCurrency: jobData.salaryCurrency,
-        salaryDescription: jobData.salaryDescription,
-        category: jobData.category,
-        promotionalTags: jobData.promotionalTags,
-        featured: jobData.featured,
-        stealth: jobData.stealth,
-        visibility: jobData.visibility,
-        requirements: jobData.requirements,
-        responsibilities: jobData.responsibilities,
-        termsAccepted: jobData.termsAccepted,
-        termsAcceptedAt: jobData.termsAcceptedAt,
-        termsAcceptedBy: jobData.termsAcceptedBy,
-        postingDate: jobData.postingDate,
-        expiryDate: jobData.expiryDate,
-        closeDate: jobData.closeDate,
-        videoInterviewingEnabled: jobData.videoInterviewingEnabled,
-      };
+    const updateData: any = {
+      job_code: jobData.jobCode,
+      title: jobData.title,
+      description: jobData.description,
+      job_summary: jobData.jobSummary,
+      status: jobData.status,
+      hiring_mode: jobData.hiringMode,
+      location: jobData.location,
+      department: jobData.department,
+      work_arrangement: jobData.workArrangement,
+      employment_type: jobData.employmentType,
+      number_of_vacancies: jobData.numberOfVacancies,
+      salary_min: jobData.salaryMin,
+      salary_max: jobData.salaryMax,
+      salary_currency: jobData.salaryCurrency,
+      salary_description: jobData.salaryDescription,
+      category: jobData.category,
+      promotional_tags: jobData.promotionalTags,
+      featured: jobData.featured,
+      stealth: jobData.stealth,
+      visibility: jobData.visibility,
+      requirements: jobData.requirements,
+      responsibilities: jobData.responsibilities,
+      terms_accepted: jobData.termsAccepted,
+      terms_accepted_at: jobData.termsAcceptedAt,
+      terms_accepted_by: jobData.termsAcceptedBy,
+      posting_date: jobData.postingDate,
+      expiry_date: jobData.expiryDate,
+      close_date: jobData.closeDate,
+      video_interviewing_enabled: jobData.videoInterviewingEnabled,
+      archived: jobData.archived,
+      archived_at: jobData.archivedAt,
+      archived_by: jobData.archivedBy,
+      automated_screening_enabled: jobData.automatedScreeningEnabled,
+      pre_interview_questionnaire_enabled: jobData.preInterviewQuestionnaireEnabled,
+      screening_criteria: jobData.screeningCriteria,
+      screening_enabled: jobData.screeningEnabled,
+    };
 
-      if (jobData.hiringTeam !== undefined) {
-        // Prisma JSON fields accept objects/arrays directly, not strings
-        // Handle both array and stringified JSON cases
-        if (Array.isArray(jobData.hiringTeam)) {
-          // Only include if array has items, otherwise omit (don't set to null)
-          if (jobData.hiringTeam.length > 0) {
-            updateData.hiringTeam = jobData.hiringTeam;
-          }
-          // If empty array, omit the field to leave it unchanged
-        } else if (typeof jobData.hiringTeam === 'string') {
-          // If it's a string, try to parse it
-          try {
-            const parsed = JSON.parse(jobData.hiringTeam);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              updateData.hiringTeam = parsed;
-            }
-            // If empty, omit the field
-          } catch {
-            // Invalid JSON, omit the field
-          }
+    if (jobData.hiringTeam !== undefined) {
+      if (Array.isArray(jobData.hiringTeam)) {
+        if (jobData.hiringTeam.length > 0) {
+          updateData.hiring_team = jobData.hiringTeam;
         }
-        // If undefined or other type, omit the field
-      }
-
-      if (jobData.applicationForm !== undefined) {
-        // Prisma JSON fields accept objects directly, not strings
-        // Only include if it has a value, otherwise omit
-        if (jobData.applicationForm) {
-          updateData.applicationForm = jobData.applicationForm;
+      } else if (typeof jobData.hiringTeam === 'string') {
+        try {
+          const parsed = JSON.parse(jobData.hiringTeam);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            updateData.hiring_team = parsed;
+          }
+        } catch {
+          // ignore
         }
-        // If null/undefined, omit the field to leave it unchanged
       }
+    }
 
-      // Post-launch fields
-      if ((jobData as any).alertsEnabled !== undefined) {
-        updateData.alertsEnabled = (jobData as any).alertsEnabled ? (jobData as any).alertsEnabled : null;
+    if (jobData.applicationForm !== undefined) {
+      if (jobData.applicationForm) {
+        updateData.application_form = jobData.applicationForm;
       }
-      if ((jobData as any).shareLink !== undefined) {
-        updateData.shareLink = (jobData as any).shareLink || null;
-      }
-      if ((jobData as any).referralLink !== undefined) {
-        updateData.referralLink = (jobData as any).referralLink || null;
-      }
-      if ((jobData as any).savedAsTemplate !== undefined) {
-        updateData.savedAsTemplate = (jobData as any).savedAsTemplate;
-      }
-      if ((jobData as any).templateId !== undefined) {
-        updateData.templateId = (jobData as any).templateId || null;
-      }
+    }
 
-      // JobTarget fields
-      if ((jobData as any).jobTargetPromotionId !== undefined) {
-        updateData.jobTargetPromotionId = (jobData as any).jobTargetPromotionId || null;
-      }
-      if ((jobData as any).jobTargetChannels !== undefined) {
-        updateData.jobTargetChannels = (jobData as any).jobTargetChannels || [];
-      }
-      if ((jobData as any).jobTargetBudget !== undefined) {
-        updateData.jobTargetBudget = (jobData as any).jobTargetBudget || null;
-      }
-      if ((jobData as any).jobTargetBudgetSpent !== undefined) {
-        updateData.jobTargetBudgetSpent = (jobData as any).jobTargetBudgetSpent;
-      }
-      if ((jobData as any).jobTargetStatus !== undefined) {
-        updateData.jobTargetStatus = (jobData as any).jobTargetStatus || null;
-      }
-      if ((jobData as any).jobTargetApproved !== undefined) {
-        updateData.jobTargetApproved = (jobData as any).jobTargetApproved;
-      }
+    if (jobData.alertsEnabled !== undefined) {
+      updateData.alerts_enabled = jobData.alertsEnabled ? jobData.alertsEnabled : null;
+    }
+    if (jobData.shareLink !== undefined) {
+      updateData.share_link = jobData.shareLink || null;
+    }
+    if (jobData.referralLink !== undefined) {
+      updateData.referral_link = jobData.referralLink || null;
+    }
+    if (jobData.savedAsTemplate !== undefined) {
+      updateData.saved_as_template = jobData.savedAsTemplate;
+    }
+    if (jobData.templateId !== undefined) {
+      updateData.template_id = jobData.templateId || null;
+    }
 
-      // Payment fields
-      if ((jobData as any).servicePackage !== undefined) {
-        updateData.servicePackage = (jobData as any).servicePackage || null;
-      }
-      if ((jobData as any).paymentStatus !== undefined) {
-        updateData.paymentStatus = (jobData as any).paymentStatus || null;
-      }
-      if ((jobData as any).paymentAmount !== undefined) {
-        updateData.paymentAmount = (jobData as any).paymentAmount || null;
-      }
-      if ((jobData as any).paymentCurrency !== undefined) {
-        updateData.paymentCurrency = (jobData as any).paymentCurrency || null;
-      }
-      if ((jobData as any).stripeSessionId !== undefined) {
-        updateData.stripeSessionId = (jobData as any).stripeSessionId || null;
-      }
-      if ((jobData as any).stripePaymentIntentId !== undefined) {
-        updateData.stripePaymentIntentId = (jobData as any).stripePaymentIntentId || null;
-      }
-      if ((jobData as any).paymentCompletedAt !== undefined) {
-        updateData.paymentCompletedAt = (jobData as any).paymentCompletedAt || null;
-      }
-      if ((jobData as any).paymentFailedAt !== undefined) {
-        updateData.paymentFailedAt = (jobData as any).paymentFailedAt || null;
-      }
+    // JobTarget fields
+    if (jobData.jobTargetPromotionId !== undefined) {
+      updateData.job_target_promotion_id = jobData.jobTargetPromotionId || null;
+    }
+    if (jobData.jobTargetChannels !== undefined) {
+      updateData.job_target_channels = jobData.jobTargetChannels || [];
+    }
+    if (jobData.jobTargetBudget !== undefined) {
+      updateData.job_target_budget = jobData.jobTargetBudget || null;
+    }
+    if (jobData.jobTargetBudgetSpent !== undefined) {
+      updateData.job_target_budget_spent = jobData.jobTargetBudgetSpent;
+    }
+    if (jobData.jobTargetStatus !== undefined) {
+      updateData.job_target_status = jobData.jobTargetStatus || null;
+    }
+    if (jobData.jobTargetApproved !== undefined) {
+      updateData.job_target_approved = jobData.jobTargetApproved;
+    }
 
-      const job = await prisma.job.update({
-        where: { id },
-        data: updateData,
+    // Payment fields
+    if (jobData.servicePackage !== undefined) {
+      updateData.service_package = jobData.servicePackage || null;
+    }
+    if (jobData.paymentStatus !== undefined) {
+      updateData.payment_status = jobData.paymentStatus || null;
+    }
+    if (jobData.paymentAmount !== undefined) {
+      updateData.payment_amount = jobData.paymentAmount || null;
+    }
+    if (jobData.paymentCurrency !== undefined) {
+      updateData.payment_currency = jobData.paymentCurrency || null;
+    }
+    if (jobData.stripeSessionId !== undefined) {
+      updateData.stripe_session_id = jobData.stripeSessionId || null;
+    }
+    if (jobData.stripePaymentIntentId !== undefined) {
+      updateData.stripe_payment_intent_id = jobData.stripePaymentIntentId || null;
+    }
+    if (jobData.paymentCompletedAt !== undefined) {
+      updateData.payment_completed_at = jobData.paymentCompletedAt || null;
+    }
+    if (jobData.paymentFailedAt !== undefined) {
+      updateData.payment_failed_at = jobData.paymentFailedAt || null;
+    }
+    if (jobData.regionId !== undefined) {
+      updateData.region_id = jobData.regionId || null;
+    }
+    if (jobData.assignmentMode !== undefined) {
+      updateData.assignment_mode = jobData.assignmentMode;
+    }
+    if (jobData.assignedConsultantId !== undefined) {
+      updateData.assigned_consultant_id = jobData.assignedConsultantId || null;
+    }
+
+    const job = await prisma.job.update({
+      where: { id },
+      data: updateData,
     });
 
-    return this.mapPrismaToJob(job);
+    return this.mapPrismaToJob(job as any);
   }
 
   /**
@@ -646,7 +644,7 @@ export class JobModel {
     const result = await prisma.job.updateMany({
       where: {
         id: { in: ids },
-        companyId: companyId, // Ensure jobs belong to the company
+        company_id: companyId, // Ensure jobs belong to the company
       },
       data: { status: JobStatus.CLOSED },
     });
@@ -658,137 +656,151 @@ export class JobModel {
    */
   private static mapPrismaToJob(prismaJob: {
     id: string;
-    companyId: string;
-    createdBy: string;
-    jobCode: string | null;
+    company_id: string;
+    created_by: string;
+    job_code: string | null;
     title: string;
     description: string;
-    jobSummary: string | null;
+    job_summary: string | null;
     status: JobStatus;
-    hiringMode: HiringMode;
+    hiring_mode: HiringMode;
     location: string;
     department: string | null;
-    workArrangement: WorkArrangement;
-    employmentType: EmploymentType;
-    numberOfVacancies: number;
-    salaryMin: number | null;
-    salaryMax: number | null;
-    salaryCurrency: string;
-    salaryDescription: string | null;
+    work_arrangement: WorkArrangement;
+    employment_type: EmploymentType;
+    number_of_vacancies: number;
+    salary_min: number | null;
+    salary_max: number | null;
+    salary_currency: string;
+    salary_description: string | null;
     category: string | null;
-    promotionalTags: string[];
+    promotional_tags: string[];
     featured: boolean;
     stealth: boolean;
     visibility: string;
     requirements: string[];
     responsibilities: string[];
-    termsAccepted: boolean;
-    termsAcceptedAt: Date | null;
-    termsAcceptedBy: string | null;
-    postingDate: Date | null;
-    expiryDate: Date | null;
-    closeDate: Date | null;
-    hiringTeam?: any;
-    applicationForm?: any;
-    videoInterviewingEnabled: boolean;
-    alertsEnabled?: any;
-    shareLink?: string | null;
-    referralLink?: string | null;
-    savedAsTemplate?: boolean;
-    templateId?: string | null;
-    jobTargetPromotionId?: string | null;
-    jobTargetChannels?: string[];
-    jobTargetBudget?: number | null;
-    jobTargetBudgetSpent?: number | null;
-    jobTargetStatus?: string | null;
-    jobTargetApproved?: boolean;
-    regionId?: string | null;
-    assignmentMode?: any;
-    assignmentSource?: any;
-    assignedConsultantId?: string | null;
-    paymentStatus?: any;
-    servicePackage?: string | null;
-    paymentAmount?: number | null;
-    paymentCurrency?: string | null;
-    stripeSessionId?: string | null;
-    stripePaymentIntentId?: string | null;
-    paymentCompletedAt?: Date | null;
-    paymentFailedAt?: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
+    terms_accepted: boolean;
+    terms_accepted_at: Date | null;
+    terms_accepted_by: string | null;
+    posting_date: Date | null;
+    expiry_date: Date | null;
+    close_date: Date | null;
+    hiring_team?: any;
+    application_form?: any;
+    video_interviewing_enabled: boolean;
+    alerts_enabled?: any;
+    share_link?: string | null;
+    referral_link?: string | null;
+    saved_as_template?: boolean;
+    template_id?: string | null;
+    archived?: boolean;
+    archived_at?: Date | null;
+    archived_by?: string | null;
+    automated_screening_enabled?: boolean;
+    pre_interview_questionnaire_enabled?: boolean;
+    screening_criteria?: any;
+    screening_enabled?: boolean;
+    job_target_promotion_id?: string | null;
+    job_target_channels?: string[];
+    job_target_budget?: number | null;
+    job_target_budget_spent?: number | null;
+    job_target_status?: string | null;
+    job_target_approved?: boolean;
+    region_id?: string | null;
+    assignment_mode?: any;
+    assignment_source?: any;
+    assigned_consultant_id?: string | null;
+    payment_status?: any;
+    service_package?: string | null;
+    payment_amount?: number | null;
+    payment_currency?: string | null;
+    stripe_session_id?: string | null;
+    stripe_payment_intent_id?: string | null;
+    payment_completed_at?: Date | null;
+    payment_failed_at?: Date | null;
+    created_at: Date;
+    updated_at: Date;
   }): Job {
     return {
       id: prismaJob.id,
-      companyId: prismaJob.companyId,
-      createdBy: prismaJob.createdBy,
-      jobCode: prismaJob.jobCode || undefined,
+      companyId: prismaJob.company_id,
+      createdBy: prismaJob.created_by,
+      jobCode: prismaJob.job_code || undefined,
       title: prismaJob.title,
       description: prismaJob.description,
-      jobSummary: prismaJob.jobSummary || undefined,
+      jobSummary: prismaJob.job_summary || undefined,
       status: prismaJob.status,
-      hiringMode: prismaJob.hiringMode,
+      hiringMode: prismaJob.hiring_mode,
       location: prismaJob.location,
       department: prismaJob.department || undefined,
-      workArrangement: prismaJob.workArrangement,
-      employmentType: prismaJob.employmentType,
-      numberOfVacancies: prismaJob.numberOfVacancies,
-      salaryMin: prismaJob.salaryMin || undefined,
-      salaryMax: prismaJob.salaryMax || undefined,
-      salaryCurrency: prismaJob.salaryCurrency,
-      salaryDescription: prismaJob.salaryDescription || undefined,
+      workArrangement: prismaJob.work_arrangement,
+      employmentType: prismaJob.employment_type,
+      numberOfVacancies: prismaJob.number_of_vacancies,
+      salaryMin: prismaJob.salary_min || undefined,
+      salaryMax: prismaJob.salary_max || undefined,
+      salaryCurrency: prismaJob.salary_currency,
+      salaryDescription: prismaJob.salary_description || undefined,
       category: prismaJob.category || undefined,
-      promotionalTags: prismaJob.promotionalTags,
+      promotionalTags: prismaJob.promotional_tags,
       featured: prismaJob.featured,
       stealth: prismaJob.stealth,
       visibility: prismaJob.visibility,
       requirements: prismaJob.requirements || [],
       responsibilities: prismaJob.responsibilities || [],
-      termsAccepted: prismaJob.termsAccepted,
-      termsAcceptedAt: prismaJob.termsAcceptedAt || undefined,
-      termsAcceptedBy: prismaJob.termsAcceptedBy || undefined,
-      postingDate: prismaJob.postingDate || undefined,
-      expiryDate: prismaJob.expiryDate || undefined,
-      closeDate: prismaJob.closeDate || undefined,
-      hiringTeam: prismaJob.hiringTeam
-        ? (typeof prismaJob.hiringTeam === 'string'
-            ? JSON.parse(prismaJob.hiringTeam)
-            : prismaJob.hiringTeam)
+      termsAccepted: prismaJob.terms_accepted,
+      termsAcceptedAt: prismaJob.terms_accepted_at || undefined,
+      termsAcceptedBy: prismaJob.terms_accepted_by || undefined,
+      postingDate: prismaJob.posting_date || undefined,
+      expiryDate: prismaJob.expiry_date || undefined,
+      closeDate: prismaJob.close_date || undefined,
+      hiringTeam: prismaJob.hiring_team
+        ? (typeof prismaJob.hiring_team === 'string'
+            ? JSON.parse(prismaJob.hiring_team)
+            : prismaJob.hiring_team)
         : undefined,
-      applicationForm: prismaJob.applicationForm
-        ? (typeof prismaJob.applicationForm === 'string'
-            ? JSON.parse(prismaJob.applicationForm)
-            : prismaJob.applicationForm)
+      applicationForm: prismaJob.application_form
+        ? (typeof prismaJob.application_form === 'string'
+            ? JSON.parse(prismaJob.application_form)
+            : prismaJob.application_form)
         : undefined,
-      videoInterviewingEnabled: prismaJob.videoInterviewingEnabled,
-      alertsEnabled: prismaJob.alertsEnabled
-        ? (typeof prismaJob.alertsEnabled === 'string'
-            ? JSON.parse(prismaJob.alertsEnabled)
-            : prismaJob.alertsEnabled)
+      videoInterviewingEnabled: prismaJob.video_interviewing_enabled,
+      alertsEnabled: prismaJob.alerts_enabled
+        ? (typeof prismaJob.alerts_enabled === 'string'
+            ? JSON.parse(prismaJob.alerts_enabled)
+            : prismaJob.alerts_enabled)
         : undefined,
-      shareLink: prismaJob.shareLink || undefined,
-      referralLink: prismaJob.referralLink || undefined,
-      savedAsTemplate: prismaJob.savedAsTemplate || false,
-      templateId: prismaJob.templateId || undefined,
-      jobTargetPromotionId: prismaJob.jobTargetPromotionId || undefined,
-      jobTargetChannels: prismaJob.jobTargetChannels || [],
-      jobTargetBudget: prismaJob.jobTargetBudget || undefined,
-      jobTargetBudgetSpent: prismaJob.jobTargetBudgetSpent || undefined,
-      jobTargetStatus: prismaJob.jobTargetStatus || undefined,
-      jobTargetApproved: prismaJob.jobTargetApproved || false,
-      regionId: prismaJob.regionId || undefined,
-      assignmentMode: prismaJob.assignmentMode || undefined,
-      assignmentSource: prismaJob.assignmentSource || undefined,
-      assignedConsultantId: prismaJob.assignedConsultantId || undefined,
-      paymentStatus: prismaJob.paymentStatus || undefined,
-      servicePackage: prismaJob.servicePackage || undefined,
-      paymentAmount: prismaJob.paymentAmount || undefined,
-      paymentCurrency: prismaJob.paymentCurrency || undefined,
-      stripeSessionId: prismaJob.stripeSessionId || undefined,
-      stripePaymentIntentId: prismaJob.stripePaymentIntentId || undefined,
-      paymentCompletedAt: prismaJob.paymentCompletedAt || undefined,
-      paymentFailedAt: prismaJob.paymentFailedAt || undefined,
-      createdAt: prismaJob.createdAt,
-      updatedAt: prismaJob.updatedAt,
+      shareLink: prismaJob.share_link || undefined,
+      referralLink: prismaJob.referral_link || undefined,
+      savedAsTemplate: prismaJob.saved_as_template || false,
+      templateId: prismaJob.template_id || undefined,
+      archived: prismaJob.archived || false,
+      archivedAt: prismaJob.archived_at || undefined,
+      archivedBy: prismaJob.archived_by || undefined,
+      automatedScreeningEnabled: prismaJob.automated_screening_enabled || false,
+      preInterviewQuestionnaireEnabled: prismaJob.pre_interview_questionnaire_enabled || false,
+      screeningCriteria: prismaJob.screening_criteria || undefined,
+      screeningEnabled: prismaJob.screening_enabled || false,
+      jobTargetPromotionId: prismaJob.job_target_promotion_id || undefined,
+      jobTargetChannels: prismaJob.job_target_channels || [],
+      jobTargetBudget: prismaJob.job_target_budget || undefined,
+      jobTargetBudgetSpent: prismaJob.job_target_budget_spent || undefined,
+      jobTargetStatus: prismaJob.job_target_status || undefined,
+      jobTargetApproved: prismaJob.job_target_approved || false,
+      regionId: prismaJob.region_id || undefined,
+      assignmentMode: prismaJob.assignment_mode || undefined,
+      assignmentSource: prismaJob.assignment_source || undefined,
+      assignedConsultantId: prismaJob.assigned_consultant_id || undefined,
+      paymentStatus: prismaJob.payment_status || undefined,
+      servicePackage: prismaJob.service_package || undefined,
+      paymentAmount: prismaJob.payment_amount || undefined,
+      paymentCurrency: prismaJob.payment_currency || undefined,
+      stripeSessionId: prismaJob.stripe_session_id || undefined,
+      stripePaymentIntentId: prismaJob.stripe_payment_intent_id || undefined,
+      paymentCompletedAt: prismaJob.payment_completed_at || undefined,
+      paymentFailedAt: prismaJob.payment_failed_at || undefined,
+      createdAt: prismaJob.created_at,
+      updatedAt: prismaJob.updated_at,
     };
   }
 }

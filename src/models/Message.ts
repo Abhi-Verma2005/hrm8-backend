@@ -38,12 +38,12 @@ export class MessageModel {
     const message = await prisma.message.create({
       data: {
         id: randomUUID(),
-        conversationId: messageData.conversationId,
-        senderEmail: messageData.senderEmail,
-        senderType: messageData.senderType as any,
-        senderId: messageData.senderId || '',
+        conversation_id: messageData.conversationId,
+        sender_email: messageData.senderEmail,
+        sender_type: messageData.senderType as any,
+        sender_id: messageData.senderId || '',
         content: messageData.content,
-        contentType: (messageData.type || 'TEXT') as any,
+        content_type: (messageData.type || 'TEXT') as any,
       },
     });
 
@@ -58,10 +58,10 @@ export class MessageModel {
   ): Promise<MessageData[]> {
     const messages = await prisma.message.findMany({
       where: {
-        conversationId: conversationId,
+        conversation_id: conversationId,
       },
       orderBy: {
-        createdAt: 'asc',
+        created_at: 'asc',
       },
     });
 
@@ -75,7 +75,7 @@ export class MessageModel {
     const message = await prisma.message.update({
       where: { id: messageId },
       data: {
-        readAt: new Date(),
+        read_at: new Date(),
       },
     });
 
@@ -92,29 +92,29 @@ export class MessageModel {
     // Get messages that haven't been read by this sender
     const allMessages = await prisma.message.findMany({
       where: {
-        conversationId: conversationId,
-        senderEmail: {
+        conversation_id: conversationId,
+        sender_email: {
           not: senderEmail,
         },
       },
     });
 
-    // Filter messages where senderEmail is not in readBy array
+    // Filter messages where senderEmail is not in read_by array
     const messages = allMessages.filter(msg => {
-      const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
-      return !readBy.includes(senderEmail);
+      const read_by = Array.isArray(msg.read_by) ? msg.read_by : [];
+      return !read_by.includes(senderEmail);
     });
 
-    // Update each message to add sender to readBy array
+    // Update each message to add sender to read_by array
     const updatePromises = messages.map(async (msg) => {
-      const currentReadBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+      const currentReadBy = Array.isArray(msg.read_by) ? msg.read_by : [];
       const updatedReadBy = [...currentReadBy, senderEmail];
       
       return prisma.message.update({
         where: { id: msg.id },
         data: {
-          readBy: updatedReadBy,
-          readAt: new Date(),
+          read_by: updatedReadBy,
+          read_at: new Date(),
         },
       });
     });
@@ -133,16 +133,16 @@ export class MessageModel {
     
     return {
       id: prismaMessage.id,
-      conversationId: prismaMessage.conversation_id || prismaMessage.conversationId,
-      senderEmail: prismaMessage.sender_email || prismaMessage.senderEmail,
-      senderType: (prismaMessage.sender_type || prismaMessage.senderType) as MessageSenderType,
-      senderId: prismaMessage.sender_id || prismaMessage.senderId || undefined,
+      conversationId: prismaMessage.conversation_id || '',
+      senderEmail: prismaMessage.sender_email || '',
+      senderType: (prismaMessage.sender_type) as MessageSenderType,
+      senderId: prismaMessage.sender_id || undefined,
       content: prismaMessage.content,
-      type: (prismaMessage.content_type || prismaMessage.type || 'TEXT') as MessageType,
+      type: (prismaMessage.content_type || 'TEXT') as MessageType,
       isRead,
-      readAt: prismaMessage.read_at ? new Date(prismaMessage.read_at) : (prismaMessage.readAt ? new Date(prismaMessage.readAt) : undefined),
-      createdAt: prismaMessage.created_at ? new Date(prismaMessage.created_at) : new Date(prismaMessage.createdAt),
-      updatedAt: prismaMessage.updated_at ? new Date(prismaMessage.updated_at) : new Date(prismaMessage.updatedAt),
+      readAt: prismaMessage.read_at ? new Date(prismaMessage.read_at) : undefined,
+      createdAt: prismaMessage.created_at ? new Date(prismaMessage.created_at) : new Date(),
+      updatedAt: prismaMessage.updated_at ? new Date(prismaMessage.updated_at) : new Date(),
     };
   }
 }

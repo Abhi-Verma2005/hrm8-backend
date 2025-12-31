@@ -48,16 +48,16 @@ export class ResumeAnnotationController {
   static async createAnnotation(req: Request, res: Response) {
     try {
       const { resumeId } = req.params;
-      const { userId, userName, userColor, type, text, comment, position } = req.body;
+      const { user_id, user_name, user_color, type, text, comment, position } = req.body;
 
       // In a real app, userId/userName would come from req.user
       // For now, we accept them from body (assuming internal usage or trusting the client for this MVP)
 
       const annotation = await ResumeAnnotationService.createAnnotation({
-        resumeId,
-        userId,
-        userName,
-        userColor,
+        resume_id: resumeId,
+        user_id,
+        user_name,
+        user_color,
         type,
         text,
         comment,
@@ -77,9 +77,9 @@ export class ResumeAnnotationController {
   static async deleteAnnotation(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { userId } = req.body; // Or from req.user
+      const { user_id } = req.body; // Or from req.user
 
-      await ResumeAnnotationService.deleteAnnotation(id, userId);
+      await ResumeAnnotationService.deleteAnnotation(id, user_id);
       res.json({ success: true });
     } catch (error: any) {
       console.error('Error deleting annotation:', error);

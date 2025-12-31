@@ -1,6 +1,5 @@
-import crypto from 'crypto';
 import { VideoInterviewModel, type VideoInterviewData } from '../../models/VideoInterview';
-import prisma from '../../lib/prisma';
+import { prisma } from '../../lib/prisma';
 import { ApplicationModel } from '../../models/Application';
 import { JobModel } from '../../models/Job';
 import { GoogleCalendarService } from '../integrations/GoogleCalendarService';
@@ -176,10 +175,10 @@ export class VideoInterviewService {
     // We try to access using camelCase if possible, or fallback to snake_case if typed as such
     // Based on linter feedback, we should use camelCase
     const config = await prisma.interviewConfiguration.findUnique({
-      where: { jobRoundId: interview.jobRoundId },
+      where: { job_round_id: interview.jobRoundId },
     });
 
-    if (!config || !config.requireAllInterviewers) {
+    if (!config || !config.require_all_interviewers) {
       return result;
     }
 
@@ -198,12 +197,12 @@ export class VideoInterviewService {
 
     // Get submitted feedbacks
     const feedbacks = await prisma.interviewFeedback.findMany({
-      where: { videoInterviewId: interviewId },
-      select: { interviewerId: true },
+      where: { video_interview_id: interviewId },
+      select: { interviewer_id: true },
     });
 
     const submittedInterviewerIds = feedbacks
-      .map(f => f.interviewerId)
+      .map(f => f.interviewer_id)
       .filter((id): id is string => !!id);
 
     result.submittedCount = submittedInterviewerIds.length;
@@ -248,7 +247,18 @@ export class VideoInterviewService {
     };
 
     await prisma.interviewFeedback.create({
-      data: feedbackData,
+      data: {
+        
+        video_interview_id: interviewId,
+        interviewer_id: data.interviewerId,
+        interviewer_name: data.interviewerName,
+        interviewer_email: data.interviewerEmail,
+        overall_rating: data.overallRating,
+        notes: data.notes,
+        recommendation: data.recommendation as any,
+        submitted_at: new Date(),
+        updated_at: new Date(),
+      },
     });
 
     // 2. Calculate new average score

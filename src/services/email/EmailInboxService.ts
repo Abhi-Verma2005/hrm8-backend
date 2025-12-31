@@ -1,5 +1,6 @@
 import { EmailMessageModel, EmailMessageData } from '../../models/EmailMessage';
 import { EmailStatus } from '@prisma/client';
+import { emailService } from './EmailService';
 
 export interface EmailFilters {
   candidateId?: string;

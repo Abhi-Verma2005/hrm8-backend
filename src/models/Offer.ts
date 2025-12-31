@@ -87,32 +87,34 @@ export class OfferModel {
   }): Promise<OfferData> {
     const offer = await prisma.offerLetter.create({
       data: {
-        applicationId: offerData.applicationId,
-        candidateId: offerData.candidateId,
-        jobId: offerData.jobId,
-        templateId: offerData.templateId,
-        offerType: offerData.offerType,
+        
+        application_id: offerData.applicationId,
+        candidate_id: offerData.candidateId,
+        job_id: offerData.jobId,
+        template_id: offerData.templateId,
+        offer_type: offerData.offerType,
         salary: offerData.salary,
-        salaryCurrency: offerData.salaryCurrency || 'USD',
-        salaryPeriod: offerData.salaryPeriod,
-        startDate: offerData.startDate,
+        salary_currency: offerData.salaryCurrency || 'USD',
+        salary_period: offerData.salaryPeriod,
+        start_date: offerData.startDate,
         benefits: offerData.benefits || [],
-        bonusStructure: offerData.bonusStructure,
-        equityOptions: offerData.equityOptions,
-        workLocation: offerData.workLocation,
-        workArrangement: offerData.workArrangement,
-        probationPeriod: offerData.probationPeriod,
-        vacationDays: offerData.vacationDays,
-        customTerms: offerData.customTerms,
+        bonus_structure: offerData.bonusStructure,
+        equity_options: offerData.equityOptions,
+        work_location: offerData.workLocation,
+        work_arrangement: offerData.workArrangement,
+        probation_period: offerData.probationPeriod,
+        vacation_days: offerData.vacationDays,
+        custom_terms: offerData.customTerms,
         status: OfferStatus.DRAFT,
-        approvalWorkflow: offerData.approvalWorkflow,
-        expiryDate: offerData.expiryDate,
-        customMessage: offerData.customMessage,
-        createdBy: offerData.createdBy,
+        approval_workflow: offerData.approvalWorkflow,
+        expiry_date: offerData.expiryDate,
+        custom_message: offerData.customMessage,
+        created_by: offerData.createdBy,
+        updated_at: new Date(),
       },
     });
 
-    return offer as OfferData;
+    return this.mapPrismaToOffer(offer);
   }
 
   /**
@@ -122,9 +124,9 @@ export class OfferModel {
     const offer = await prisma.offerLetter.findUnique({
       where: { id },
       include: {
-        Application: true,
-        Candidate: true,
-        Job: true,
+        application: true,
+        candidate: true,
+        job: true,
       },
     });
 
@@ -132,27 +134,7 @@ export class OfferModel {
       return null;
     }
 
-    return {
-      ...offer,
-      application: offer.Application ? {
-        id: offer.Application.id,
-        candidateId: offer.Application.candidateId,
-        jobId: offer.Application.jobId,
-        status: offer.Application.status,
-        stage: offer.Application.stage,
-      } : undefined,
-      candidate: offer.Candidate ? {
-        id: offer.Candidate.id,
-        email: offer.Candidate.email,
-        firstName: offer.Candidate.firstName,
-        lastName: offer.Candidate.lastName,
-      } : undefined,
-      job: offer.Job ? {
-        id: offer.Job.id,
-        title: offer.Job.title,
-        companyId: offer.Job.companyId,
-      } : undefined,
-    } as OfferData;
+    return this.mapPrismaToOffer(offer);
   }
 
   /**
@@ -160,36 +142,16 @@ export class OfferModel {
    */
   static async findByApplicationId(applicationId: string): Promise<OfferData[]> {
     const offers = await prisma.offerLetter.findMany({
-      where: { applicationId },
-      orderBy: { createdAt: 'desc' },
+      where: { application_id: applicationId },
+      orderBy: { created_at: 'desc' },
       include: {
-        Application: true,
-        Candidate: true,
-        Job: true,
+        application: true,
+        candidate: true,
+        job: true,
       },
     });
 
-    return offers.map(offer => ({
-      ...offer,
-      application: offer.Application ? {
-        id: offer.Application.id,
-        candidateId: offer.Application.candidateId,
-        jobId: offer.Application.jobId,
-        status: offer.Application.status,
-        stage: offer.Application.stage,
-      } : undefined,
-      candidate: offer.Candidate ? {
-        id: offer.Candidate.id,
-        email: offer.Candidate.email,
-        firstName: offer.Candidate.firstName,
-        lastName: offer.Candidate.lastName,
-      } : undefined,
-      job: offer.Job ? {
-        id: offer.Job.id,
-        title: offer.Job.title,
-        companyId: offer.Job.companyId,
-      } : undefined,
-    })) as OfferData[];
+    return offers.map(offer => this.mapPrismaToOffer(offer));
   }
 
   /**
@@ -197,36 +159,16 @@ export class OfferModel {
    */
   static async findByCandidateId(candidateId: string): Promise<OfferData[]> {
     const offers = await prisma.offerLetter.findMany({
-      where: { candidateId },
-      orderBy: { createdAt: 'desc' },
+      where: { candidate_id: candidateId },
+      orderBy: { created_at: 'desc' },
       include: {
-        Application: true,
-        Candidate: true,
-        Job: true,
+        application: true,
+        candidate: true,
+        job: true,
       },
     });
 
-    return offers.map(offer => ({
-      ...offer,
-      application: offer.Application ? {
-        id: offer.Application.id,
-        candidateId: offer.Application.candidateId,
-        jobId: offer.Application.jobId,
-        status: offer.Application.status,
-        stage: offer.Application.stage,
-      } : undefined,
-      candidate: offer.Candidate ? {
-        id: offer.Candidate.id,
-        email: offer.Candidate.email,
-        firstName: offer.Candidate.firstName,
-        lastName: offer.Candidate.lastName,
-      } : undefined,
-      job: offer.Job ? {
-        id: offer.Job.id,
-        title: offer.Job.title,
-        companyId: offer.Job.companyId,
-      } : undefined,
-    })) as OfferData[];
+    return offers.map(offer => this.mapPrismaToOffer(offer));
   }
 
   /**
@@ -259,37 +201,44 @@ export class OfferModel {
       generatedPdfUrl: string;
     }>
   ): Promise<OfferData> {
+    const mappedUpdates: any = {
+      updated_at: new Date(),
+    };
+
+    if (updates.offerType !== undefined) mappedUpdates.offer_type = updates.offerType;
+    if (updates.salary !== undefined) mappedUpdates.salary = updates.salary;
+    if (updates.salaryCurrency !== undefined) mappedUpdates.salary_currency = updates.salaryCurrency;
+    if (updates.salaryPeriod !== undefined) mappedUpdates.salary_period = updates.salaryPeriod;
+    if (updates.startDate !== undefined) mappedUpdates.start_date = updates.startDate;
+    if (updates.benefits !== undefined) mappedUpdates.benefits = updates.benefits;
+    if (updates.bonusStructure !== undefined) mappedUpdates.bonus_structure = updates.bonusStructure;
+    if (updates.equityOptions !== undefined) mappedUpdates.equity_options = updates.equityOptions;
+    if (updates.workLocation !== undefined) mappedUpdates.work_location = updates.workLocation;
+    if (updates.workArrangement !== undefined) mappedUpdates.work_arrangement = updates.workArrangement;
+    if (updates.probationPeriod !== undefined) mappedUpdates.probation_period = updates.probationPeriod;
+    if (updates.vacationDays !== undefined) mappedUpdates.vacation_days = updates.vacationDays;
+    if (updates.customTerms !== undefined) mappedUpdates.custom_terms = updates.customTerms;
+    if (updates.approvalWorkflow !== undefined) mappedUpdates.approval_workflow = updates.approvalWorkflow;
+    if (updates.expiryDate !== undefined) mappedUpdates.expiry_date = updates.expiryDate;
+    if (updates.customMessage !== undefined) mappedUpdates.custom_message = updates.customMessage;
+    if (updates.status !== undefined) mappedUpdates.status = updates.status;
+    if (updates.sentDate !== undefined) mappedUpdates.sent_date = updates.sentDate;
+    if (updates.respondedDate !== undefined) mappedUpdates.responded_date = updates.respondedDate;
+    if (updates.declineReason !== undefined) mappedUpdates.decline_reason = updates.declineReason;
+    if (updates.signedDocumentUrl !== undefined) mappedUpdates.signed_document_url = updates.signedDocumentUrl;
+    if (updates.generatedPdfUrl !== undefined) mappedUpdates.generated_pdf_url = updates.generatedPdfUrl;
+
     const offer = await prisma.offerLetter.update({
       where: { id },
-      data: updates,
+      data: mappedUpdates,
       include: {
-        Application: true,
-        Candidate: true,
-        Job: true,
+        application: true,
+        candidate: true,
+        job: true,
       },
     });
 
-    return {
-      ...offer,
-      application: offer.Application ? {
-        id: offer.Application.id,
-        candidateId: offer.Application.candidateId,
-        jobId: offer.Application.jobId,
-        status: offer.Application.status,
-        stage: offer.Application.stage,
-      } : undefined,
-      candidate: offer.Candidate ? {
-        id: offer.Candidate.id,
-        email: offer.Candidate.email,
-        firstName: offer.Candidate.firstName,
-        lastName: offer.Candidate.lastName,
-      } : undefined,
-      job: offer.Job ? {
-        id: offer.Job.id,
-        title: offer.Job.title,
-        companyId: offer.Job.companyId,
-      } : undefined,
-    } as OfferData;
+    return this.mapPrismaToOffer(offer);
   }
 
   /**
@@ -299,6 +248,59 @@ export class OfferModel {
     await prisma.offerLetter.delete({
       where: { id },
     });
+  }
+
+  private static mapPrismaToOffer(prismaOffer: any): OfferData {
+    return {
+      id: prismaOffer.id,
+      applicationId: prismaOffer.application_id,
+      candidateId: prismaOffer.candidate_id,
+      jobId: prismaOffer.job_id,
+      templateId: prismaOffer.template_id,
+      offerType: prismaOffer.offer_type,
+      salary: prismaOffer.salary,
+      salaryCurrency: prismaOffer.salary_currency,
+      salaryPeriod: prismaOffer.salary_period,
+      startDate: prismaOffer.start_date,
+      benefits: prismaOffer.benefits,
+      bonusStructure: prismaOffer.bonus_structure,
+      equityOptions: prismaOffer.equity_options,
+      workLocation: prismaOffer.work_location,
+      workArrangement: prismaOffer.work_arrangement,
+      probationPeriod: prismaOffer.probation_period,
+      vacationDays: prismaOffer.vacation_days,
+      customTerms: prismaOffer.custom_terms,
+      status: prismaOffer.status,
+      approvalWorkflow: prismaOffer.approval_workflow,
+      sentDate: prismaOffer.sent_date,
+      expiryDate: prismaOffer.expiry_date,
+      respondedDate: prismaOffer.responded_date,
+      declineReason: prismaOffer.decline_reason,
+      signedDocumentUrl: prismaOffer.signed_document_url,
+      generatedPdfUrl: prismaOffer.generated_pdf_url,
+      customMessage: prismaOffer.custom_message,
+      createdBy: prismaOffer.created_by,
+      createdAt: prismaOffer.created_at,
+      updatedAt: prismaOffer.updated_at,
+      application: prismaOffer.application ? {
+        id: prismaOffer.application.id,
+        candidateId: prismaOffer.application.candidate_id,
+        jobId: prismaOffer.application.job_id,
+        status: prismaOffer.application.status,
+        stage: prismaOffer.application.stage,
+      } : undefined,
+      candidate: prismaOffer.candidate ? {
+        id: prismaOffer.candidate.id,
+        email: prismaOffer.candidate.email,
+        firstName: prismaOffer.candidate.first_name,
+        lastName: prismaOffer.candidate.last_name,
+      } : undefined,
+      job: prismaOffer.job ? {
+        id: prismaOffer.job.id,
+        title: prismaOffer.job.title,
+        companyId: prismaOffer.job.company_id,
+      } : undefined,
+    };
   }
 }
 

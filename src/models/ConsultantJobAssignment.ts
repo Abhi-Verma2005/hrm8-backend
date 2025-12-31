@@ -36,12 +36,12 @@ export class ConsultantJobAssignmentModel {
   }): Promise<ConsultantJobAssignmentData> {
     const assignment = await prisma.consultantJobAssignment.create({
       data: {
-        consultantId: assignmentData.consultantId,
-        jobId: assignmentData.jobId,
-        assignedBy: assignmentData.assignedBy || null,
+        consultant_id: assignmentData.consultantId,
+        job_id: assignmentData.jobId,
+        assigned_by: assignmentData.assignedBy || null,
         status: assignmentData.status || 'ACTIVE',
         notes: assignmentData.notes || null,
-        assignmentSource: assignmentData.assignmentSource || null,
+        assignment_source: assignmentData.assignmentSource || null,
         pipeline_stage: 'INTAKE' as PipelineStage,
         pipeline_progress: 0,
       },
@@ -67,10 +67,10 @@ export class ConsultantJobAssignmentModel {
   static async findByConsultantId(consultantId: string, activeOnly = false): Promise<ConsultantJobAssignmentData[]> {
     const assignments = await prisma.consultantJobAssignment.findMany({
       where: {
-        consultantId,
+        consultant_id: consultantId,
         ...(activeOnly && { status: 'ACTIVE' }),
       },
-      orderBy: { assignedAt: 'desc' },
+      orderBy: { assigned_at: 'desc' },
     });
 
     return assignments.map((assignment) => this.mapPrismaToAssignment(assignment));
@@ -82,10 +82,10 @@ export class ConsultantJobAssignmentModel {
   static async findByJobId(jobId: string, activeOnly = false): Promise<ConsultantJobAssignmentData[]> {
     const assignments = await prisma.consultantJobAssignment.findMany({
       where: {
-        jobId,
+        job_id: jobId,
         ...(activeOnly && { status: 'ACTIVE' }),
       },
-      orderBy: { assignedAt: 'desc' },
+      orderBy: { assigned_at: 'desc' },
     });
 
     return assignments.map((assignment) => this.mapPrismaToAssignment(assignment));
@@ -100,9 +100,9 @@ export class ConsultantJobAssignmentModel {
   ): Promise<ConsultantJobAssignmentData | null> {
     const assignment = await prisma.consultantJobAssignment.findUnique({
       where: {
-        consultantId_jobId: {
-          consultantId,
-          jobId,
+        consultant_id_job_id: {
+          consultant_id: consultantId,
+          job_id: jobId,
         },
       },
     });
@@ -119,7 +119,7 @@ export class ConsultantJobAssignmentModel {
       data: {
         ...(data.status !== undefined && { status: data.status }),
         ...(data.notes !== undefined && { notes: data.notes }),
-        ...(data.assignmentSource !== undefined && { assignmentSource: data.assignmentSource }),
+        ...(data.assignmentSource !== undefined && { assignment_source: data.assignmentSource }),
         ...(data.pipelineStage !== undefined && { pipeline_stage: data.pipelineStage }),
         ...(data.pipelineProgress !== undefined && { pipeline_progress: data.pipelineProgress }),
         ...(data.pipelineNote !== undefined && { pipeline_note: data.pipelineNote }),
@@ -156,9 +156,9 @@ export class ConsultantJobAssignmentModel {
   static async deleteByConsultantAndJob(consultantId: string, jobId: string): Promise<void> {
     await prisma.consultantJobAssignment.delete({
       where: {
-        consultantId_jobId: {
-          consultantId,
-          jobId,
+        consultant_id_job_id: {
+          consultant_id: consultantId,
+          job_id: jobId,
         },
       },
     }).catch(() => {

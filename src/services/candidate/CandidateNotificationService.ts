@@ -3,6 +3,8 @@
  * Handles notification-related operations for candidates
  */
 
+import { prisma } from '../../lib/prisma';
+
 export class CandidateNotificationService {
     /**
      * Get all notifications for a candidate
@@ -12,9 +14,7 @@ export class CandidateNotificationService {
         limit?: number;
         offset?: number;
     }) {
-        const { prisma } = await import('../../lib/prisma');
-
-        const where: any = { candidateId: candidateId };
+        const where: any = { candidate_id: candidateId };
         if (options?.unreadOnly) {
             where.read = false;
         }
@@ -22,7 +22,7 @@ export class CandidateNotificationService {
         const [notifications, total] = await Promise.all([
             prisma.notification.findMany({
                 where,
-                orderBy: { createdAt: 'desc' },
+                orderBy: { created_at: 'desc' },
                 take: options?.limit || 50,
                 skip: options?.offset || 0,
             }),
@@ -33,7 +33,7 @@ export class CandidateNotificationService {
             notifications,
             total,
             unreadCount: await prisma.notification.count({
-                where: { candidateId: candidateId, read: false }
+                where: { candidate_id: candidateId, read: false }
             })
         };
     }
@@ -42,10 +42,8 @@ export class CandidateNotificationService {
      * Mark notification as read
      */
     static async markAsRead(notificationId: string, candidateId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         const notification = await prisma.notification.findFirst({
-            where: { id: notificationId, candidateId: candidateId }
+            where: { id: notificationId, candidate_id: candidateId }
         });
 
         if (!notification) {
@@ -56,7 +54,7 @@ export class CandidateNotificationService {
             where: { id: notificationId },
             data: {
                 read: true,
-                readAt: new Date()
+                read_at: new Date()
             }
         });
     }
@@ -65,16 +63,14 @@ export class CandidateNotificationService {
      * Mark all notifications as read
      */
     static async markAllAsRead(candidateId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         return await prisma.notification.updateMany({
             where: {
-                candidateId: candidateId,
+                candidate_id: candidateId,
                 read: false
             },
             data: {
                 read: true,
-                readAt: new Date()
+                read_at: new Date()
             }
         });
     }
@@ -83,10 +79,8 @@ export class CandidateNotificationService {
      * Delete notification
      */
     static async deleteNotification(notificationId: string, candidateId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         const notification = await prisma.notification.findFirst({
-            where: { id: notificationId, candidateId: candidateId }
+            where: { id: notificationId, candidate_id: candidateId }
         });
 
         if (!notification) {
@@ -102,10 +96,8 @@ export class CandidateNotificationService {
      * Get unread count
      */
     static async getUnreadCount(candidateId: string) {
-        const { prisma } = await import('../../lib/prisma');
-
         return await prisma.notification.count({
-            where: { candidateId: candidateId, read: false }
+            where: { candidate_id: candidateId, read: false }
         });
     }
 }
