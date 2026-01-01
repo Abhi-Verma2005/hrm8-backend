@@ -37,6 +37,7 @@ export class CompanyModel {
           registration_number: companyData.verificationData?.registrationNumber,
           linked_in_url: companyData.verificationData?.linkedInUrl,
           region_id: companyData.regionId,
+          referred_by: companyData.referredBy,
         },
       });
 
@@ -277,6 +278,11 @@ export class CompanyModel {
       regionId: prismaCompany.region_id || undefined,
       jobAssignmentMode: prismaCompany.job_assignment_mode || undefined,
       preferredRecruiterId: prismaCompany.preferred_recruiter_id || undefined,
+      regionOwnerType: prismaCompany.region_owner_type || undefined,
+      commissionStatus: prismaCompany.commission_status || undefined,
+      attributionLocked: prismaCompany.attribution_locked,
+      attributionLockedAt: prismaCompany.attribution_locked_at || undefined,
+      referredBy: prismaCompany.referred_by || undefined,
       createdAt: prismaCompany.created_at,
       updatedAt: prismaCompany.updated_at,
     };

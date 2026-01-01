@@ -26,6 +26,8 @@ import {
   AssignmentSource,
   PipelineStage,
   PaymentStatus,
+  RegionOwnerType,
+  CommissionStatus,
 } from '@prisma/client';
 
 export {
@@ -49,6 +51,8 @@ export {
   AssignmentSource,
   PipelineStage,
   PaymentStatus,
+  RegionOwnerType,
+  CommissionStatus,
 };
 
 // ============================================================================
@@ -74,6 +78,11 @@ export interface Company {
   regionId?: string;
   jobAssignmentMode?: JobAssignmentMode;
   preferredRecruiterId?: string;
+  regionOwnerType?: RegionOwnerType;
+  commissionStatus?: CommissionStatus;
+  attributionLocked?: boolean;
+  attributionLockedAt?: Date;
+  referredBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -30,6 +30,8 @@ model Company {
   licensee_id            String?
   region_owner_type      RegionOwnerType           @default(HRM8)
   commission_status      CommissionStatus          @default(PENDING)
+  attribution_locked     Boolean                   @default(false) @map("attribution_locked")
+  attribution_locked_at  DateTime?                 @map("attribution_locked_at")
   price_book_id          String?                   @map("price_book_id")
   referred_by            String?
   account_team           AccountTeam[]
@@ -752,27 +754,31 @@ model AssessmentResponse {
 }
 
 model Commission {
-  id                String           @id @default(uuid())
-  consultant_id     String           @map("consultant_id")
-  region_id         String           @map("region_id")
-  job_id            String?          @map("job_id")
-  type              CommissionType
-  amount            Float
-  rate              Float?
-  description       String?
-  status            CommissionStatus @default(PENDING)
-  confirmed_at      DateTime?        @map("confirmed_at")
-  paid_at           DateTime?        @map("paid_at")
-  payment_reference String?          @map("payment_reference")
-  notes             String?
-  created_at        DateTime         @default(now()) @map("created_at")
-  updated_at        DateTime         @default(now()) @updatedAt @map("updated_at")
-  consultant        Consultant       @relation(fields: [consultant_id], references: [id])
-  job               Job?             @relation(fields: [job_id], references: [id])
-  region            Region           @relation(fields: [region_id], references: [id])
+  id                     String           @id @default(uuid())
+  consultant_id          String           @map("consultant_id")
+  region_id              String           @map("region_id")
+  job_id                 String?          @map("job_id")
+  subscription_id        String?          @map("subscription_id")
+  type                   CommissionType
+  amount                 Float
+  rate                   Float?
+  description            String?
+  status                 CommissionStatus @default(PENDING)
+  confirmed_at           DateTime?        @map("confirmed_at")
+  paid_at                DateTime?        @map("paid_at")
+  commission_expiry_date DateTime?        @map("commission_expiry_date")
+  payment_reference      String?          @map("payment_reference")
+  notes                  String?
+  created_at             DateTime         @default(now()) @map("created_at")
+  updated_at             DateTime         @default(now()) @updatedAt @map("updated_at")
+  consultant             Consultant       @relation(fields: [consultant_id], references: [id])
+  job                    Job?             @relation(fields: [job_id], references: [id])
+  subscription           Subscription?    @relation("SubscriptionCommissions", fields: [subscription_id], references: [id])
+  region                 Region           @relation(fields: [region_id], references: [id])
 
   @@index([consultant_id])
   @@index([job_id])
+  @@index([subscription_id])
   @@index([region_id])
   @@index([status])
   @@index([type])
@@ -1658,6 +1664,7 @@ model Subscription {
   created_at       DateTime             @default(now())
   updated_at       DateTime             @default(now()) @updatedAt
   bill             Bill[]
+  commissions      Commission[]         @relation("SubscriptionCommissions")
   company          Company              @relation(fields: [company_id], references: [id], onDelete: Cascade)
   consultant       Consultant?          @relation(fields: [sales_agent_id], references: [id])
 

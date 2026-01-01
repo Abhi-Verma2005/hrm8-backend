@@ -19,6 +19,7 @@ import videoInterviewRoutes from './videoInterview';
 import hrm8Routes from './hrm8';
 import consultantRoutes from './consultant';
 import assessmentRoutes from './assessment';
+import salesRoutes from "./sales";
 import interviewRoutes from './interview';
 import offerRoutes from './offer';
 import resumeRoutes from './resume';
@@ -49,6 +50,7 @@ router.use('/api/assessments', assessmentRoutes);
 router.use('/api/interviews', interviewRoutes);
 router.use('/api/resumes', resumeRoutes);
 router.use('/api', offerRoutes);
+router.use('/api/sales', salesRoutes);
 router.use('/', devRoutes); // Dev routes (only enabled in development)
 
 export default router;

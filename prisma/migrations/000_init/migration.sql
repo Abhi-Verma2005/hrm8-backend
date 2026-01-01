@@ -230,16 +230,18 @@ CREATE TABLE "Company" (
     "registrationNumber" TEXT,
     "linkedInUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "region_id" TEXT,
     "job_assignment_mode" "JobAssignmentMode" NOT NULL DEFAULT 'AUTO_RULES_ONLY',
     "preferred_recruiter_id" TEXT,
     "created_by" TEXT,
     "licensee_id" TEXT,
-    "referred_by" TEXT,
     "region_owner_type" "RegionOwnerType" NOT NULL DEFAULT 'HRM8',
     "commission_status" "CommissionStatus" NOT NULL DEFAULT 'PENDING',
+    "attribution_locked" BOOLEAN NOT NULL DEFAULT false,
+    "attribution_locked_at" TIMESTAMP(3),
     "price_book_id" TEXT,
+    "referred_by" TEXT,
 
     CONSTRAINT "Company_pkey" PRIMARY KEY ("id")
 );
@@ -255,7 +257,7 @@ CREATE TABLE "CompanyProfile" (
     "last_reminder_at" TIMESTAMP(3),
     "skip_until" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CompanyProfile_pkey" PRIMARY KEY ("id")
 );
@@ -271,7 +273,7 @@ CREATE TABLE "User" (
     "status" "UserStatus" NOT NULL DEFAULT 'PENDING_VERIFICATION',
     "last_login_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "assigned_by" TEXT,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
@@ -349,7 +351,7 @@ CREATE TABLE "SignupRequest" (
     "reviewed_at" TIMESTAMP(3),
     "rejection_reason" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SignupRequest_pkey" PRIMARY KEY ("id")
 );
@@ -378,7 +380,7 @@ CREATE TABLE "Job" (
     "posting_date" TIMESTAMP(3),
     "close_date" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiry_date" TIMESTAMP(3),
     "featured" BOOLEAN NOT NULL DEFAULT false,
     "hiring_mode" "HiringMode" NOT NULL DEFAULT 'SELF_MANAGED',
@@ -449,7 +451,7 @@ CREATE TABLE "Candidate" (
     "status" "CandidateStatus" NOT NULL DEFAULT 'ACTIVE',
     "last_login_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "resume_url" TEXT,
 
     CONSTRAINT "Candidate_pkey" PRIMARY KEY ("id")
@@ -484,7 +486,7 @@ CREATE TABLE "SavedSearch" (
     "candidate_id" TEXT NOT NULL,
     "filters" JSONB NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "last_searched_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "query" TEXT,
 
@@ -501,7 +503,7 @@ CREATE TABLE "JobAlert" (
     "channels" TEXT[] DEFAULT ARRAY['EMAIL']::TEXT[],
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "JobAlert_pkey" PRIMARY KEY ("id")
 );
@@ -534,7 +536,7 @@ CREATE TABLE "NotificationPreferences" (
     "in_app_enabled" BOOLEAN NOT NULL DEFAULT true,
     "reminder_hours_before" INTEGER NOT NULL DEFAULT 24,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "NotificationPreferences_pkey" PRIMARY KEY ("id")
 );
@@ -551,7 +553,7 @@ CREATE TABLE "Conversation" (
     "last_message_id" TEXT,
     "last_message_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "status" "ConversationStatus" NOT NULL DEFAULT 'ACTIVE',
 
     CONSTRAINT "Conversation_pkey" PRIMARY KEY ("id")
@@ -584,7 +586,7 @@ CREATE TABLE "Message" (
     "delivered_at" TIMESTAMP(3),
     "read_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Message_pkey" PRIMARY KEY ("id")
 );
@@ -631,7 +633,7 @@ CREATE TABLE "CandidateCoverLetter" (
     "is_template" BOOLEAN NOT NULL DEFAULT false,
     "is_draft" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CandidateCoverLetter_pkey" PRIMARY KEY ("id")
 );
@@ -650,7 +652,7 @@ CREATE TABLE "CandidatePortfolio" (
     "platform" TEXT,
     "description" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CandidatePortfolio_pkey" PRIMARY KEY ("id")
 );
@@ -674,7 +676,7 @@ CREATE TABLE "Application" (
     "is_new" BOOLEAN NOT NULL DEFAULT true,
     "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "added_at" TIMESTAMP(3),
     "added_by" TEXT,
     "manually_added" BOOLEAN NOT NULL DEFAULT false,
@@ -711,14 +713,14 @@ CREATE TABLE "JobInvitation" (
     "accepted_at" TIMESTAMP(3),
     "application_id" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "JobInvitation_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "JobTemplate" (
-    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
+    "id" TEXT NOT NULL,
     "company_id" TEXT NOT NULL,
     "created_by" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -754,7 +756,7 @@ CREATE TABLE "Assessment" (
     "payment_status" TEXT DEFAULT 'pending',
     "notes" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "invitation_token" TEXT,
     "job_round_id" TEXT,
 
@@ -795,6 +797,7 @@ CREATE TABLE "Commission" (
     "consultant_id" TEXT NOT NULL,
     "region_id" TEXT NOT NULL,
     "job_id" TEXT,
+    "subscription_id" TEXT,
     "type" "CommissionType" NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
     "rate" DOUBLE PRECISION,
@@ -802,10 +805,11 @@ CREATE TABLE "Commission" (
     "status" "CommissionStatus" NOT NULL DEFAULT 'PENDING',
     "confirmed_at" TIMESTAMP(3),
     "paid_at" TIMESTAMP(3),
+    "commission_expiry_date" TIMESTAMP(3),
     "payment_reference" TEXT,
     "notes" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Commission_pkey" PRIMARY KEY ("id")
 );
@@ -822,7 +826,7 @@ CREATE TABLE "Consultant" (
     "role" "ConsultantRole" NOT NULL,
     "status" "ConsultantStatus" NOT NULL DEFAULT 'ACTIVE',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "last_login_at" TIMESTAMP(3),
     "address" TEXT,
     "availability" "AvailabilityStatus" NOT NULL DEFAULT 'AVAILABLE',
@@ -911,7 +915,7 @@ CREATE TABLE "HRM8User" (
     "status" "HRM8UserStatus" NOT NULL DEFAULT 'ACTIVE',
     "licensee_id" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "last_login_at" TIMESTAMP(3),
 
     CONSTRAINT "HRM8User_pkey" PRIMARY KEY ("id")
@@ -926,7 +930,7 @@ CREATE TABLE "PreInterviewQuestionnaire" (
     "generated_by" TEXT,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "PreInterviewQuestionnaire_pkey" PRIMARY KEY ("id")
 );
@@ -957,7 +961,7 @@ CREATE TABLE "Region" (
     "licensee_id" TEXT,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Region_pkey" PRIMARY KEY ("id")
 );
@@ -984,7 +988,7 @@ CREATE TABLE "RegionalLicensee" (
     "compliance_contact" TEXT,
     "status" "LicenseeStatus" NOT NULL DEFAULT 'ACTIVE',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "RegionalLicensee_pkey" PRIMARY KEY ("id")
 );
@@ -1002,7 +1006,7 @@ CREATE TABLE "RegionalRevenue" (
     "status" "RevenueStatus" NOT NULL DEFAULT 'PENDING',
     "paid_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "RegionalRevenue_pkey" PRIMARY KEY ("id")
 );
@@ -1015,7 +1019,7 @@ CREATE TABLE "ScreeningCriteria" (
     "criteria_config" JSONB,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "category" TEXT,
     "description" TEXT,
     "min_score" INTEGER,
@@ -1038,7 +1042,7 @@ CREATE TABLE "ScreeningResult" (
     "reviewed_at" TIMESTAMP(3),
     "notes" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "criteria_id" TEXT,
     "passed" BOOLEAN,
 
@@ -1062,7 +1066,7 @@ CREATE TABLE "VideoInterview" (
     "feedback" JSONB,
     "notes" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "cancellation_reason" TEXT,
     "is_auto_scheduled" BOOLEAN NOT NULL DEFAULT false,
     "job_round_id" TEXT,
@@ -1089,7 +1093,7 @@ CREATE TABLE "CandidateCertification" (
     "credential_url" TEXT,
     "does_not_expire" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CandidateCertification_pkey" PRIMARY KEY ("id")
 );
@@ -1107,7 +1111,7 @@ CREATE TABLE "CandidateEducation" (
     "grade" TEXT,
     "description" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CandidateEducation_pkey" PRIMARY KEY ("id")
 );
@@ -1134,7 +1138,7 @@ CREATE TABLE "CandidateTraining" (
     "description" TEXT,
     "certificate_url" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CandidateTraining_pkey" PRIMARY KEY ("id")
 );
@@ -1151,7 +1155,7 @@ CREATE TABLE "CandidateWorkExperience" (
     "description" TEXT,
     "location" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CandidateWorkExperience_pkey" PRIMARY KEY ("id")
 );
@@ -1166,7 +1170,7 @@ CREATE TABLE "ApplicationRoundProgress" (
     "assessment_id" TEXT,
     "video_interview_id" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ApplicationRoundProgress_pkey" PRIMARY KEY ("id")
 );
@@ -1186,7 +1190,7 @@ CREATE TABLE "AssessmentConfiguration" (
     "questions" JSONB,
     "instructions" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AssessmentConfiguration_pkey" PRIMARY KEY ("id")
 );
@@ -1202,7 +1206,7 @@ CREATE TABLE "CompanySettings" (
     "lunchStart" TEXT,
     "lunchEnd" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CompanySettings_pkey" PRIMARY KEY ("id")
 );
@@ -1217,7 +1221,7 @@ CREATE TABLE "JobRound" (
     "isFixed" BOOLEAN NOT NULL DEFAULT false,
     "fixedKey" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "JobRound_pkey" PRIMARY KEY ("id")
 );
@@ -1254,10 +1258,8 @@ CREATE TABLE "InterviewConfiguration" (
     "questions" JSONB,
     "agenda" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "assigned_interviewer_ids" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "recruiter_email" TEXT,
-    "recruiter_name" TEXT,
 
     CONSTRAINT "InterviewConfiguration_pkey" PRIMARY KEY ("id")
 );
@@ -1277,7 +1279,7 @@ CREATE TABLE "InterviewFeedback" (
     "notes" TEXT,
     "submitted_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "InterviewFeedback_pkey" PRIMARY KEY ("id")
 );
@@ -1292,7 +1294,7 @@ CREATE TABLE "AccountTeam" (
     "assigned_by" TEXT NOT NULL,
     "notes" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AccountTeam_pkey" PRIMARY KEY ("id")
 );
@@ -1318,7 +1320,7 @@ CREATE TABLE "Activity" (
     "tags" TEXT[],
     "attachments" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Activity_pkey" PRIMARY KEY ("id")
 );
@@ -1343,7 +1345,7 @@ CREATE TABLE "Bill" (
     "synced_at" TIMESTAMP(3),
     "notes" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Bill_pkey" PRIMARY KEY ("id")
 );
@@ -1376,7 +1378,7 @@ CREATE TABLE "Contact" (
     "linked_in_url" TEXT,
     "notes" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Contact_pkey" PRIMARY KEY ("id")
 );
@@ -1398,7 +1400,7 @@ CREATE TABLE "Integration" (
     "sync_status" TEXT,
     "error_message" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Integration_pkey" PRIMARY KEY ("id")
 );
@@ -1431,7 +1433,7 @@ CREATE TABLE "Lead" (
     "converted_to_company_id" TEXT,
     "converted_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Lead_pkey" PRIMARY KEY ("id")
 );
@@ -1456,7 +1458,7 @@ CREATE TABLE "OfferDocument" (
     "is_required" BOOLEAN NOT NULL DEFAULT true,
     "template_url" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "OfferDocument_pkey" PRIMARY KEY ("id")
 );
@@ -1492,7 +1494,7 @@ CREATE TABLE "OfferLetter" (
     "custom_message" TEXT,
     "created_by" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "OfferLetter_pkey" PRIMARY KEY ("id")
 );
@@ -1512,7 +1514,7 @@ CREATE TABLE "OfferNegotiation" (
     "response" TEXT,
     "response_date" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "OfferNegotiation_pkey" PRIMARY KEY ("id")
 );
@@ -1535,7 +1537,7 @@ CREATE TABLE "Opportunity" (
     "lost_reason" TEXT,
     "closed_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Opportunity_pkey" PRIMARY KEY ("id")
 );
@@ -1561,7 +1563,7 @@ CREATE TABLE "Subscription" (
     "usage_data" JSONB,
     "notes" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Subscription_pkey" PRIMARY KEY ("id")
 );
@@ -1573,7 +1575,7 @@ CREATE TABLE "AssessmentComment" (
     "user_id" TEXT NOT NULL,
     "comment" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AssessmentComment_pkey" PRIMARY KEY ("id")
 );
@@ -1586,7 +1588,7 @@ CREATE TABLE "AssessmentGrade" (
     "score" DOUBLE PRECISION,
     "comment" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AssessmentGrade_pkey" PRIMARY KEY ("id")
 );
@@ -1633,7 +1635,7 @@ CREATE TABLE "EmailTemplate" (
     "version" INTEGER NOT NULL DEFAULT 1,
     "created_by" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "EmailTemplate_pkey" PRIMARY KEY ("id")
 );
@@ -1650,7 +1652,7 @@ CREATE TABLE "EmailTemplateTrigger" (
     "scheduled_time" TEXT,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "EmailTemplateTrigger_pkey" PRIMARY KEY ("id")
 );
@@ -1680,7 +1682,7 @@ CREATE TABLE "Product" (
     "category" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Product_pkey" PRIMARY KEY ("id")
 );
@@ -1695,7 +1697,7 @@ CREATE TABLE "PriceBook" (
     "currency" TEXT NOT NULL DEFAULT 'USD',
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "PriceBook_pkey" PRIMARY KEY ("id")
 );
@@ -1711,7 +1713,7 @@ CREATE TABLE "PriceTier" (
     "unit_price" DOUBLE PRECISION NOT NULL,
     "period" TEXT NOT NULL DEFAULT 'MONTHLY',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "PriceTier_pkey" PRIMARY KEY ("id")
 );
@@ -1729,7 +1731,7 @@ CREATE TABLE "PromoCode" (
     "used_count" INTEGER NOT NULL DEFAULT 0,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "PromoCode_pkey" PRIMARY KEY ("id")
 );
@@ -1746,7 +1748,7 @@ CREATE TABLE "GlobalIntegration" (
     "config" JSONB,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "GlobalIntegration_pkey" PRIMARY KEY ("id")
 );
@@ -1777,7 +1779,7 @@ CREATE TABLE "DunningPolicy" (
     "email_template" TEXT,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "DunningPolicy_pkey" PRIMARY KEY ("id")
 );
@@ -2138,6 +2140,9 @@ CREATE INDEX "Commission_consultant_id_idx" ON "Commission"("consultant_id");
 
 -- CreateIndex
 CREATE INDEX "Commission_job_id_idx" ON "Commission"("job_id");
+
+-- CreateIndex
+CREATE INDEX "Commission_subscription_id_idx" ON "Commission"("subscription_id");
 
 -- CreateIndex
 CREATE INDEX "Commission_region_id_idx" ON "Commission"("region_id");
@@ -2632,10 +2637,10 @@ CREATE INDEX "Settlement_licensee_id_idx" ON "Settlement"("licensee_id");
 CREATE INDEX "Settlement_status_idx" ON "Settlement"("status");
 
 -- AddForeignKey
-ALTER TABLE "Company" ADD CONSTRAINT "Company_region_id_fkey" FOREIGN KEY ("region_id") REFERENCES "Region"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Company" ADD CONSTRAINT "Company_price_book_id_fkey" FOREIGN KEY ("price_book_id") REFERENCES "PriceBook"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Company" ADD CONSTRAINT "Company_price_book_id_fkey" FOREIGN KEY ("price_book_id") REFERENCES "PriceBook"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Company" ADD CONSTRAINT "Company_region_id_fkey" FOREIGN KEY ("region_id") REFERENCES "Region"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CompanyProfile" ADD CONSTRAINT "CompanyProfile_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2768,6 +2773,9 @@ ALTER TABLE "Commission" ADD CONSTRAINT "Commission_consultant_id_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "Commission" ADD CONSTRAINT "Commission_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "Job"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Commission" ADD CONSTRAINT "Commission_subscription_id_fkey" FOREIGN KEY ("subscription_id") REFERENCES "Subscription"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Commission" ADD CONSTRAINT "Commission_region_id_fkey" FOREIGN KEY ("region_id") REFERENCES "Region"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -11,6 +11,7 @@ export interface CommissionData {
   consultantId: string;
   regionId: string;
   jobId?: string | null;
+  subscriptionId?: string | null;
   type: CommissionType;
   amount: number;
   rate?: number | null;
@@ -18,6 +19,7 @@ export interface CommissionData {
   status: CommissionStatus;
   confirmedAt?: Date | null;
   paidAt?: Date | null;
+  commissionExpiryDate?: Date | null;
   paymentReference?: string | null;
   notes?: string | null;
   createdAt: Date;
@@ -32,11 +34,13 @@ export class CommissionModel {
     consultantId: string;
     regionId: string;
     jobId?: string | null;
+    subscriptionId?: string | null;
     type: CommissionType;
     amount: number;
     rate?: number | null;
     status?: CommissionStatus;
     description?: string | null;
+    commissionExpiryDate?: Date | null;
     notes?: string | null;
   }): Promise<CommissionData> {
     const commission = await prisma.commission.create({
@@ -44,11 +48,13 @@ export class CommissionModel {
         consultant_id: commissionData.consultantId,
         region_id: commissionData.regionId,
         job_id: commissionData.jobId || null,
+        subscription_id: commissionData.subscriptionId || null,
         type: commissionData.type,
         amount: commissionData.amount,
         rate: commissionData.rate || null,
         status: commissionData.status || CommissionStatus.PENDING,
         description: commissionData.description || null,
+        commission_expiry_date: commissionData.commissionExpiryDate || null,
         notes: commissionData.notes || null,
       },
     });
@@ -143,6 +149,7 @@ export class CommissionModel {
         ...(data.consultantId !== undefined && { consultant_id: data.consultantId }),
         ...(data.regionId !== undefined && { region_id: data.regionId }),
         ...(data.jobId !== undefined && { job_id: data.jobId || null }),
+        ...(data.subscriptionId !== undefined && { subscription_id: data.subscriptionId || null }),
         ...(data.amount !== undefined && { amount: data.amount }),
         ...(data.type !== undefined && { type: data.type }),
         ...(data.rate !== undefined && { rate: data.rate || null }),
@@ -150,6 +157,7 @@ export class CommissionModel {
         ...(data.description !== undefined && { description: data.description || null }),
         ...(data.confirmedAt !== undefined && { confirmed_at: data.confirmedAt || null }),
         ...(data.paidAt !== undefined && { paid_at: data.paidAt || null }),
+        ...(data.commissionExpiryDate !== undefined && { commission_expiry_date: data.commissionExpiryDate || null }),
         ...(data.paymentReference !== undefined && { payment_reference: data.paymentReference || null }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
       },
@@ -197,6 +205,7 @@ export class CommissionModel {
       consultantId: prismaCommission.consultant_id,
       regionId: prismaCommission.region_id,
       jobId: prismaCommission.job_id || undefined,
+      subscriptionId: prismaCommission.subscription_id || undefined,
       type: prismaCommission.type,
       amount: prismaCommission.amount,
       rate: prismaCommission.rate || undefined,
@@ -204,6 +213,7 @@ export class CommissionModel {
       status: prismaCommission.status,
       confirmedAt: prismaCommission.confirmed_at || undefined,
       paidAt: prismaCommission.paid_at || undefined,
+      commissionExpiryDate: prismaCommission.commission_expiry_date || undefined,
       paymentReference: prismaCommission.payment_reference || undefined,
       notes: prismaCommission.notes || undefined,
       createdAt: prismaCommission.created_at,

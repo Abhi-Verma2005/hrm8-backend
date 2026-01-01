@@ -5,14 +5,17 @@
 
 import { CommissionModel } from '../../models/Commission';
 import { JobModel } from '../../models/Job';
+import prisma from '../../lib/prisma';
 import { CommissionStatus, CommissionType } from '@prisma/client';
 import { HiringMode } from '../../types';
+import { differenceInMonths } from 'date-fns';
 
 // Commission rates as percentage of service fee
 const COMMISSION_RATES = {
   SHORTLISTING: 0.15, // 15% of shortlisting service fee ($1,990)
   FULL_SERVICE: 0.20, // 20% of full-service fee ($5,990)
   EXECUTIVE_SEARCH: 0.25, // 25% of executive search fee
+  SUBSCRIPTION: 0.20, // 20% of subscription revenue
 } as const;
 
 // Service fee amounts (in USD)
@@ -59,6 +62,69 @@ export class CommissionService {
 
     const commissionAmount = baseFee * rate;
     return { amount: Math.round(commissionAmount * 100) / 100, rate };
+  }
+
+  /**
+   * Process commission for a subscription payment (Bill)
+   */
+  static async processSubscriptionPayment(billId: string): Promise<{ success: boolean; commissionId?: string; error?: string }> {
+    try {
+      const bill = await prisma.bill.findUnique({
+        where: { id: billId },
+        include: { subscription: true }
+      });
+
+      if (!bill || !bill.subscription) {
+        return { success: false, error: 'Bill or Subscription not found' };
+      }
+
+      const subscription = bill.subscription;
+      
+      // Check if subscription has a sales agent
+      if (!subscription.sales_agent_id) {
+        return { success: false, error: 'No sales agent assigned to subscription' };
+      }
+
+      // Check if commission period is valid (12 months from start)
+      const monthsSinceStart = differenceInMonths(new Date(), subscription.start_date);
+      if (monthsSinceStart > 12) {
+        return { success: false, error: 'Commission period expired (over 12 months)' };
+      }
+
+      const amount = bill.total_amount * COMMISSION_RATES.SUBSCRIPTION;
+      if (amount <= 0) {
+        return { success: false, error: 'Commission amount is zero or negative' };
+      }
+
+      // Create Commission
+      // Use consultant's region? Or company's region?
+      // Consultant table has region_id.
+      const consultant = await prisma.consultant.findUnique({
+        where: { id: subscription.sales_agent_id }
+      });
+
+      if (!consultant) {
+        return { success: false, error: 'Consultant not found' };
+      }
+
+      const commission = await CommissionModel.create({
+        consultantId: subscription.sales_agent_id,
+        regionId: consultant.region_id,
+        subscriptionId: subscription.id,
+        type: CommissionType.SUBSCRIPTION_SALE,
+        amount: Math.round(amount * 100) / 100,
+        rate: COMMISSION_RATES.SUBSCRIPTION,
+        status: CommissionStatus.CONFIRMED, // Confirmed because bill is paid?
+        description: `Commission for Subscription ${subscription.name} - Bill ${bill.bill_number}`,
+        commissionExpiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)), // Just an example expiry?
+      });
+
+      return { success: true, commissionId: commission.id };
+
+    } catch (error: any) {
+      console.error('Process subscription commission error:', error);
+      return { success: false, error: error.message };
+    }
   }
 
   /**

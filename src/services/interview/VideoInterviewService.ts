@@ -233,19 +233,6 @@ export class VideoInterviewService {
     }
   ): Promise<VideoInterviewData> {
     // 1. Create the feedback record
-    const feedbackData: any = {
-      id: crypto.randomUUID(),
-      video_interview_id: interviewId,
-      interviewer_id: data.interviewerId,
-      interviewer_name: data.interviewerName,
-      interviewer_email: data.interviewerEmail,
-      overall_rating: data.overallRating,
-      notes: data.notes,
-      recommendation: data.recommendation,
-      submitted_at: new Date(),
-      updated_at: new Date(),
-    };
-
     await prisma.interviewFeedback.create({
       data: {
         
