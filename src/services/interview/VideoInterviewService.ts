@@ -234,18 +234,7 @@ export class VideoInterviewService {
   ): Promise<VideoInterviewData> {
     // 1. Create the feedback record
     await prisma.interviewFeedback.create({
-      data: {
-        
-        video_interview_id: interviewId,
-        interviewer_id: data.interviewerId,
-        interviewer_name: data.interviewerName,
-        interviewer_email: data.interviewerEmail,
-        overall_rating: data.overallRating,
-        notes: data.notes,
-        recommendation: data.recommendation as any,
-        submitted_at: new Date(),
-        updated_at: new Date(),
-      },
+      data: feedbackData,
     });
 
     // 2. Calculate new average score

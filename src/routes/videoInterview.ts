@@ -11,6 +11,7 @@ router.get('/application/:applicationId', authenticateCandidate, VideoInterviewC
 // Company routes (require authenticated company user)
 router.get('/', authenticate, VideoInterviewController.getCompanyInterviews);
 router.get('/job/:jobId', authenticate, VideoInterviewController.getJobInterviews);
+router.get('/:id', authenticate, VideoInterviewController.getInterview);
 router.post('/', authenticate, VideoInterviewController.scheduleManual);
 router.post('/auto-schedule', authenticate, VideoInterviewController.generateAISuggestions);
 router.post('/finalize', authenticate, VideoInterviewController.finalizeInterviews);

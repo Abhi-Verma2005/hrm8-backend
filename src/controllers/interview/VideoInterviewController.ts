@@ -125,6 +125,65 @@ export class VideoInterviewController {
   }
 
   /**
+   * Get a specific video interview by ID
+   * GET /api/video-interviews/:id
+   */
+  static async getInterview(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user || !req.user.companyId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { id } = req.params;
+
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          error: 'Interview ID is required',
+        });
+        return;
+      }
+
+      const interview = await VideoInterviewService.getInterviewById(id);
+
+      if (!interview) {
+        res.status(404).json({
+          success: false,
+          error: 'Interview not found',
+        });
+        return;
+      }
+
+      // Check if the interview belongs to the company (security check)
+      const { JobModel } = await import('../../models/Job');
+      const job = await JobModel.findById(interview.jobId);
+
+      if (!job || job.companyId !== req.user.companyId) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: { interview },
+      });
+    } catch (error) {
+      console.error('[VideoInterviewController.getInterview] error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to load interview',
+      });
+    }
+  }
+
+  /**
    * Schedule a manual video interview (basic endpoint)
    * POST /api/video-interviews
    */
@@ -563,9 +622,14 @@ export class VideoInterviewController {
         return;
       }
 
+      // Get user details to get the name
+      const { UserModel } = await import('../../models/User');
+      const user = await UserModel.findById(req.user.id);
+      const interviewerName = user ? user.name : 'Unknown';
+
       const interview = await VideoInterviewService.addFeedback(id, {
         interviewerId: req.user.id,
-        interviewerName: req.user.name || 'Unknown',
+        interviewerName,
         interviewerEmail: req.user.email,
         overallRating,
         notes,
