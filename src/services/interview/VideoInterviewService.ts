@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma';
 import { ApplicationModel } from '../../models/Application';
 import { JobModel } from '../../models/Job';
 import { GoogleCalendarService } from '../integrations/GoogleCalendarService';
+import type { InterviewRecommendation } from '@prisma/client';
 
 export class VideoInterviewService {
   /**
@@ -229,10 +230,20 @@ export class VideoInterviewService {
       interviewerEmail?: string;
       overallRating: number;
       notes?: string;
-      recommendation?: string;
+      recommendation?: InterviewRecommendation;
     }
   ): Promise<VideoInterviewData> {
     // 1. Create the feedback record
+    const feedbackData = {
+      video_interview_id: interviewId,
+      interviewer_id: data.interviewerId,
+      interviewer_name: data.interviewerName,
+      interviewer_email: data.interviewerEmail,
+      overall_rating: data.overallRating,
+      notes: data.notes,
+      recommendation: data.recommendation,
+    };
+
     await prisma.interviewFeedback.create({
       data: feedbackData,
     });
