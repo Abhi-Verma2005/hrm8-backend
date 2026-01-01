@@ -14,6 +14,7 @@ import { RegionalRevenueController } from '../controllers/hrm8/RegionalRevenueCo
 import { PricingController } from '../controllers/hrm8/PricingController';
 import { FinanceController } from '../controllers/hrm8/FinanceController';
 import { IntegrationAdminController } from '../controllers/hrm8/IntegrationAdminController';
+import { RegionalSalesController } from '../controllers/hrm8/RegionalSalesController';
 import { authenticateHrm8User } from '../middleware/hrm8Auth';
 
 const router: RouterType = Router();
@@ -93,9 +94,20 @@ router.get('/finance/invoices', FinanceController.getInvoices);
 router.post('/finance/settlements/calculate', FinanceController.calculateSettlement);
 router.get('/finance/dunning', FinanceController.getDunning);
 
+// Settlement routes
+router.get('/finance/settlements', FinanceController.getSettlements);
+router.get('/finance/settlements/stats', FinanceController.getSettlementStats);
+router.get('/finance/settlements/:id', FinanceController.getSettlementById);
+router.put('/finance/settlements/:id/pay', FinanceController.markSettlementAsPaid);
+
 // Integration routes
 router.get('/integrations/catalog', IntegrationAdminController.getAll);
 router.post('/integrations/global-config', IntegrationAdminController.upsert);
 router.get('/integrations/usage', IntegrationAdminController.getUsage);
+
+// Regional Sales Routes (Pipeline Visibility)
+router.get('/sales/regional/opportunities', RegionalSalesController.getRegionalOpportunities);
+router.get('/sales/regional/stats', RegionalSalesController.getRegionalStats);
+router.get('/sales/regional/activities', RegionalSalesController.getRegionalActivities);
 
 export default router;

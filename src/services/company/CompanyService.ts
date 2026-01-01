@@ -15,7 +15,11 @@ export class CompanyService {
    * Creates company workspace and sets up first admin
    */
   static async registerCompany(
-    registrationData: CompanyRegistrationRequest
+    registrationData: CompanyRegistrationRequest,
+    options?: {
+      skipDomainValidation?: boolean;
+      skipEmailVerification?: boolean;
+    }
   ): Promise<{
     company: Company;
     verificationMethod: VerificationMethod;
@@ -26,8 +30,10 @@ export class CompanyService {
     const adminEmailDomain = extractEmailDomain(registrationData.adminEmail);
 
     // Ensure the admin email belongs to the same organization as the company domain
+    // Skip if requested (e.g. internal sales flow)
     const domainsMatch = doDomainsBelongToSameOrg(domain, adminEmailDomain);
-    if (!domainsMatch) {
+    
+    if (!domainsMatch && !options?.skipDomainValidation) {
       throw new Error(
         'Admin email domain must match your company website domain. Please use your corporate email address.'
       );
@@ -40,7 +46,9 @@ export class CompanyService {
       domain: domain,
       countryOrRegion: registrationData.countryOrRegion.trim(),
       acceptedTerms: registrationData.acceptTerms,
-      verificationStatus: CompanyVerificationStatus.PENDING,
+      verificationStatus: options?.skipEmailVerification 
+        ? CompanyVerificationStatus.VERIFIED 
+        : CompanyVerificationStatus.PENDING,
     });
 
     // Initialize onboarding profile for company
@@ -48,12 +56,17 @@ export class CompanyService {
 
 
     // Always require verification email even after domain match
-    await VerificationService.initiateEmailVerification(company, registrationData.adminEmail);
+    // Unless explicitly skipped
+    if (!options?.skipEmailVerification) {
+      await VerificationService.initiateEmailVerification(company, registrationData.adminEmail);
+    }
 
     return {
       company,
-      verificationMethod: VerificationMethod.VERIFICATION_EMAIL,
-      verificationRequired: true,
+      verificationMethod: options?.skipEmailVerification 
+        ? VerificationMethod.MANUAL_VERIFICATION 
+        : VerificationMethod.VERIFICATION_EMAIL,
+      verificationRequired: !options?.skipEmailVerification,
     };
   }
 

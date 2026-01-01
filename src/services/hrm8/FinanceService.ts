@@ -79,7 +79,7 @@ export class FinanceService {
     // Find bills overdue > 30 days (default policy)
     const date = new Date();
     date.setDate(date.getDate() - 30);
-    
+
     return prisma.bill.findMany({
       where: {
         status: { in: [BillStatus.PENDING, BillStatus.OVERDUE] },
@@ -87,5 +87,106 @@ export class FinanceService {
       },
       include: { company: true }
     });
+  }
+
+  /**
+   * Get all settlements with filters
+   */
+  static async getAllSettlements(filters: {
+    licenseeId?: string;
+    status?: string;
+    periodStart?: Date;
+    periodEnd?: Date;
+  }) {
+    const where: any = {};
+
+    if (filters.licenseeId) where.licensee_id = filters.licenseeId;
+    if (filters.status) where.status = filters.status;
+
+    if (filters.periodStart) {
+      where.period_start = { gte: filters.periodStart };
+    }
+    if (filters.periodEnd) {
+      where.period_end = { lte: filters.periodEnd };
+    }
+
+    return prisma.settlement.findMany({
+      where,
+      include: {
+        licensee: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: { period_end: 'desc' }
+    });
+  }
+
+  /**
+   * Get settlement by ID with related data
+   */
+  static async getSettlementById(id: string) {
+    return prisma.settlement.findUnique({
+      where: { id },
+      include: {
+        licensee: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            revenueSharePercentage: true
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Mark settlement as paid
+   */
+  static async markSettlementAsPaid(id: string, paymentDate: Date, reference: string) {
+    return prisma.settlement.update({
+      where: { id },
+      data: {
+        status: 'PAID',
+        payment_date: paymentDate,
+        reference
+      }
+    });
+  }
+
+  /**
+   * Get settlement statistics
+   */
+  static async getSettlementStats(licenseeId?: string) {
+    const where: any = {};
+    if (licenseeId) where.licensee_id = licenseeId;
+
+    const [allSettlements, pendingSettlements, paidSettlements] = await Promise.all([
+      prisma.settlement.findMany({ where }),
+      prisma.settlement.findMany({ where: { ...where, status: 'PENDING' } }),
+      prisma.settlement.findMany({ where: { ...where, status: 'PAID' } })
+    ]);
+
+    const totalPending = pendingSettlements.reduce((sum, s) => sum + s.licensee_share, 0);
+    const totalPaid = paidSettlements.reduce((sum, s) => sum + s.licensee_share, 0);
+    const currentPeriodRevenue = allSettlements
+      .filter(s => {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return s.period_start >= monthAgo;
+      })
+      .reduce((sum, s) => sum + s.total_revenue, 0);
+
+    return {
+      totalPending,
+      totalPaid,
+      pendingCount: pendingSettlements.length,
+      paidCount: paidSettlements.length,
+      currentPeriodRevenue
+    };
   }
 }

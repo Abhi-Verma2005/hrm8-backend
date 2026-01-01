@@ -4,9 +4,10 @@
  */
 
 import prisma from '../../lib/prisma';
-import { LeadStatus, LeadSource } from '@prisma/client';
+import { LeadStatus, LeadSource, OpportunityType } from '@prisma/client';
 import { AttributionService } from './AttributionService';
 import { CompanyService } from '../company/CompanyService';
+import { AuthService } from '../auth/AuthService';
 
 export class LeadService {
   /**
@@ -62,6 +63,8 @@ export class LeadService {
       adminLastName: string;
       password: string; // Temporary password for admin
       acceptTerms: boolean;
+      email?: string; // Allow overriding email
+      domain?: string; // Allow specifying domain explicitly
     }
   ) {
     const lead = await prisma.lead.findUnique({ where: { id: leadId } });
@@ -73,26 +76,47 @@ export class LeadService {
       throw new Error('Lead already converted');
     }
 
-    // Register Company
-    // We use CompanyService.registerCompany but we need to adapt the input
-    // Or we call CompanyModel directly if registerCompany is too specific to public signup
+    // Prepare Registration Data
+    // Use provided overrides or fallback to lead data
+    const emailToUse = conversionData.email || lead.email;
     
-    // Let's check CompanyService.registerCompany signature
-    // It takes CompanyRegistrationRequest
+    // Domain Handling
+    // If domain is provided, we might want to ensure the website reflects it or just rely on CompanyService to extract it from email/website
+    // CompanyService.registerCompany usually extracts domain from email if not enterprise flow.
+    // However, if we want to enforce a specific domain (e.g. from the UI input), we should pass it or ensure website matches.
+    // Let's assume registerCompany takes website/domain into account.
+    // Ideally, we update the registration request to be explicit.
     
     const registrationRequest = {
       companyName: lead.company_name,
-      companyWebsite: lead.website || '', // Website required?
+      // If domain is provided (e.g. "acme.com"), prepend https:// to make it a valid URL for the website field
+      companyWebsite: conversionData.domain ? `https://${conversionData.domain}` : (lead.website || ''), 
       adminFirstName: conversionData.adminFirstName,
       adminLastName: conversionData.adminLastName,
-      adminEmail: lead.email,
+      adminEmail: emailToUse,
       password: conversionData.password,
       countryOrRegion: lead.country,
       acceptTerms: conversionData.acceptTerms,
     };
 
     // Note: registerCompany throws if domain exists.
-    const { company } = await CompanyService.registerCompany(registrationRequest);
+    const { company, verificationRequired } = await CompanyService.registerCompany(
+      registrationRequest,
+      {
+        skipDomainValidation: true,
+        skipEmailVerification: true
+      }
+    );
+
+    // Register company admin
+    // Since we are skipping email verification for this flow, we activate the user immediately
+    await AuthService.registerCompanyAdmin(
+      company.id,
+      emailToUse,
+      `${conversionData.adminFirstName} ${conversionData.adminLastName}`,
+      conversionData.password,
+      true // activate immediately
+    );
 
     // Update Lead
     await prisma.lead.update({
@@ -112,6 +136,23 @@ export class LeadService {
         console.error(`Failed to assign attribution: ${result.error}`);
       } else {
         console.log(`Successfully assigned agent ${lead.referred_by} to company ${company.id}`);
+        
+        // Also create an initial Opportunity for this company and agent
+        // This ensures it shows up in the pipeline immediately
+        await prisma.opportunity.create({
+          data: {
+            company_id: company.id,
+            sales_agent_id: lead.referred_by,
+            name: `${registrationRequest.companyName} - Initial Deal`,
+            stage: 'NEW', // Default stage
+            amount: 0, // Agent can update later
+            probability: 10,
+            // lead_source: 'outbound', // REMOVED: Field does not exist in OpportunityCreateInput
+            type: OpportunityType.SUBSCRIPTION, // Default to Subscription
+            expected_close_date: new Date(new Date().setMonth(new Date().getMonth() + 1)), // +1 month default
+          }
+        });
+        console.log(`Created initial opportunity for company ${company.id}`);
       }
     } else {
       console.log('No referrer found for lead, skipping attribution');
