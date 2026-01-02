@@ -100,7 +100,7 @@ export class LeadService {
     };
 
     // Note: registerCompany throws if domain exists.
-    const { company, verificationRequired } = await CompanyService.registerCompany(
+    const { company } = await CompanyService.registerCompany(
       registrationRequest,
       {
         skipDomainValidation: true,

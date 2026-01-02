@@ -15,6 +15,7 @@ export interface Hrm8AuthenticatedRequest extends Request {
     firstName: string;
     lastName: string;
     role: string;
+    licenseeId?: string;
   };
 }
 
@@ -69,6 +70,7 @@ export async function authenticateHrm8User(
       firstName: hrm8User.firstName,
       lastName: hrm8User.lastName,
       role: hrm8User.role,
+      licenseeId: hrm8User.licenseeId,
     };
 
     next();
@@ -78,5 +80,30 @@ export async function authenticateHrm8User(
       error: 'Authentication failed',
     });
   }
+}
+
+/**
+ * Middleware to require a specific HRM8 role
+ */
+export function requireHrm8Role(roles: string[]) {
+  return (req: Hrm8AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.hrm8User) {
+      res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+      });
+      return;
+    }
+
+    if (!roles.includes(req.hrm8User.role)) {
+      res.status(403).json({
+        success: false,
+        error: 'Forbidden: Insufficient permissions',
+      });
+      return;
+    }
+
+    next();
+  };
 }
 

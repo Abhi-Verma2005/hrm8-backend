@@ -137,7 +137,7 @@ export class FinanceService {
             id: true,
             name: true,
             email: true,
-            revenueSharePercentage: true
+            revenue_share_percent: true
           }
         }
       }

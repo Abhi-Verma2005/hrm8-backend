@@ -15,7 +15,7 @@ import { PricingController } from '../controllers/hrm8/PricingController';
 import { FinanceController } from '../controllers/hrm8/FinanceController';
 import { IntegrationAdminController } from '../controllers/hrm8/IntegrationAdminController';
 import { RegionalSalesController } from '../controllers/hrm8/RegionalSalesController';
-import { authenticateHrm8User } from '../middleware/hrm8Auth';
+import { authenticateHrm8User, requireHrm8Role } from '../middleware/hrm8Auth';
 
 const router: RouterType = Router();
 
@@ -31,20 +31,20 @@ router.get('/auth/me', Hrm8AuthController.getCurrentHrm8User);
 
 // Region routes
 router.get('/regions', RegionController.getAll);
-router.post('/regions', RegionController.create);
+router.post('/regions', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.create);
 router.get('/regions/:id', RegionController.getById);
-router.put('/regions/:id', RegionController.update);
-router.delete('/regions/:id', RegionController.delete);
-router.post('/regions/:id/assign-licensee', RegionController.assignLicensee);
-router.post('/regions/:id/unassign-licensee', RegionController.unassignLicensee);
+router.put('/regions/:id', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.update);
+router.delete('/regions/:id', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.delete);
+router.post('/regions/:id/assign-licensee', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.assignLicensee);
+router.post('/regions/:id/unassign-licensee', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.unassignLicensee);
 
 // Regional Licensee routes
 router.get('/licensees', RegionalLicenseeController.getAll);
-router.post('/licensees', RegionalLicenseeController.create);
+router.post('/licensees', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.create);
 router.get('/licensees/:id', RegionalLicenseeController.getById);
-router.put('/licensees/:id', RegionalLicenseeController.update);
-router.post('/licensees/:id/suspend', RegionalLicenseeController.suspend);
-router.post('/licensees/:id/terminate', RegionalLicenseeController.terminate);
+router.put('/licensees/:id', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.update);
+router.post('/licensees/:id/suspend', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.suspend);
+router.post('/licensees/:id/terminate', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.terminate);
 
 // Consultant Management routes
 router.get('/consultants', ConsultantManagementController.getAll);
