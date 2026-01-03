@@ -54,6 +54,98 @@ export class LeadService {
   }
 
   /**
+   * Get all leads for the logged-in agent
+   */
+  static async getLeadsByAgent(consultantId: string) {
+    return await prisma.lead.findMany({
+      where: {
+        OR: [
+          { referred_by: consultantId },
+          { created_by: consultantId },
+          { assigned_consultant_id: consultantId }
+        ]
+      },
+      orderBy: { created_at: 'desc' },
+      include: {
+        consultant: {
+          select: { id: true, first_name: true, last_name: true, email: true }
+        },
+        creator: {
+          select: { id: true, first_name: true, last_name: true, email: true }
+        },
+        referrer: {
+          select: { id: true, first_name: true, last_name: true, email: true }
+        }
+      }
+    });
+  }
+
+  /**
+   * Get all leads for a specific region (Manager/Licensee view)
+   */
+  static async getLeadsByRegion(regionId: string) {
+    return await prisma.lead.findMany({
+      where: {
+        OR: [
+          { region_id: regionId },
+          { consultant: { region_id: regionId } }
+        ]
+      },
+      orderBy: { created_at: 'desc' },
+      include: {
+        consultant: {
+          select: { id: true, first_name: true, last_name: true, email: true }
+        },
+        creator: {
+          select: { id: true, first_name: true, last_name: true, email: true }
+        },
+        referrer: {
+          select: { id: true, first_name: true, last_name: true, email: true }
+        }
+      }
+    });
+  }
+
+  /**
+   * Get region details (helper for controller checks)
+   */
+  static async getRegionById(regionId: string) {
+    return await prisma.region.findUnique({
+      where: { id: regionId }
+    });
+  }
+
+  /**
+   * Reassign a lead to a new consultant
+   */
+  static async reassignLead(leadId: string, newConsultantId: string) {
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId }
+    });
+
+    if (!lead) {
+      throw new Error('Lead not found');
+    }
+
+    if (lead.status === LeadStatus.CONVERTED) {
+      throw new Error('Cannot reassign a converted lead');
+    }
+
+    return await prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        assigned_consultant_id: newConsultantId,
+        assigned_at: new Date(),
+      },
+      include: {
+        consultant: {
+          select: { id: true, first_name: true, last_name: true }
+        }
+      }
+    });
+  }
+
+  /**
    * Convert Lead to Company
    */
   static async convertLeadToCompany(
@@ -159,20 +251,5 @@ export class LeadService {
     }
 
     return company;
-  }
-
-  /**
-   * Get Leads for an Agent
-   */
-  static async getLeadsByAgent(agentId: string) {
-    return await prisma.lead.findMany({
-      where: {
-        OR: [
-          { assigned_consultant_id: agentId },
-          { referred_by: agentId }
-        ]
-      },
-      orderBy: { created_at: 'desc' },
-    });
   }
 }
