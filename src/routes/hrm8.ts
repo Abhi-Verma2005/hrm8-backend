@@ -15,6 +15,7 @@ import { PricingController } from '../controllers/hrm8/PricingController';
 import { FinanceController } from '../controllers/hrm8/FinanceController';
 import { IntegrationAdminController } from '../controllers/hrm8/IntegrationAdminController';
 import { RegionalSalesController } from '../controllers/hrm8/RegionalSalesController';
+import { LeadController } from '../controllers/sales/LeadController';
 import { authenticateHrm8User, requireHrm8Role } from '../middleware/hrm8Auth';
 
 const router: RouterType = Router();
@@ -93,6 +94,10 @@ router.post('/pricing/companies/:id/assign', PricingController.assignCustomPrice
 router.get('/finance/invoices', FinanceController.getInvoices);
 router.post('/finance/settlements/calculate', FinanceController.calculateSettlement);
 router.get('/finance/dunning', FinanceController.getDunning);
+
+// Lead Management routes
+router.get('/leads/regional', LeadController.getRegionalLeads);
+router.post('/leads/:id/reassign', LeadController.reassign);
 
 // Settlement routes
 router.get('/finance/settlements', FinanceController.getSettlements);

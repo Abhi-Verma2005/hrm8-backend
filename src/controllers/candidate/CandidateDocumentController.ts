@@ -9,6 +9,57 @@ import { CloudinaryService } from '../../services/storage/CloudinaryService';
 import { LocalStorageService } from '../../services/storage/LocalStorageService';
 import { DocumentParserService } from '../../services/document/DocumentParserService';
 
+// Transform resume from snake_case to camelCase
+function transformResume(resume: any) {
+    return {
+        id: resume.id,
+        fileName: resume.file_name,
+        fileUrl: resume.file_url,
+        fileSize: resume.file_size,
+        fileType: resume.file_type,
+        isDefault: resume.is_default,
+        version: resume.version,
+        uploadedAt: resume.uploaded_at,
+        content: resume.content,
+    };
+}
+
+// Transform cover letter from snake_case to camelCase
+function transformCoverLetter(coverLetter: any) {
+    return {
+        id: coverLetter.id,
+        title: coverLetter.title,
+        content: coverLetter.content,
+        fileUrl: coverLetter.file_url,
+        fileName: coverLetter.file_name,
+        fileSize: coverLetter.file_size,
+        fileType: coverLetter.file_type,
+        isTemplate: coverLetter.is_template,
+        isDraft: coverLetter.is_draft,
+        isDefault: coverLetter.is_default,
+        updatedAt: coverLetter.updated_at,
+        createdAt: coverLetter.created_at,
+    };
+}
+
+// Transform portfolio item from snake_case to camelCase
+function transformPortfolio(portfolio: any) {
+    return {
+        id: portfolio.id,
+        title: portfolio.title,
+        type: portfolio.type,
+        fileUrl: portfolio.file_url,
+        fileName: portfolio.file_name,
+        fileSize: portfolio.file_size,
+        fileType: portfolio.file_type,
+        externalUrl: portfolio.external_url,
+        platform: portfolio.platform,
+        description: portfolio.description,
+        createdAt: portfolio.created_at,
+        updatedAt: portfolio.updated_at,
+    };
+}
+
 export class CandidateDocumentController {
     // ========== Resume Endpoints ==========
 
@@ -25,7 +76,8 @@ export class CandidateDocumentController {
             }
 
             const resumes = await CandidateDocumentService.getResumes(candidateId);
-            res.json({ success: true, data: resumes });
+            const transformedResumes = resumes.map(transformResume);
+            res.json({ success: true, data: transformedResumes });
         } catch (error: any) {
             console.error('Error fetching resumes:', error);
             res.status(500).json({ success: false, error: error.message });
@@ -153,7 +205,8 @@ export class CandidateDocumentController {
             }
 
             const coverLetters = await CandidateDocumentService.getCoverLetters(candidateId);
-            res.json({ success: true, data: coverLetters });
+            const transformedCoverLetters = coverLetters.map(transformCoverLetter);
+            res.json({ success: true, data: transformedCoverLetters });
         } catch (error: any) {
             console.error('Error fetching cover letters:', error);
             res.status(500).json({ success: false, error: error.message });
@@ -313,7 +366,8 @@ export class CandidateDocumentController {
             }
 
             const portfolioItems = await CandidateDocumentService.getPortfolioItems(candidateId);
-            res.json({ success: true, data: portfolioItems });
+            const transformedPortfolioItems = portfolioItems.map(transformPortfolio);
+            res.json({ success: true, data: transformedPortfolioItems });
         } catch (error: any) {
             console.error('Error fetching portfolio items:', error);
             res.status(500).json({ success: false, error: error.message });

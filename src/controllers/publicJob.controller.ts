@@ -2,6 +2,41 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma'; // Use singleton
 
+/**
+ * Transform job data from Prisma snake_case to frontend camelCase
+ * This ensures compatibility between database conventions and JavaScript conventions
+ */
+function transformJobForPublic(job: any): any {
+    return {
+        id: job.id,
+        title: job.title,
+        description: job.description,
+        jobSummary: job.job_summary,
+        category: job.category,
+        location: job.location,
+        department: job.department,
+        workArrangement: job.work_arrangement,
+        employmentType: job.employment_type,
+        numberOfVacancies: job.number_of_vacancies || 1,
+        salaryMin: job.salary_min,
+        salaryMax: job.salary_max,
+        salaryCurrency: job.salary_currency || 'USD',
+        salaryDescription: job.salary_description,
+        requirements: job.requirements || [],
+        responsibilities: job.responsibilities || [],
+        promotionalTags: job.promotional_tags || [],
+        featured: job.featured || false,
+        postingDate: job.posted_at || job.created_at,
+        expiryDate: job.expires_at,
+        company: {
+            id: job.company?.id || '',
+            name: job.company?.name || '',
+            website: job.company?.website || (job.company?.domain ? `https://${job.company.domain}` : ''),
+        },
+        createdAt: job.created_at,
+    };
+}
+
 export const getGlobalJobs = async (req: Request, res: Response) => {
     try {
         const page = Number(req.query.page) || 1;
@@ -40,27 +75,37 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
                 select: {
                     id: true,
                     title: true,
+                    description: true,
+                    job_summary: true,
+                    category: true,
                     location: true,
-                    // Use String[] type for requirements/responsibilities since we reverted to array
+                    department: true,
+                    work_arrangement: true,
                     employment_type: true,
+                    number_of_vacancies: true,
+                    salary_min: true,
+                    salary_max: true,
+                    salary_currency: true,
+                    salary_description: true,
+                    requirements: true,
+                    responsibilities: true,
                     promotional_tags: true,
-                    posted_at: true, // New field
+                    featured: true,
+                    posted_at: true,
+                    expires_at: true,
                     created_at: true,
                     views_count: true,
                     company: {
                         select: {
+                            id: true,
                             name: true,
                             domain: true,
-                            company_settings: {
-                                select: {
-                                    timezone: true
-                                }
-                            }
+                            website: true,
                         }
                     }
                 },
                 orderBy: {
-                    posted_at: 'desc' // Use posted_at ideally, fallback to created_at
+                    posted_at: 'desc'
                 },
                 skip,
                 take: limit
@@ -68,10 +113,13 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
             prisma.job.count({ where })
         ]);
 
+        // Transform jobs to camelCase for frontend
+        const transformedJobs = jobs.map(transformJobForPublic);
+
         res.json({
             success: true,
             data: {
-                jobs,
+                jobs: transformedJobs,
                 pagination: {
                     total,
                     page,
@@ -116,20 +164,31 @@ export const getCompanyJobs = async (req: Request, res: Response) => {
                 select: {
                     id: true,
                     title: true,
+                    description: true,
+                    job_summary: true,
+                    category: true,
                     location: true,
+                    department: true,
+                    work_arrangement: true,
                     employment_type: true,
+                    number_of_vacancies: true,
+                    salary_min: true,
+                    salary_max: true,
+                    salary_currency: true,
+                    salary_description: true,
+                    requirements: true,
+                    responsibilities: true,
                     promotional_tags: true,
+                    featured: true,
                     posted_at: true,
+                    expires_at: true,
                     created_at: true,
                     company: {
                         select: {
+                            id: true,
                             name: true,
                             domain: true,
-                            company_settings: {
-                                select: {
-                                    timezone: true
-                                }
-                            }
+                            website: true,
                         }
                     }
                 },
@@ -140,11 +199,14 @@ export const getCompanyJobs = async (req: Request, res: Response) => {
             prisma.job.count({ where })
         ]);
 
+        // Transform jobs to camelCase for frontend
+        const transformedJobs = jobs.map(transformJobForPublic);
+
         res.json({
             success: true,
             data: {
                 company,
-                jobs,
+                jobs: transformedJobs,
                 pagination: {
                     total,
                     page,
@@ -165,8 +227,8 @@ export const getJobDetail = async (req: Request, res: Response) => {
         const { jobId } = req.params;
 
         // Increment view count (fire and forget/await)
-        // We use updateMany to avoid error if ID not found, though findUnique is better for fetching
-        await prisma.job.update({
+        // We use updateMany to avoid error if ID not found
+        await prisma.job.updateMany({
             where: { id: jobId },
             data: { views_count: { increment: 1 } }
         }).catch(err => console.error('Failed to increment view count', err));
@@ -177,26 +239,32 @@ export const getJobDetail = async (req: Request, res: Response) => {
                 id: true,
                 title: true,
                 description: true,
-                requirements: true, // String[]
-                responsibilities: true, // String[]
+                job_summary: true,
+                category: true,
                 location: true,
+                department: true,
+                work_arrangement: true,
                 employment_type: true,
-                salary_min: true, // Careful: only if public? Assuming yes for now if posted
+                number_of_vacancies: true,
+                salary_min: true,
                 salary_max: true,
                 salary_currency: true,
-                benefits: true,
+                salary_description: true,
+                requirements: true,
+                responsibilities: true,
+                promotional_tags: true,
+                featured: true,
                 posted_at: true,
+                expires_at: true,
+                created_at: true,
+                benefits: true,
                 company: {
                     select: {
+                        id: true,
                         name: true,
                         domain: true,
+                        website: true,
                         country_or_region: true,
-                        // website: true,
-                        company_settings: {
-                            select: {
-                                timezone: true,
-                            }
-                        }
                     }
                 }
             }
@@ -207,7 +275,10 @@ export const getJobDetail = async (req: Request, res: Response) => {
             return;
         }
 
-        res.json({ success: true, data: job });
+        // Transform job to camelCase for frontend
+        const transformedJob = transformJobForPublic(job);
+
+        res.json({ success: true, data: transformedJob });
 
     } catch (error: any) {
         res.status(500).json({ success: false, error: 'Failed to fetch job details' });
@@ -285,3 +356,161 @@ export const getPublicTags = async (_req: Request, res: Response) => {
     }
 };
 
+
+/**
+ * Track analytics event
+ * POST /api/public/jobs/:jobId/track
+ */
+export const trackAnalytics = async (req: Request, res: Response) => {
+    try {
+        const { jobId } = req.params;
+        const { event_type, source, session_id, referrer } = req.body;
+
+        const ip_address = req.ip || req.socket.remoteAddress;
+        const user_agent = req.headers['user-agent'];
+
+        await prisma.jobAnalytics.create({
+            data: {
+                job_id: jobId,
+                event_type,
+                source: source || 'HRM8_BOARD',
+                session_id,
+                ip_address,
+                user_agent,
+                referrer,
+            }
+        });
+
+        if (event_type === 'DETAIL_VIEW') {
+            await prisma.job.update({
+                where: { id: jobId },
+                data: { views_count: { increment: 1 } }
+            });
+        } else if (event_type === 'APPLY_CLICK') {
+            await prisma.job.update({
+                where: { id: jobId },
+                data: { clicks_count: { increment: 1 } }
+            });
+        }
+
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('Analytics tracking error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+/**
+ * GET /api/public/jobs/filters
+ * Get filter options (categories, departments, locations) for job search
+ */
+export const getFilters = async (_req: Request, res: Response) => {
+    try {
+        // Get active categories from JobCategory table
+        const categories = await prisma.jobCategory.findMany({
+            where: { is_active: true },
+            orderBy: { order: 'asc' },
+            select: {
+                name: true,
+                slug: true,
+            }
+        });
+
+        // Get unique departments and locations from active jobs
+        const jobs = await prisma.job.findMany({
+            where: {
+                status: 'OPEN',
+                visibility: 'public',
+            },
+            select: {
+                department: true,
+                location: true,
+            }
+        });
+
+        // Extract unique non-null values
+        const departments = [...new Set(jobs.map(j => j.department).filter(Boolean))].sort();
+        const locations = [...new Set(jobs.map(j => j.location).filter(Boolean))].sort();
+
+        res.json({
+            success: true,
+            data: {
+                categories: categories.map(c => c.name.trim()),
+                departments,
+                locations,
+            }
+        });
+    } catch (error: any) {
+        console.error('Error fetching filters:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch filters' });
+    }
+};
+
+/**
+ * Get filter aggregations
+ * GET /api/public/jobs/aggregations
+ */
+export const getFilterAggregations = async (_req: Request, res: Response) => {
+    try {
+        const baseWhere = {
+            status: 'OPEN' as const,
+            visibility: 'public',
+            archived: false,
+        };
+
+        const [categories, locations, tags, companies] = await Promise.all([
+            prisma.jobCategory.findMany({
+                where: { is_active: true },
+                select: {
+                    id: true,
+                    slug: true,
+                    name: true,
+                    icon: true,
+                    _count: { select: { jobs: { where: baseWhere } } }
+                },
+                orderBy: { name: 'asc' }
+            }),
+            prisma.job.groupBy({
+                by: ['location'],
+                where: baseWhere,
+                _count: true,
+                orderBy: { _count: { location: 'desc' } },
+                take: 20
+            }),
+            prisma.jobTag.findMany({
+                where: { is_active: true },
+                select: {
+                    id: true,
+                    slug: true,
+                    name: true,
+                    color: true,
+                    _count: { select: { jobs: { where: { job: baseWhere } } } }
+                },
+                orderBy: { name: 'asc' }
+            }),
+            prisma.company.findMany({
+                where: { jobs: { some: baseWhere } },
+                select: {
+                    id: true,
+                    name: true,
+                    _count: { select: { jobs: { where: baseWhere } } }
+                },
+                orderBy: { name: 'asc' },
+                take: 50
+            })
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                categories: categories.map(c => ({ ...c, count: c._count.jobs })),
+                locations: locations.map(l => ({ location: l.location, count: l._count })),
+                tags: tags.map(t => ({ ...t, count: t._count.jobs })),
+                companies: companies.map(c => ({ ...c, count: c._count.jobs }))
+            }
+        });
+    } catch (error: any) {
+        console.error('Filter aggregations error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};

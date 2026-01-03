@@ -891,7 +891,9 @@ model Consultant {
   consultant_lead_assignment ConsultantLeadAssignment[]
   sessions                   ConsultantSession[]
   assigned_jobs              Job[]
-  lead                       Lead[]
+  lead                       Lead[]                     @relation("AssignedLeads")
+  created_leads              Lead[]                     @relation("CreatedLeads")
+  referred_leads             Lead[]                     @relation("ReferredLeads")
   opportunity                Opportunity[]
   subscription               Subscription[]
 
@@ -1564,7 +1566,9 @@ model Lead {
   updated_at                 DateTime                   @default(now()) @updatedAt
   activity                   Activity[]
   consultant_lead_assignment ConsultantLeadAssignment[]
-  consultant                 Consultant?                @relation(fields: [assigned_consultant_id], references: [id])
+  consultant                 Consultant?                @relation("AssignedLeads", fields: [assigned_consultant_id], references: [id])
+  creator                    Consultant?                @relation("CreatedLeads", fields: [created_by], references: [id])
+  referrer                   Consultant?                @relation("ReferredLeads", fields: [referred_by], references: [id])
   company                    Company?                   @relation(fields: [converted_to_company_id], references: [id])
   region                     Region?                    @relation(fields: [region_id], references: [id])
 

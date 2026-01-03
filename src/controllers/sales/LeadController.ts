@@ -85,6 +85,79 @@ export class LeadController {
   }
 
   /**
+   * Get all leads for a region (HRM8 Admin/Licensee)
+   * GET /api/hrm8/leads/regional
+   */
+  static async getRegionalLeads(req: any, res: Response): Promise<void> {
+    try {
+      const { hrm8User } = req;
+      if (!hrm8User) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      // This will be called by HRM8 admins who have a licenseeId or global admin
+      const regionId = req.query.regionId as string;
+      
+      if (!regionId) {
+        res.status(400).json({ success: false, error: 'Region ID is required' });
+        return;
+      }
+
+      // If user is a regional licensee, verify they own the region
+      if (hrm8User.role === 'REGIONAL_LICENSEE') {
+        const region = await LeadService.getRegionById(regionId);
+        if (!region || region.licensee_id !== hrm8User.licenseeId) {
+          res.status(403).json({ success: false, error: 'Access denied to this region' });
+          return;
+        }
+      }
+
+      const leads = await LeadService.getLeadsByRegion(regionId);
+
+      res.json({
+        success: true,
+        data: { leads },
+      });
+    } catch (error: any) {
+      console.error('Get regional leads error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to fetch regional leads',
+      });
+    }
+  }
+
+  /**
+   * Reassign a lead
+   * POST /api/hrm8/leads/:id/reassign
+   */
+  static async reassign(req: any, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { consultantId } = req.body;
+
+      if (!consultantId) {
+        res.status(400).json({ success: false, error: 'Consultant ID is required' });
+        return;
+      }
+
+      const lead = await LeadService.reassignLead(id, consultantId);
+
+      res.json({
+        success: true,
+        data: { lead },
+      });
+    } catch (error: any) {
+      console.error('Reassign lead error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to reassign lead',
+      });
+    }
+  }
+
+  /**
    * Convert Lead to Company
    * POST /api/sales/leads/:id/convert
    */
