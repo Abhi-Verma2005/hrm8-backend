@@ -15,7 +15,7 @@ export class JobModel {
       ...jobData,
       description: jobData.description?.substring(0, 100) + '...',
     });
-    
+
     try {
       const prismaData: any = {
         company_id: jobData.companyId,
@@ -80,19 +80,19 @@ export class JobModel {
       if (jobData.alertsEnabled !== undefined) {
         prismaData.alerts_enabled = jobData.alertsEnabled ? jobData.alertsEnabled : null;
       }
-      
+
       if (jobData.shareLink !== undefined) {
         prismaData.share_link = jobData.shareLink || null;
       }
-      
+
       if (jobData.referralLink !== undefined) {
         prismaData.referral_link = jobData.referralLink || null;
       }
-      
+
       if (jobData.savedAsTemplate !== undefined) {
         prismaData.saved_as_template = jobData.savedAsTemplate || false;
       }
-      
+
       if (jobData.templateId !== undefined) {
         prismaData.template_id = jobData.templateId || null;
       }
@@ -116,7 +116,7 @@ export class JobModel {
       if (jobData.jobTargetApproved !== undefined) {
         prismaData.job_target_approved = jobData.jobTargetApproved || false;
       }
-      
+
       // Assignment fields
       if (jobData.assignmentMode !== undefined) {
         prismaData.assignment_mode = jobData.assignmentMode;
@@ -157,7 +157,7 @@ export class JobModel {
       const job = await prisma.job.create({
         data: prismaData,
       });
-      return this.mapPrismaToJob(job);
+      return this.mapPrismaToJob(job as any);
     } catch (error) {
       console.error('❌ JobModel.create failed:', error);
       console.error('Prisma error details:', {
@@ -177,7 +177,7 @@ export class JobModel {
       where: { id },
     });
 
-    return job ? this.mapPrismaToJob(job) : null;
+    return job ? this.mapPrismaToJob(job as any) : null;
   }
 
   /**
@@ -314,7 +314,7 @@ export class JobModel {
     // A job matches if its salary range overlaps with the requested range
     if (filters.salaryMin !== undefined || filters.salaryMax !== undefined) {
       const salaryConditions: any[] = [];
-      
+
       if (filters.salaryMin !== undefined && filters.salaryMax !== undefined) {
         // Both min and max specified: job range must overlap
         salaryConditions.push({
@@ -450,17 +450,17 @@ export class JobModel {
 
     const [categories, departments, locations] = await Promise.all([
       prisma.job.findMany({
-        where,
+        where: where as any,
         select: { category: true },
         distinct: ['category'],
       }),
       prisma.job.findMany({
-        where,
+        where: where as any,
         select: { department: true },
         distinct: ['department'],
       }),
       prisma.job.findMany({
-        where,
+        where: where as any,
         select: { location: true },
         distinct: ['location'],
       }),
@@ -756,19 +756,19 @@ export class JobModel {
       closeDate: prismaJob.close_date || undefined,
       hiringTeam: prismaJob.hiring_team
         ? (typeof prismaJob.hiring_team === 'string'
-            ? JSON.parse(prismaJob.hiring_team)
-            : prismaJob.hiring_team)
+          ? JSON.parse(prismaJob.hiring_team)
+          : prismaJob.hiring_team)
         : undefined,
       applicationForm: prismaJob.application_form
         ? (typeof prismaJob.application_form === 'string'
-            ? JSON.parse(prismaJob.application_form)
-            : prismaJob.application_form)
+          ? JSON.parse(prismaJob.application_form)
+          : prismaJob.application_form)
         : undefined,
       videoInterviewingEnabled: prismaJob.video_interviewing_enabled,
       alertsEnabled: prismaJob.alerts_enabled
         ? (typeof prismaJob.alerts_enabled === 'string'
-            ? JSON.parse(prismaJob.alerts_enabled)
-            : prismaJob.alerts_enabled)
+          ? JSON.parse(prismaJob.alerts_enabled)
+          : prismaJob.alerts_enabled)
         : undefined,
       shareLink: prismaJob.share_link || undefined,
       referralLink: prismaJob.referral_link || undefined,

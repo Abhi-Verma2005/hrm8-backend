@@ -1,23 +1,25 @@
-/**
- * Public Routes
- * Routes that don't require authentication
- */
+import { Router } from 'express';
+import * as PublicJobController from '../controllers/publicJob.controller';
 
-import { Router, type Router as RouterType } from 'express';
-import { PublicJobController } from '../controllers/public/PublicJobController';
-import { AssessmentController } from '../controllers/assessment/AssessmentController';
+const router: Router = Router();
 
-const router: RouterType = Router();
+// GET /api/public/jobs - Global Job Search
+router.get('/jobs', PublicJobController.getGlobalJobs);
 
-// Public job search routes (no authentication required)
-router.get('/jobs', PublicJobController.getPublicJobs);
-router.get('/jobs/filters', PublicJobController.getFilterOptions);
-router.get('/jobs/:id', PublicJobController.getPublicJobById);
+// GET /api/public/jobs/:jobId - Single Job Detail
+router.get('/jobs/:jobId', PublicJobController.getJobDetail);
 
-// Public assessment routes (token-based, no authentication required)
-router.get('/assessment/:token', AssessmentController.getAssessmentByToken);
-router.post('/assessment/:token/start', AssessmentController.startAssessment);
-router.post('/assessment/:token/submit', AssessmentController.submitAssessment);
+// GET /api/public/companies/:domain/jobs - Company Career Page Jobs
+router.get('/companies/:domain/jobs', PublicJobController.getCompanyJobs);
+
+// GET /api/public/companies/:domain/branding - Company Branding Assets
+router.get('/companies/:domain/branding', PublicJobController.getCompanyBranding);
+
+// GET /api/public/categories - Active Job Categories
+router.get('/categories', PublicJobController.getPublicCategories);
+
+// GET /api/public/tags - Active Job Tags
+router.get('/tags', PublicJobController.getPublicTags);
 
 export default router;
 

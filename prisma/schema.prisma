@@ -223,6 +223,7 @@ model Job {
   salary_max                          Float?                      @map("salary_max")
   salary_currency                     String                      @default("USD") @map("salary_currency")
   salary_description                  String?                     @map("salary_description")
+  benefits                            String?                     @db.Text
   description                         String
   status                              JobStatus                   @default(DRAFT)
   stealth                             Boolean                     @default(false)
@@ -230,7 +231,7 @@ model Job {
   close_date                          DateTime?                   @map("close_date")
   created_at                          DateTime                    @default(now()) @map("created_at")
   updated_at                          DateTime                    @default(now()) @updatedAt @map("updated_at")
-  expiry_date                         DateTime?                   @map("expiry_date")
+  expires_at                          DateTime?                   @map("expiry_date")
   featured                            Boolean                     @default(false)
   hiring_mode                         HiringMode                  @default(SELF_MANAGED) @map("hiring_mode")
   promotional_tags                    String[]                    @default([]) @map("promotional_tags")
@@ -291,14 +292,72 @@ model Job {
   saved_job                           SavedJob[]
   screening_criteria_rel              ScreeningCriteria[]
 
+  auto_archive_on_expiry              Boolean                     @default(true) @map("auto_archive_on_expiry")
+  posted_at                           DateTime                    @default(now()) @map("posted_at")
+  views_count                         Int                         @default(0)
+  clicks_count                        Int                         @default(0)
+
+  category_id                         String?                     @map("category_id")
+  job_category                        JobCategory?                @relation(fields: [category_id], references: [id])
+  tags                                JobTagAssignment[]
+
+  @@index([status, posting_date])
+  @@index([category_id])
+  @@index([company_id, status])
+  @@index([expires_at])
   @@index([company_id])
   @@index([created_by])
   @@index([status])
   @@index([hiring_mode])
-  @@index([expiry_date])
   @@index([region_id])
   @@index([assigned_consultant_id])
   @@index([assignment_source])
+}
+
+model JobCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  color       String?
+  order       Int      @default(0)
+  is_active   Boolean  @default(true) @map("is_active")
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  jobs        Job[]
+
+  @@map("job_category")
+}
+
+model JobTag {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  color       String?  @default("#3B82F6")
+  description String?
+  is_active   Boolean  @default(true) @map("is_active")
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @default(now()) @updatedAt @map("updated_at")
+  
+  jobs        JobTagAssignment[]
+  
+  @@map("job_tag")
+}
+
+model JobTagAssignment {
+  job_id      String
+  tag_id      String
+  assigned_at DateTime @default(now()) @map("assigned_at")
+  
+  job         Job    @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  tag         JobTag @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+  
+  @@id([job_id, tag_id])
+  @@index([job_id])
+  @@index([tag_id])
+  @@map("job_tag_assignment")
 }
 
 model Candidate {
@@ -582,6 +641,7 @@ model Application {
   portfolio_url              String?                    @map("portfolio_url")
   linked_in_url              String?                    @map("linked_in_url")
   website_url                String?                    @map("website_url")
+  source                     String?                    @map("source")
   custom_answers             Json?                      @map("custom_answers")
   questionnaire_data         Json?                      @map("questionnaire_data")
   is_read                    Boolean                    @default(false) @map("is_read")

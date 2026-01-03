@@ -28,14 +28,14 @@ export class JobAllocationService {
 
       const canOffload = await PackageService.canOffloadToConsultants(job.companyId);
       if (!canOffload) {
-        return { 
-          success: false, 
-          error: 'Companies with free packages (ATS Lite) cannot assign jobs to consultants. Please upgrade to a paid subscription to use consultant services.' 
+        return {
+          success: false,
+          error: 'Companies with free packages (ATS Lite) cannot assign jobs to consultants. Please upgrade to a paid subscription to use consultant services.'
         };
       }
 
       const match = await AutoAssignmentService.findBestConsultantForJob(jobId);
-      
+
       if (!match.consultantId) {
         return { success: false, error: match.reason || 'No suitable consultant found' };
       }
@@ -100,7 +100,7 @@ export class JobAllocationService {
       // Update job's regionId and assignedConsultantId
       await prisma.job.update({
         where: { id: jobId },
-        data: { 
+        data: {
           region_id: consultant.regionId,
           assigned_consultant_id: consultantId,
           assignment_source: assignmentSource || null,
@@ -110,7 +110,7 @@ export class JobAllocationService {
       // Create or update assignment record
       const existingAssignment = await ConsultantJobAssignmentModel.findByConsultantAndJob(consultantId, jobId);
       if (existingAssignment) {
-        await ConsultantJobAssignmentModel.update(existingAssignment.id, { 
+        await ConsultantJobAssignmentModel.update(existingAssignment.id, {
           status: 'ACTIVE',
           assignmentSource: assignmentSource || null,
         });
@@ -209,11 +209,11 @@ export class JobAllocationService {
     try {
       // Get all assignments for this job
       const assignments = await ConsultantJobAssignmentModel.findByJobId(jobId, true);
-      
+
       // Deactivate all assignments and decrement consultant counters
       for (const assignment of assignments) {
         await ConsultantJobAssignmentModel.deactivate(assignment.id);
-        
+
         // Decrement consultant's currentJobs counter
         await prisma.consultant.update({
           where: { id: assignment.consultantId },
@@ -224,7 +224,7 @@ export class JobAllocationService {
       // Remove regionId and assignedConsultantId from job
       await prisma.job.update({
         where: { id: jobId },
-        data: { 
+        data: {
           region_id: null,
           assigned_consultant_id: null,
           assignment_source: null,
@@ -243,7 +243,7 @@ export class JobAllocationService {
    */
   static async getJobConsultants(jobId: string): Promise<Array<{ id: string; firstName: string; lastName: string; email: string }>> {
     const assignments = await ConsultantJobAssignmentModel.findByJobId(jobId, true);
-    
+
     const consultants = [];
     for (const assignment of assignments) {
       const consultant = await ConsultantModel.findById(assignment.consultantId);
@@ -309,15 +309,17 @@ export class JobAllocationService {
       note?: string | null;
       updatedBy?: string;
     }
-  ): Promise<{ success: boolean; error?: string; pipeline?: {
-    consultantId: string;
-    jobId: string;
-    stage: PipelineStage;
-    progress: number;
-    note: string | null;
-    updatedAt: Date | null;
-    updatedBy: string | null;
-  } | null }> {
+  ): Promise<{
+    success: boolean; error?: string; pipeline?: {
+      consultantId: string;
+      jobId: string;
+      stage: PipelineStage;
+      progress: number;
+      note: string | null;
+      updatedAt: Date | null;
+      updatedBy: string | null;
+    } | null
+  }> {
     const assignment = await ConsultantJobAssignmentModel.findByConsultantAndJob(consultantId, jobId);
     if (!assignment) {
       return { success: false, error: 'Assignment not found' };
@@ -447,23 +449,23 @@ export class JobAllocationService {
           termsAcceptedAt: prismaJob.terms_accepted_at || undefined,
           termsAcceptedBy: prismaJob.terms_accepted_by || undefined,
           postingDate: prismaJob.posting_date || undefined,
-          expiryDate: prismaJob.expiry_date || undefined,
+          expiryDate: (prismaJob as any).expiry_date || undefined,
           closeDate: prismaJob.close_date || undefined,
           hiringTeam: prismaJob.hiring_team
             ? (typeof prismaJob.hiring_team === 'string'
-                ? JSON.parse(prismaJob.hiring_team)
-                : prismaJob.hiring_team)
+              ? JSON.parse(prismaJob.hiring_team)
+              : prismaJob.hiring_team)
             : undefined,
           applicationForm: prismaJob.application_form
             ? (typeof prismaJob.application_form === 'string'
-                ? JSON.parse(prismaJob.application_form)
-                : prismaJob.application_form)
+              ? JSON.parse(prismaJob.application_form)
+              : prismaJob.application_form)
             : undefined,
           videoInterviewingEnabled: prismaJob.video_interviewing_enabled,
           alertsEnabled: prismaJob.alerts_enabled
             ? (typeof prismaJob.alerts_enabled === 'string'
-                ? JSON.parse(prismaJob.alerts_enabled)
-                : prismaJob.alerts_enabled)
+              ? JSON.parse(prismaJob.alerts_enabled)
+              : prismaJob.alerts_enabled)
             : undefined,
           shareLink: prismaJob.share_link || undefined,
           referralLink: prismaJob.referral_link || undefined,
@@ -559,7 +561,7 @@ export class JobAllocationService {
         // Then by performance
         return (b.successRate || 0) - (a.successRate || 0);
       });
-      
+
       return filteredConsultants;
     } catch (error: any) {
       console.error('Get consultants for assignment error:', error);
