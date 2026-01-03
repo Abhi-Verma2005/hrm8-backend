@@ -12,6 +12,7 @@ import jobRoutes from './job';
 import candidateRoutes from './candidate';
 import applicationRoutes from './application';
 import emailRoutes from './email';
+import employerJobRoutes from './employerJob';
 import talentPoolRoutes from './talentPool';
 import publicRoutes from './public';
 import jobTemplateRoutes from './jobTemplate';
@@ -24,6 +25,7 @@ import interviewRoutes from './interview';
 import offerRoutes from './offer';
 import resumeRoutes from './resume';
 import devRoutes from './dev';
+import adminRoutes from './admin';
 import { authenticateHrm8User } from '../middleware/hrm8Auth';
 import { JobAllocationController } from '../controllers/hrm8/JobAllocationController';
 
@@ -38,6 +40,7 @@ router.use('/api/jobs', jobRoutes);
 router.use('/api/candidate', candidateRoutes);
 router.use('/api/applications', applicationRoutes);
 router.use('/api/talent-pool', talentPoolRoutes);
+router.use('/api/employer/jobs', employerJobRoutes);
 router.use('/api', emailRoutes);
 router.use('/api/public', publicRoutes);
 router.use('/api/job-templates', jobTemplateRoutes);
@@ -51,6 +54,7 @@ router.use('/api/interviews', interviewRoutes);
 router.use('/api/resumes', resumeRoutes);
 router.use('/api', offerRoutes);
 router.use('/api/sales', salesRoutes);
+router.use('/api/admin', adminRoutes);
 router.use('/', devRoutes); // Dev routes (only enabled in development)
 
 export default router;
