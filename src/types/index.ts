@@ -28,6 +28,7 @@ import {
   PaymentStatus,
   RegionOwnerType,
   CommissionStatus,
+  ConsultantRole,
 } from '@prisma/client';
 
 export {
@@ -53,6 +54,7 @@ export {
   PaymentStatus,
   RegionOwnerType,
   CommissionStatus,
+  ConsultantRole,
 };
 
 // ============================================================================
