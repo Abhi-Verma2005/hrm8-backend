@@ -297,9 +297,11 @@ model Job {
   views_count                         Int                         @default(0)
   clicks_count                        Int                         @default(0)
 
+  
   category_id                         String?                     @map("category_id")
   job_category                        JobCategory?                @relation(fields: [category_id], references: [id])
   tags                                JobTagAssignment[]
+  job_analytics                       JobAnalytics[]
 
   @@index([status, posting_date])
   @@index([category_id])
@@ -2516,4 +2518,25 @@ enum TriggerType {
   IMMEDIATE
   SCHEDULED
   CONDITIONAL
+}
+
+model JobAnalytics {
+  id           String   @id @default(uuid())
+  job_id       String
+  job          Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  
+  event_type   String   // "VIEW" | "DETAIL_VIEW" | "APPLY_CLICK" | "SHARE"
+  source       String   // "HRM8_BOARD" | "CANDIDATE_PORTAL" | "CAREER_PAGE" | "EXTERNAL"
+  
+  session_id   String?
+  ip_address   String?
+  user_agent   String?
+  referrer     String?
+  
+  created_at   DateTime @default(now())
+  
+  @@index([job_id, event_type, created_at])
+  @@index([created_at])
+  @@index([session_id])
+  @@map("job_analytics")
 }
