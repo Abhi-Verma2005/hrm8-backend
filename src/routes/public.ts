@@ -9,6 +9,15 @@ router.get('/jobs', PublicJobController.getGlobalJobs);
 // GET /api/public/jobs/filters - Filter Options
 router.get('/jobs/filters', PublicJobController.getFilters);
 
+// GET /api/public/jobs/aggregations - Filter Aggregations (moved before :jobId routes)
+router.get('/jobs/aggregations', PublicJobController.getFilterAggregations);
+
+// GET /api/public/jobs/:jobId/application-form - Get Application Form Fields
+router.get('/jobs/:jobId/application-form', PublicJobController.getApplicationForm);
+
+// GET /api/public/jobs/:jobId/related - Get Related Jobs from Same Company
+router.get('/jobs/:jobId/related', PublicJobController.getRelatedJobs);
+
 // GET /api/public/jobs/:jobId - Single Job Detail
 router.get('/jobs/:jobId', PublicJobController.getJobDetail);
 
@@ -27,8 +36,4 @@ router.get('/tags', PublicJobController.getPublicTags);
 // POST /api/public/jobs/:jobId/track - Track Analytics
 router.post('/jobs/:jobId/track', PublicJobController.trackAnalytics);
 
-// GET /api/public/jobs/aggregations - Filter Aggregations
-router.get('/jobs/aggregations', PublicJobController.getFilterAggregations);
-
 export default router;
-
