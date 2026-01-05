@@ -45,6 +45,9 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
         const search = req.query.search as string;
         const location = req.query.location as string;
         const tags = req.query.tags as string;
+        const company = req.query.company as string;
+        const department = req.query.department as string;
+        const category = req.query.category as string;
 
         const where: Prisma.JobWhereInput = {
             status: 'OPEN',
@@ -67,6 +70,26 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
             // Assuming tags is comma separated
             const tagList = tags.split(',');
             where.promotional_tags = { hasSome: tagList };
+        }
+
+        // Filter by company name or ID
+        if (company) {
+            where.company = {
+                OR: [
+                    { name: { contains: company, mode: 'insensitive' } },
+                    { id: company }
+                ]
+            };
+        }
+
+        // Filter by department
+        if (department) {
+            where.department = { contains: department, mode: 'insensitive' };
+        }
+
+        // Filter by category
+        if (category) {
+            where.category = { contains: category, mode: 'insensitive' };
         }
 
         const [jobs, total] = await Promise.all([
@@ -512,5 +535,109 @@ export const getFilterAggregations = async (_req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Filter aggregations error:', error);
         res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+/**
+ * Get application form fields for a job
+ * GET /api/public/jobs/:jobId/application-form
+ */
+export const getApplicationForm = async (req: Request, res: Response) => {
+    try {
+        const { jobId } = req.params;
+
+        const job = await prisma.job.findUnique({
+            where: { id: jobId, status: 'OPEN' },
+            select: {
+                id: true,
+                title: true,
+                application_form: true,
+                company: {
+                    select: {
+                        id: true,
+                        name: true,
+                        domain: true,
+                    }
+                }
+            }
+        });
+
+        if (!job) {
+            res.status(404).json({ success: false, error: 'Job not found or not accepting applications' });
+            return;
+        }
+
+        res.json({
+            success: true,
+            data: {
+                jobId: job.id,
+                title: job.title,
+                company: job.company,
+                form: job.application_form || { fields: [] }
+            }
+        });
+    } catch (error: any) {
+        console.error('Error fetching application form:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch application form' });
+    }
+};
+
+/**
+ * Get related jobs from the same company
+ * GET /api/public/jobs/:jobId/related
+ */
+export const getRelatedJobs = async (req: Request, res: Response) => {
+    try {
+        const { jobId } = req.params;
+        const limit = Math.min(Number(req.query.limit) || 5, 10);
+
+        // Get current job's company
+        const currentJob = await prisma.job.findUnique({
+            where: { id: jobId },
+            select: { company_id: true }
+        });
+
+        if (!currentJob) {
+            res.status(404).json({ success: false, error: 'Job not found' });
+            return;
+        }
+
+        // Get other open jobs from the same company
+        const relatedJobs = await prisma.job.findMany({
+            where: {
+                company_id: currentJob.company_id,
+                status: 'OPEN',
+                visibility: 'public',
+                id: { not: jobId }
+            },
+            select: {
+                id: true,
+                title: true,
+                job_summary: true,
+                location: true,
+                department: true,
+                employment_type: true,
+                work_arrangement: true,
+                posted_at: true,
+                promotional_tags: true,
+                company: {
+                    select: {
+                        id: true,
+                        name: true,
+                        domain: true,
+                    }
+                }
+            },
+            take: limit,
+            orderBy: { posted_at: 'desc' }
+        });
+
+        res.json({
+            success: true,
+            data: relatedJobs.map(transformJobForPublic)
+        });
+    } catch (error: any) {
+        console.error('Error fetching related jobs:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch related jobs' });
     }
 };
