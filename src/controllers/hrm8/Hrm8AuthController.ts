@@ -68,6 +68,7 @@ export class Hrm8AuthController {
             role: hrm8User.role,
             status: hrm8User.status,
             licenseeId: hrm8User.licenseeId,
+            regionNames: hrm8User.regionNames,
           },
         },
       });
@@ -99,10 +100,52 @@ export class Hrm8AuthController {
         message: 'Logged out successfully',
       });
     } catch (error) {
-      console.error('HRM8 logout error:', error);
+      console.error('Logout error:', error);
       res.status(500).json({
         success: false,
         error: 'Logout failed',
+      });
+    }
+  }
+
+  /**
+   * Change password
+   * POST /api/hrm8/auth/change-password
+   */
+  static async changePassword(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.hrm8User?.id;
+
+      if (!userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      if (!currentPassword || !newPassword) {
+        res.status(400).json({ success: false, error: 'Current and new passwords are required' });
+        return;
+      }
+
+      const result = await Hrm8AuthService.changePassword(userId, currentPassword, newPassword);
+
+      if ('error' in result) {
+        res.status(result.status || 400).json({
+          success: false,
+          error: result.error,
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: 'Password changed successfully',
+      });
+    } catch (error) {
+      console.error('Change password error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to change password',
       });
     }
   }
@@ -142,6 +185,7 @@ export class Hrm8AuthController {
             role: hrm8User.role,
             status: hrm8User.status,
             licenseeId: hrm8User.licenseeId,
+            regionNames: hrm8User.regionNames,
           },
         },
       });

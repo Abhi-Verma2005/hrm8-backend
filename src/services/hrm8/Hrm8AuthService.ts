@@ -5,7 +5,7 @@
 
 import { HRM8UserModel } from '../../models/HRM8User';
 import { normalizeEmail } from '../../utils/email';
-import { comparePassword } from '../../utils/password';
+import { comparePassword, hashPassword } from '../../utils/password';
 import { HRM8User, HRM8UserStatus } from '../../types';
 
 export interface Hrm8LoginRequest {
@@ -70,6 +70,33 @@ export class Hrm8AuthService {
    */
   static async findById(id: string): Promise<HRM8User | null> {
     return await HRM8UserModel.findById(id);
+  }
+
+  /**
+   * Change password for HRM8 user
+   */
+  static async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ success: true } | { error: string; status: number }> {
+    // 1. Find user
+    const user = await HRM8UserModel.findById(userId);
+    if (!user) {
+      return { error: 'User not found', status: 404 };
+    }
+
+    // 2. Verify current password
+    const isMatch = await comparePassword(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return { error: 'Incorrect current password', status: 401 };
+    }
+
+    // 3. Hash and update new password
+    const newPasswordHash = await hashPassword(newPassword);
+    await HRM8UserModel.updatePassword(userId, newPasswordHash);
+
+    return { success: true };
   }
 }
 

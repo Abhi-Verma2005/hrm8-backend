@@ -223,6 +223,7 @@ export interface HRM8User {
   role: HRM8UserRole;
   status: HRM8UserStatus;
   licenseeId?: string;
+  regionNames?: string[];
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;

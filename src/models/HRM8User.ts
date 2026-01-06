@@ -45,6 +45,17 @@ export class HRM8UserModel {
   static async findById(id: string): Promise<HRM8User | null> {
     const user = await prisma.hRM8User.findUnique({
       where: { id },
+      include: {
+        licensee: {
+          include: {
+            regions: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      }
     });
 
     return user ? this.mapPrismaToUser(user) : null;
@@ -56,6 +67,17 @@ export class HRM8UserModel {
   static async findByEmail(email: string): Promise<HRM8User | null> {
     const user = await prisma.hRM8User.findUnique({
       where: { email: email.toLowerCase().trim() },
+      include: {
+        licensee: {
+          include: {
+            regions: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      }
     });
 
     return user ? this.mapPrismaToUser(user) : null;
@@ -115,6 +137,8 @@ export class HRM8UserModel {
    * Map Prisma user to HRM8User domain type
    */
   private static mapPrismaToUser(prismaUser: any): HRM8User {
+    const regionNames = prismaUser.licensee?.regions?.map((r: any) => r.name) || [];
+
     return {
       id: prismaUser.id,
       email: prismaUser.email,
@@ -126,6 +150,7 @@ export class HRM8UserModel {
       role: prismaUser.role,
       status: prismaUser.status,
       licenseeId: prismaUser.licensee_id || undefined,
+      regionNames: regionNames.length > 0 ? regionNames : undefined,
       lastLoginAt: prismaUser.last_login_at || undefined,
       createdAt: prismaUser.created_at,
       updatedAt: prismaUser.updated_at,

@@ -29,6 +29,7 @@ router.use(authenticateHrm8User);
 // Auth routes
 router.post('/auth/logout', Hrm8AuthController.logout);
 router.get('/auth/me', Hrm8AuthController.getCurrentHrm8User);
+router.post('/auth/change-password', Hrm8AuthController.changePassword);
 
 // Region routes
 router.get('/regions', RegionController.getAll);

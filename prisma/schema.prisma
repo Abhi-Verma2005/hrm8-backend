@@ -973,6 +973,7 @@ model HRM8User {
   updated_at    DateTime       @default(now()) @updatedAt @map("updated_at")
   last_login_at DateTime?      @map("last_login_at")
   sessions      HRM8Session[]
+  licensee      RegionalLicensee? @relation(fields: [licensee_id], references: [id])
 
   @@index([email])
   @@index([licensee_id])
@@ -1063,6 +1064,7 @@ model RegionalLicensee {
   regions               Region[]
   revenue_shares        RegionalRevenue[]
   settlements           Settlement[]
+  hrm8_users            HRM8User[]
 
   @@index([email])
   @@index([status])
