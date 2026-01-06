@@ -7,6 +7,10 @@ import { prisma } from '../lib/prisma'; // Use singleton
  * This ensures compatibility between database conventions and JavaScript conventions
  */
 function transformJobForPublic(job: any): any {
+    // Extract logo from profile_data JSON if available
+    const profileData = job.company?.profile?.profile_data as any;
+    const logoUrl = profileData?.branding?.logoUrl || profileData?.logoUrl || null;
+
     return {
         id: job.id,
         title: job.title,
@@ -28,10 +32,14 @@ function transformJobForPublic(job: any): any {
         featured: job.featured || false,
         postingDate: job.posted_at || job.created_at,
         expiryDate: job.expires_at,
+        regionId: job.region_id,
         company: {
             id: job.company?.id || '',
             name: job.company?.name || '',
             website: job.company?.website || (job.company?.domain ? `https://${job.company.domain}` : ''),
+            logoUrl: logoUrl,
+            domain: job.company?.domain || '',
+            aboutCompany: profileData?.about?.description || null,
         },
         createdAt: job.created_at,
     };
@@ -48,14 +56,12 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
         const company = req.query.company as string;
         const department = req.query.department as string;
         const category = req.query.category as string;
+        const region = req.query.region as string;
+        const includeRemote = req.query.includeRemote !== 'false';
 
         const where: Prisma.JobWhereInput = {
             status: 'OPEN',
             visibility: 'public',
-            // Ensure company is active/verified if needed
-            company: {
-                // verification_status: 'VERIFIED' // Optional strictness
-            }
         };
 
         if (search) {
@@ -92,6 +98,24 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
             where.category = { contains: category, mode: 'insensitive' };
         }
 
+        // Region-wise filtering:
+        // - Remote jobs are visible to all candidates regardless of region
+        // - Non-remote jobs (ON_SITE, HYBRID) are filtered by region
+        let isRegionFiltered = false;
+        if (region) {
+            isRegionFiltered = true;
+            if (includeRemote) {
+                // Show remote jobs from any region + non-remote jobs from specified region
+                where.OR = [
+                    { work_arrangement: 'REMOTE' },
+                    { region_id: region }
+                ];
+            } else {
+                // Only show jobs from specified region
+                where.region_id = region;
+            }
+        }
+
         const [jobs, total] = await Promise.all([
             prisma.job.findMany({
                 where,
@@ -118,12 +142,18 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
                     expires_at: true,
                     created_at: true,
                     views_count: true,
+                    region_id: true,
                     company: {
                         select: {
                             id: true,
                             name: true,
                             domain: true,
                             website: true,
+                            profile: {
+                                select: {
+                                    profile_data: true,
+                                }
+                            }
                         }
                     }
                 },
@@ -148,7 +178,9 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
                     page,
                     limit,
                     total_pages: Math.ceil(total / limit)
-                }
+                },
+                isRegionFiltered,
+                regionNote: isRegionFiltered ? 'Showing jobs in your region. Remote jobs are included from all regions.' : null
             }
         });
 
@@ -281,6 +313,7 @@ export const getJobDetail = async (req: Request, res: Response) => {
                 expires_at: true,
                 created_at: true,
                 benefits: true,
+                region_id: true,
                 company: {
                     select: {
                         id: true,
@@ -288,6 +321,11 @@ export const getJobDetail = async (req: Request, res: Response) => {
                         domain: true,
                         website: true,
                         country_or_region: true,
+                        profile: {
+                            select: {
+                                profile_data: true,
+                            }
+                        }
                     }
                 }
             }
