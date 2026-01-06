@@ -202,6 +202,40 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
               // If already published or other non-fatal error, just log it
               console.log(`ℹ️ Job ${jobId} publishing status: ${publishError.message}`);
             }
+
+            // 4. Create commission for assigned consultant (if any)
+            try {
+              const { CommissionService } = await import('../services/hrm8/CommissionService');
+              const job = await prisma.job.findUnique({
+                where: { id: jobId },
+                select: {
+                  id: true,
+                  region_id: true,
+                  hiring_mode: true,
+                  consultant_assignments: {
+                    select: { consultant_id: true },
+                    take: 1,
+                  },
+                },
+              });
+
+              if (job?.consultant_assignments?.[0]?.consultant_id && job.region_id) {
+                const commissionResult = await CommissionService.createCommissionForJobAssignment(
+                  jobId,
+                  job.consultant_assignments[0].consultant_id,
+                  job.region_id,
+                  (session.amount_total || 0) / 100 // Service fee amount
+                );
+                if (commissionResult.success) {
+                  console.log(`✅ Created commission ${commissionResult.commissionId} for job ${jobId}`);
+                } else {
+                  console.log(`ℹ️ Commission not created for job ${jobId}: ${commissionResult.error}`);
+                }
+              }
+            } catch (commissionError: any) {
+              // Non-fatal - log but don't fail payment processing
+              console.log(`ℹ️ Commission creation note: ${commissionError.message}`);
+            }
           } catch (error) {
             console.error(`❌ Error processing payment for job ${jobId}:`, error);
           }
