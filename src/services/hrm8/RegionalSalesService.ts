@@ -11,18 +11,22 @@ export class RegionalSalesService {
    * Get all opportunities for a region
    */
   static async getRegionalOpportunities(
-    regionId: string,
+    regionId?: string,
+    regionIds?: string[],
     filters?: {
       stage?: OpportunityStage;
       salesAgentId?: string;
     }
   ) {
-    // 1. Find all consultants in this region
+    // 1. Find all consultants in this region(s)
+    const whereConsultant: any = {
+      role: { in: [ConsultantRole.SALES_AGENT, ConsultantRole.CONSULTANT_360] }
+    };
+    if (regionId) whereConsultant.region_id = regionId;
+    if (regionIds) whereConsultant.region_id = { in: regionIds };
+
     const regionalConsultants = await prisma.consultant.findMany({
-      where: {
-        region_id: regionId,
-        role: { in: [ConsultantRole.SALES_AGENT, ConsultantRole.CONSULTANT_360] }
-      },
+      where: whereConsultant,
       select: { id: true, first_name: true, last_name: true, email: true }
     });
 
@@ -57,13 +61,16 @@ export class RegionalSalesService {
   /**
    * Get Regional Pipeline Stats (Forecast)
    */
-  static async getRegionalPipelineStats(regionId: string) {
-    // 1. Find all consultants in this region
+  static async getRegionalPipelineStats(regionId?: string, regionIds?: string[]) {
+    // 1. Find all consultants in this region(s)
+    const whereConsultant: any = {
+      role: { in: [ConsultantRole.SALES_AGENT, ConsultantRole.CONSULTANT_360] }
+    };
+    if (regionId) whereConsultant.region_id = regionId;
+    if (regionIds) whereConsultant.region_id = { in: regionIds };
+
     const regionalConsultants = await prisma.consultant.findMany({
-      where: {
-        region_id: regionId,
-        role: { in: [ConsultantRole.SALES_AGENT, ConsultantRole.CONSULTANT_360] }
-      },
+      where: whereConsultant,
       select: { id: true }
     });
     
@@ -111,10 +118,16 @@ export class RegionalSalesService {
   /**
    * Get Regional Activity Feed
    */
-  static async getRegionalActivities(regionId: string, limit = 50) {
-    // 1. Find all consultants in this region
+  static async getRegionalActivities(regionId?: string, regionIds?: string[], limit = 50) {
+    // 1. Find all consultants in this region(s)
+    const whereConsultant: any = {
+      role: { in: [ConsultantRole.SALES_AGENT, ConsultantRole.CONSULTANT_360] }
+    };
+    if (regionId) whereConsultant.region_id = regionId;
+    if (regionIds) whereConsultant.region_id = { in: regionIds };
+
     const regionalConsultants = await prisma.consultant.findMany({
-      where: { region_id: regionId },
+      where: whereConsultant,
       select: { id: true }
     });
     const consultantIds = regionalConsultants.map(c => c.id);

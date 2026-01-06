@@ -973,7 +973,6 @@ model HRM8User {
   updated_at    DateTime       @default(now()) @updatedAt @map("updated_at")
   last_login_at DateTime?      @map("last_login_at")
   sessions      HRM8Session[]
-  licensee      RegionalLicensee? @relation(fields: [licensee_id], references: [id])
 
   @@index([email])
   @@index([licensee_id])
@@ -1033,6 +1032,7 @@ model Region {
   price_books    PriceBook[]
   licensee       RegionalLicensee? @relation(fields: [licensee_id], references: [id])
   revenue        RegionalRevenue[]
+  bills          Bill[]
 
   @@index([is_active])
   @@index([licensee_id])
@@ -1064,7 +1064,6 @@ model RegionalLicensee {
   regions               Region[]
   revenue_shares        RegionalRevenue[]
   settlements           Settlement[]
-  hrm8_users            HRM8User[]
 
   @@index([email])
   @@index([status])
@@ -1464,16 +1463,19 @@ model Bill {
   line_items        Json?
   accounting_ref    String?
   synced_at         DateTime?
+  region_id         String?       @map("region_id")
   notes             String?
-  created_at        DateTime      @default(now())
-  updated_at        DateTime      @default(now()) @updatedAt
+  created_at        DateTime      @default(now()) @map("created_at")
+  updated_at        DateTime      @default(now()) @updatedAt @map("updated_at")
   company           Company       @relation(fields: [company_id], references: [id], onDelete: Cascade)
   subscription      Subscription? @relation(fields: [subscription_id], references: [id])
+  region            Region?       @relation(fields: [region_id], references: [id])
 
   @@index([company_id])
   @@index([due_date])
   @@index([status])
   @@index([subscription_id])
+  @@index([region_id])
 }
 
 model ConsultantLeadAssignment {

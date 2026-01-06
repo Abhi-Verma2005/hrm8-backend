@@ -83,14 +83,22 @@ export class LeadService {
   /**
    * Get all leads for a specific region (Manager/Licensee view)
    */
-  static async getLeadsByRegion(regionId: string) {
+  static async getLeadsByRegion(regionId?: string, regionIds?: string[]) {
+    const where: any = {};
+    if (regionId) {
+      where.OR = [
+        { region_id: regionId },
+        { consultant: { region_id: regionId } }
+      ];
+    } else if (regionIds) {
+      where.OR = [
+        { region_id: { in: regionIds } },
+        { consultant: { region_id: { in: regionIds } } }
+      ];
+    }
+
     return await prisma.lead.findMany({
-      where: {
-        OR: [
-          { region_id: regionId },
-          { consultant: { region_id: regionId } }
-        ]
-      },
+      where,
       orderBy: { created_at: 'desc' },
       include: {
         consultant: {

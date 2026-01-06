@@ -5,6 +5,7 @@
 
 import { Response } from 'express';
 import { ConsultantAuthenticatedRequest } from '../../middleware/consultantAuth';
+import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 import { LeadService } from '../../services/sales/LeadService';
 import { LeadSource } from '@prisma/client';
 
@@ -88,32 +89,27 @@ export class LeadController {
    * Get all leads for a region (HRM8 Admin/Licensee)
    * GET /api/hrm8/leads/regional
    */
-  static async getRegionalLeads(req: any, res: Response): Promise<void> {
+  static async getRegionalLeads(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const { hrm8User } = req;
-      if (!hrm8User) {
-        res.status(401).json({ success: false, error: 'Unauthorized' });
-        return;
-      }
+      let regionId = req.query.regionId as string;
+      let regionIds: string[] | undefined;
 
-      // This will be called by HRM8 admins who have a licenseeId or global admin
-      const regionId = req.query.regionId as string;
-      
-      if (!regionId) {
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds) {
+        if (regionId) {
+          if (!req.assignedRegionIds.includes(regionId)) {
+            res.json({ success: true, data: { leads: [] } });
+            return;
+          }
+        } else {
+          regionIds = req.assignedRegionIds;
+        }
+      } else if (!regionId) {
         res.status(400).json({ success: false, error: 'Region ID is required' });
         return;
       }
 
-      // If user is a regional licensee, verify they own the region
-      if (hrm8User.role === 'REGIONAL_LICENSEE') {
-        const region = await LeadService.getRegionById(regionId);
-        if (!region || region.licensee_id !== hrm8User.licenseeId) {
-          res.status(403).json({ success: false, error: 'Access denied to this region' });
-          return;
-        }
-      }
-
-      const leads = await LeadService.getLeadsByRegion(regionId);
+      const leads = await LeadService.getLeadsByRegion(regionId, regionIds);
 
       res.json({
         success: true,

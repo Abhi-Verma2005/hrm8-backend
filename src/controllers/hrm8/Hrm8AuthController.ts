@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import { Hrm8AuthService, Hrm8LoginRequest } from '../../services/hrm8/Hrm8AuthService';
 import { HRM8SessionModel } from '../../models/HRM8Session';
+import { RegionService } from '../../services/hrm8/RegionService';
 import { generateSessionId, getSessionExpiration, getSessionCookieOptions } from '../../utils/session';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 
@@ -42,6 +43,13 @@ export class Hrm8AuthController {
 
       const { hrm8User } = result;
 
+      // Get assigned regions if licensee
+      let regionIds: string[] = [];
+      if (hrm8User.role === 'REGIONAL_LICENSEE' && hrm8User.licenseeId) {
+        const regions = await RegionService.getAll({ licenseeId: hrm8User.licenseeId });
+        regionIds = regions.map(r => r.id);
+      }
+
       // Create session
       const sessionId = generateSessionId();
       const expiresAt = getSessionExpiration();
@@ -68,7 +76,7 @@ export class Hrm8AuthController {
             role: hrm8User.role,
             status: hrm8User.status,
             licenseeId: hrm8User.licenseeId,
-            regionNames: hrm8User.regionNames,
+            regionIds,
           },
         },
       });
@@ -185,7 +193,7 @@ export class Hrm8AuthController {
             role: hrm8User.role,
             status: hrm8User.status,
             licenseeId: hrm8User.licenseeId,
-            regionNames: hrm8User.regionNames,
+            regionIds: req.assignedRegionIds || [],
           },
         },
       });

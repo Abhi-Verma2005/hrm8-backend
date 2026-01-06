@@ -111,10 +111,12 @@ export class RegionalLicenseeModel {
    */
   static async findAll(filters?: {
     status?: LicenseeStatus;
+    licenseeId?: string;
   }): Promise<RegionalLicenseeData[]> {
     const licensees = await prisma.regionalLicensee.findMany({
       where: {
         ...(filters?.status && { status: filters.status }),
+        ...(filters?.licenseeId && { id: filters.licenseeId }),
       },
       orderBy: { name: 'asc' },
     });

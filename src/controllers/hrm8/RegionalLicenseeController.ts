@@ -15,12 +15,17 @@ export class RegionalLicenseeController {
    */
   static async getAll(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const filters: { status?: LicenseeStatus } = {};
+      const filters: { status?: LicenseeStatus; licenseeId?: string } = {};
       if (req.query.status) {
         const statusStr = req.query.status as string;
         if (statusStr === 'ACTIVE' || statusStr === 'SUSPENDED' || statusStr === 'TERMINATED') {
           filters.status = statusStr as LicenseeStatus;
         }
+      }
+
+      // Apply regional isolation for licensees
+      if (req.hrm8User?.role === 'REGIONAL_LICENSEE') {
+        filters.licenseeId = req.hrm8User.licenseeId as string;
       }
 
       const licensees = await RegionalLicenseeService.getAll(filters);

@@ -83,6 +83,7 @@ export class RegionalLicenseeService {
    */
   static async getAll(filters?: {
     status?: LicenseeStatus;
+    licenseeId?: string;
   }): Promise<RegionalLicenseeData[]> {
     return await RegionalLicenseeModel.findAll(filters);
   }

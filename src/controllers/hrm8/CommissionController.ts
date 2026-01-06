@@ -27,6 +27,21 @@ export class CommissionController {
       if (req.query.consultantId) filters.consultantId = req.query.consultantId as string;
       if (req.query.regionId) filters.regionId = req.query.regionId as string;
       if (req.query.jobId) filters.jobId = req.query.jobId as string;
+      
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds) {
+        if (filters.regionId) {
+          // If a specific regionId was requested, ensure it's in the user's assigned regions
+          if (!req.assignedRegionIds.includes(filters.regionId)) {
+            res.json({ success: true, data: { commissions: [] } });
+            return;
+          }
+        } else {
+          // Otherwise filter by all assigned regions
+          (filters as any).regionIds = req.assignedRegionIds;
+        }
+      }
+
       if (req.query.status) {
         filters.status = req.query.status as CommissionStatus;
       }

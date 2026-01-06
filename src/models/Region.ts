@@ -99,6 +99,7 @@ export class RegionModel {
   static async findAll(filters?: {
     ownerType?: RegionOwnerType;
     licenseeId?: string;
+    regionIds?: string[];
     isActive?: boolean;
     country?: string;
   }): Promise<RegionData[]> {
@@ -106,6 +107,7 @@ export class RegionModel {
       where: {
         ...(filters?.ownerType && { owner_type: filters.ownerType }),
         ...(filters?.licenseeId && { licensee_id: filters.licenseeId }),
+        ...(filters?.regionIds && { id: { in: filters.regionIds } }),
         ...(filters?.isActive !== undefined && { is_active: filters.isActive }),
         ...(filters?.country && { country: filters.country }),
       },

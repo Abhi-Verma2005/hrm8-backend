@@ -121,6 +121,7 @@ export class CommissionModel {
   static async findAll(filters?: {
     consultantId?: string;
     regionId?: string;
+    regionIds?: string[];
     jobId?: string;
     status?: CommissionStatus;
     type?: CommissionType;
@@ -129,6 +130,7 @@ export class CommissionModel {
       where: {
         ...(filters?.consultantId && { consultant_id: filters.consultantId }),
         ...(filters?.regionId && { region_id: filters.regionId }),
+        ...(filters?.regionIds && { region_id: { in: filters.regionIds } }),
         ...(filters?.jobId && { job_id: filters.jobId }),
         ...(filters?.status && { status: filters.status }),
         ...(filters?.type && { type: filters.type }),

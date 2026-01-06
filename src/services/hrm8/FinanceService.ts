@@ -9,10 +9,14 @@ export class FinanceService {
     status?: BillStatus;
     agingDays?: number; // e.g. > 30 days overdue
     companyId?: string;
+    regionId?: string;
+    regionIds?: string[];
   }) {
     const where: any = {};
     if (filters.status) where.status = filters.status;
     if (filters.companyId) where.company_id = filters.companyId;
+    if (filters.regionId) where.region_id = filters.regionId;
+    if (filters.regionIds) where.region_id = { in: filters.regionIds };
 
     if (filters.agingDays) {
       const date = new Date();
@@ -75,16 +79,21 @@ export class FinanceService {
   /**
    * Get dunning candidates (companies with overdue bills)
    */
-  static async getDunningCandidates() {
+  static async getDunningCandidates(filters?: { regionId?: string; regionIds?: string[] }) {
     // Find bills overdue > 30 days (default policy)
     const date = new Date();
     date.setDate(date.getDate() - 30);
 
+    const where: any = {
+      status: { in: [BillStatus.PENDING, BillStatus.OVERDUE] },
+      due_date: { lt: date }
+    };
+
+    if (filters?.regionId) where.region_id = filters.regionId;
+    if (filters?.regionIds) where.region_id = { in: filters.regionIds };
+
     return prisma.bill.findMany({
-      where: {
-        status: { in: [BillStatus.PENDING, BillStatus.OVERDUE] },
-        due_date: { lt: date }
-      },
+      where,
       include: { company: true }
     });
   }

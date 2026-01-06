@@ -232,6 +232,7 @@ export class CommissionService {
   static async getAllCommissions(filters?: {
     consultantId?: string;
     regionId?: string;
+    regionIds?: string[];
     jobId?: string;
     status?: CommissionStatus;
     type?: CommissionType;

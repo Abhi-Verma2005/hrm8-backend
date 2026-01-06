@@ -8,6 +8,9 @@ import { HRM8SessionModel } from '../models/HRM8Session';
 import { HRM8UserModel } from '../models/HRM8User';
 import { getSessionCookieOptions } from '../utils/session';
 
+import { HRM8UserRole } from '../types';
+import { RegionService } from '../services/hrm8/RegionService';
+
 export interface Hrm8AuthenticatedRequest extends Request {
   hrm8User?: {
     id: string;
@@ -17,6 +20,7 @@ export interface Hrm8AuthenticatedRequest extends Request {
     role: string;
     licenseeId?: string;
   };
+  assignedRegionIds?: string[];
 }
 
 /**
@@ -72,6 +76,12 @@ export async function authenticateHrm8User(
       role: hrm8User.role,
       licenseeId: hrm8User.licenseeId,
     };
+
+    // If licensee, attach assigned region IDs
+    if (hrm8User.role === HRM8UserRole.REGIONAL_LICENSEE && hrm8User.licenseeId) {
+      const regions = await RegionService.getAll({ licenseeId: hrm8User.licenseeId });
+      req.assignedRegionIds = regions.map(region => region.id);
+    }
 
     next();
   } catch (error) {

@@ -11,6 +11,21 @@ export class FinanceController {
       if (req.query.agingDays) filters.agingDays = parseInt(req.query.agingDays as string);
       if (req.query.companyId) filters.companyId = req.query.companyId as string;
 
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds) {
+        if (req.query.regionId) {
+          if (!req.assignedRegionIds.includes(req.query.regionId as string)) {
+            res.json({ success: true, data: { invoices: [] } });
+            return;
+          }
+          filters.regionId = req.query.regionId;
+        } else {
+          filters.regionIds = req.assignedRegionIds;
+        }
+      } else if (req.query.regionId) {
+        filters.regionId = req.query.regionId;
+      }
+
       const invoices = await FinanceService.getAllInvoices(filters);
       res.json({ success: true, data: { invoices } });
     } catch (error) {
@@ -21,7 +36,13 @@ export class FinanceController {
 
   static async calculateSettlement(req: Hrm8AuthenticatedRequest, res: Response) {
     try {
-      const { licenseeId, periodStart, periodEnd } = req.body;
+      let { licenseeId, periodStart, periodEnd } = req.body;
+
+      // If user is REGIONAL_LICENSEE, force their own licenseeId
+      if (req.hrm8User?.role === 'REGIONAL_LICENSEE') {
+        licenseeId = req.hrm8User.licenseeId;
+      }
+
       const settlement = await FinanceService.calculateSettlement(
         licenseeId,
         new Date(periodStart),
@@ -40,9 +61,15 @@ export class FinanceController {
     }
   }
 
-  static async getDunning(_: Hrm8AuthenticatedRequest, res: Response) {
+  static async getDunning(req: Hrm8AuthenticatedRequest, res: Response) {
     try {
-      const candidates = await FinanceService.getDunningCandidates();
+      const filters: any = {};
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds) {
+        filters.regionIds = req.assignedRegionIds;
+      }
+      
+      const candidates = await FinanceService.getDunningCandidates(filters);
       res.json({ success: true, data: { candidates } });
     } catch (error) {
       console.error('Get dunning error:', error);

@@ -187,12 +187,28 @@ export class JobAllocationController {
       const limitNum = limit ? parseInt(limit as string, 10) : undefined;
       const offsetNum = offset ? parseInt(offset as string, 10) : undefined;
 
-      const jobs = await JobAllocationService.getUnassignedJobs({
+      const filters: any = {
         regionId: regionId as string | undefined,
         companyId: companyId as string | undefined,
         limit: limitNum,
         offset: offsetNum,
-      });
+      };
+
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds) {
+        if (filters.regionId) {
+          // If a specific regionId was requested, ensure it's in the user's assigned regions
+          if (!req.assignedRegionIds.includes(filters.regionId)) {
+            res.json({ success: true, data: { jobs: [] } });
+            return;
+          }
+        } else {
+          // Otherwise filter by all assigned regions
+          filters.regionIds = req.assignedRegionIds;
+        }
+      }
+
+      const jobs = await JobAllocationService.getUnassignedJobs(filters);
 
       res.json({
         success: true,
@@ -309,6 +325,14 @@ export class JobAllocationController {
           error: 'Region ID is required',
         });
         return;
+      }
+
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds) {
+        if (!req.assignedRegionIds.includes(regionId as string)) {
+          res.json({ success: true, data: { consultants: [] } });
+          return;
+        }
       }
 
       const consultants = await JobAllocationService.getConsultantsForAssignment({

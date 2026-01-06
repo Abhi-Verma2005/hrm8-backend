@@ -18,11 +18,25 @@ export class ConsultantManagementController {
     try {
       const filters: {
         regionId?: string;
+        regionIds?: string[];
         role?: ConsultantRole;
         status?: ConsultantStatus;
       } = {};
 
       if (req.query.regionId) filters.regionId = req.query.regionId as string;
+      
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds) {
+        if (filters.regionId) {
+          if (!req.assignedRegionIds.includes(filters.regionId)) {
+            res.json({ success: true, data: { consultants: [] } });
+            return;
+          }
+        } else {
+          filters.regionIds = req.assignedRegionIds;
+        }
+      }
+
       if (req.query.role) {
         const roleStr = req.query.role as string;
         if (roleStr === 'RECRUITER' || roleStr === 'SALES_AGENT' || roleStr === 'CONSULTANT_360') {
@@ -68,6 +82,15 @@ export class ConsultantManagementController {
         return;
       }
 
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds && consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId)) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied to this consultant',
+        });
+        return;
+      }
+
       res.json({
         success: true,
         data: { consultant },
@@ -96,6 +119,15 @@ export class ConsultantManagementController {
         res.status(400).json({
           success: false,
           error: 'Email, password, firstName, lastName, role, and regionId are required',
+        });
+        return;
+      }
+
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds && consultantData.regionId && !req.assignedRegionIds.includes(consultantData.regionId)) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied to this region',
         });
         return;
       }
@@ -161,6 +193,21 @@ export class ConsultantManagementController {
       // Don't allow password updates here (use separate endpoint)
       delete updateData.password;
       delete updateData.passwordHash;
+
+      // Verify access to the consultant if licensee
+      if (req.assignedRegionIds) {
+        const consultant = await ConsultantManagementService.getConsultantById(id);
+        if (!consultant || (consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId))) {
+          res.status(403).json({ success: false, error: 'Access denied' });
+          return;
+        }
+
+        // Also check if they are trying to move the consultant to a region they don't own
+        if (updateData.regionId && !req.assignedRegionIds.includes(updateData.regionId)) {
+          res.status(403).json({ success: false, error: 'Cannot move consultant to this region' });
+          return;
+        }
+      }
 
       // Convert role string to enum if provided
       if (updateData.role && typeof updateData.role === 'string') {
@@ -230,6 +277,20 @@ export class ConsultantManagementController {
         return;
       }
 
+      // Verify access to both consultant and region if licensee
+      if (req.assignedRegionIds) {
+        if (!req.assignedRegionIds.includes(regionId)) {
+          res.status(403).json({ success: false, error: 'Access denied to this region' });
+          return;
+        }
+
+        const consultant = await ConsultantManagementService.getConsultantById(id);
+        if (!consultant || (consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId))) {
+          res.status(403).json({ success: false, error: 'Access denied to this consultant' });
+          return;
+        }
+      }
+
       const result = await ConsultantManagementService.assignToRegion(id, regionId);
 
       if ('error' in result) {
@@ -260,6 +321,16 @@ export class ConsultantManagementController {
   static async suspend(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+
+      // Verify access if licensee
+      if (req.assignedRegionIds) {
+        const consultant = await ConsultantManagementService.getConsultantById(id);
+        if (!consultant || (consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId))) {
+          res.status(403).json({ success: false, error: 'Access denied' });
+          return;
+        }
+      }
+
       await ConsultantManagementService.suspendConsultant(id);
 
       res.json({
@@ -282,6 +353,16 @@ export class ConsultantManagementController {
   static async reactivate(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+
+      // Verify access if licensee
+      if (req.assignedRegionIds) {
+        const consultant = await ConsultantManagementService.getConsultantById(id);
+        if (!consultant || (consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId))) {
+          res.status(403).json({ success: false, error: 'Access denied' });
+          return;
+        }
+      }
+
       await ConsultantManagementService.reactivateConsultant(id);
 
       res.json({

@@ -17,6 +17,7 @@ export class RegionalRevenueController {
     try {
       const filters: {
         regionId?: string;
+        regionIds?: string[];
         licenseeId?: string;
         status?: RevenueStatus;
         periodStart?: Date;
@@ -25,6 +26,26 @@ export class RegionalRevenueController {
 
       if (req.query.regionId) filters.regionId = req.query.regionId as string;
       if (req.query.licenseeId) filters.licenseeId = req.query.licenseeId as string;
+
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds) {
+        if (filters.regionId) {
+          if (!req.assignedRegionIds.includes(filters.regionId)) {
+            res.json({ success: true, data: { revenues: [] } });
+            return;
+          }
+        } else {
+          filters.regionIds = req.assignedRegionIds;
+        }
+        
+        // Also ensure licenseeId matches
+        if (filters.licenseeId && filters.licenseeId !== req.hrm8User?.licenseeId) {
+          res.json({ success: true, data: { revenues: [] } });
+          return;
+        }
+        filters.licenseeId = req.hrm8User?.licenseeId;
+      }
+
       if (req.query.status) {
         const statusStr = req.query.status as string;
         if (statusStr === 'PENDING' || statusStr === 'CONFIRMED' || statusStr === 'PAID') {
@@ -66,6 +87,15 @@ export class RegionalRevenueController {
         return;
       }
 
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds && !req.assignedRegionIds.includes(revenue.regionId)) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied to this revenue record',
+        });
+        return;
+      }
+
       res.json({
         success: true,
         data: { revenue },
@@ -95,6 +125,20 @@ export class RegionalRevenueController {
           error: 'Region ID, period start, period end, and total revenue are required',
         });
         return;
+      }
+
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds && !req.assignedRegionIds.includes(revenueData.regionId)) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied to this region',
+        });
+        return;
+      }
+
+      // For licensees, force their licenseeId
+      if (req.hrm8User?.role === 'REGIONAL_LICENSEE') {
+        revenueData.licenseeId = req.hrm8User.licenseeId;
       }
 
       // Calculate shares if not provided
@@ -135,11 +179,24 @@ export class RegionalRevenueController {
   static async confirm(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const revenue = await RegionalRevenueService.confirmRevenue(id);
+      const revenue = await RegionalRevenueService.getRevenueById(id);
+
+      if (!revenue) {
+        res.status(404).json({ success: false, error: 'Revenue record not found' });
+        return;
+      }
+
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds && !req.assignedRegionIds.includes(revenue.regionId)) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      const updatedRevenue = await RegionalRevenueService.confirmRevenue(id);
 
       res.json({
         success: true,
-        data: { revenue },
+        data: { revenue: updatedRevenue },
       });
     } catch (error) {
       console.error('Confirm revenue error:', error);
@@ -157,11 +214,24 @@ export class RegionalRevenueController {
   static async markAsPaid(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const revenue = await RegionalRevenueService.markAsPaid(id);
+      const revenue = await RegionalRevenueService.getRevenueById(id);
+
+      if (!revenue) {
+        res.status(404).json({ success: false, error: 'Revenue record not found' });
+        return;
+      }
+
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds && !req.assignedRegionIds.includes(revenue.regionId)) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      const updatedRevenue = await RegionalRevenueService.markAsPaid(id);
 
       res.json({
         success: true,
-        data: { revenue },
+        data: { revenue: updatedRevenue },
       });
     } catch (error) {
       console.error('Mark revenue as paid error:', error);

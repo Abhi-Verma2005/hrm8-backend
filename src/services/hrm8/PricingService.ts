@@ -50,10 +50,13 @@ export class PricingService {
   /**
    * Get all price books
    */
-  static async getAllPriceBooks(regionId?: string) {
+  static async getAllPriceBooks(regionId?: string, regionIds?: string[]) {
     const where: any = { is_active: true };
     if (regionId) {
       where.region_id = regionId;
+    }
+    if (regionIds) {
+      where.region_id = { in: regionIds };
     }
     return prisma.priceBook.findMany({
       where,

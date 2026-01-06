@@ -61,6 +61,7 @@ export class ConsultantManagementService {
    */
   static async getAllConsultants(filters?: {
     regionId?: string;
+    regionIds?: string[];
     role?: ConsultantRole;
     status?: ConsultantStatus;
   }): Promise<ConsultantData[]> {

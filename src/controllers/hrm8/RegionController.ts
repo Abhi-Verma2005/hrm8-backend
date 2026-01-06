@@ -18,6 +18,7 @@ export class RegionController {
       const filters: {
         ownerType?: RegionOwnerType;
         licenseeId?: string;
+        regionIds?: string[];
         isActive?: boolean;
         country?: string;
       } = {};
@@ -31,6 +32,18 @@ export class RegionController {
       if (req.query.licenseeId) filters.licenseeId = req.query.licenseeId as string;
       if (req.query.isActive !== undefined) filters.isActive = req.query.isActive === 'true';
       if (req.query.country) filters.country = req.query.country as string;
+
+      // Apply regional isolation for licensees
+      if (req.assignedRegionIds) {
+        filters.regionIds = req.assignedRegionIds;
+        
+        // If a specific licenseeId was requested, ensure it's the user's own licenseeId
+        if (filters.licenseeId && filters.licenseeId !== req.hrm8User?.licenseeId) {
+          res.json({ success: true, data: { regions: [] } });
+          return;
+        }
+        filters.licenseeId = req.hrm8User?.licenseeId;
+      }
 
       const regions = await RegionService.getAll(filters);
 

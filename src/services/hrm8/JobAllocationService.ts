@@ -384,6 +384,7 @@ export class JobAllocationService {
    */
   static async getUnassignedJobs(filters?: {
     regionId?: string;
+    regionIds?: string[];
     companyId?: string;
     limit?: number;
     offset?: number;
@@ -398,6 +399,10 @@ export class JobAllocationService {
 
       if (filters?.regionId) {
         where.region_id = filters.regionId;
+      }
+
+      if (filters?.regionIds) {
+        where.region_id = { in: filters.regionIds };
       }
 
       if (filters?.companyId) {

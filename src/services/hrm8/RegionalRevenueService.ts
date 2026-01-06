@@ -27,6 +27,7 @@ export class RegionalRevenueService {
    */
   static async getAllRevenue(filters?: {
     regionId?: string;
+    regionIds?: string[];
     licenseeId?: string;
     status?: RevenueStatus;
     periodStart?: Date;

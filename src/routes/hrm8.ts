@@ -86,7 +86,7 @@ router.put('/revenue/:id/pay', RegionalRevenueController.markAsPaid);
 
 // Pricing routes
 router.get('/pricing/products', PricingController.getProducts);
-router.post('/pricing/products', PricingController.upsertProduct);
+router.post('/pricing/products', requireHrm8Role(['GLOBAL_ADMIN']), PricingController.upsertProduct);
 router.get('/pricing/books', PricingController.getPriceBooks);
 router.post('/pricing/books', PricingController.createPriceBook);
 router.post('/pricing/companies/:id/assign', PricingController.assignCustomPriceBook);

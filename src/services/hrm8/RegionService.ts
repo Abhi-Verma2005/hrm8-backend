@@ -50,6 +50,7 @@ export class RegionService {
   static async getAll(filters?: {
     ownerType?: RegionOwnerType;
     licenseeId?: string;
+    regionIds?: string[];
     isActive?: boolean;
     country?: string;
   }): Promise<RegionData[]> {

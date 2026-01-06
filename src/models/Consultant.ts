@@ -168,12 +168,14 @@ export class ConsultantModel {
    */
   static async findAll(filters?: {
     regionId?: string;
+    regionIds?: string[];
     role?: ConsultantRole;
     status?: ConsultantStatus;
   }): Promise<ConsultantData[]> {
     const consultants = await prisma.consultant.findMany({
       where: {
         ...(filters?.regionId && { region_id: filters.regionId }),
+        ...(filters?.regionIds && { region_id: { in: filters.regionIds } }),
         ...(filters?.role && { role: filters.role }),
         ...(filters?.status && { status: filters.status }),
       },

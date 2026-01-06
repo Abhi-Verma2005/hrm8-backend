@@ -120,6 +120,7 @@ export class RegionalRevenueModel {
    */
   static async findAll(filters?: {
     regionId?: string;
+    regionIds?: string[];
     licenseeId?: string;
     status?: RevenueStatus;
     periodStart?: Date;
@@ -128,6 +129,7 @@ export class RegionalRevenueModel {
     const revenues = await prisma.regionalRevenue.findMany({
       where: {
         ...(filters?.regionId && { region_id: filters.regionId }),
+        ...(filters?.regionIds && { region_id: { in: filters.regionIds } }),
         ...(filters?.licenseeId && { licensee_id: filters.licenseeId }),
         ...(filters?.status && { status: filters.status }),
         ...(filters?.periodStart && {
