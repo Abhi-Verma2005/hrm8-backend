@@ -34,10 +34,17 @@ export class JobPaymentService {
       return null; // Free
     }
 
-    const packageKey = servicePackage === 'executive-search' ? 'executive_search' : servicePackage;
+    // Map hyphenated package names to underscore format for UPGRADE_PRICE_MAP lookup
+    const packageKeyMap: Record<string, string> = {
+      'shortlisting': 'shortlisting',
+      'full-service': 'full_service',
+      'executive-search': 'executive_search',
+    };
+    const packageKey = packageKeyMap[servicePackage];
     const priceInfo = UPGRADE_PRICE_MAP[packageKey as keyof typeof UPGRADE_PRICE_MAP];
-    
+
     if (!priceInfo) {
+      console.error('❌ No price info found for package:', servicePackage, '-> key:', packageKey);
       return null;
     }
 
@@ -153,12 +160,12 @@ export class JobPaymentService {
       };
     } catch (error: any) {
       console.error('❌ Error creating Stripe checkout session:', error);
-      
+
       // Handle specific Stripe error types with user-friendly messages
       if (error.type === 'StripeInvalidRequestError') {
         throw new Error(`Stripe error: ${error.message}`);
       }
-      
+
       // Handle connection errors with more helpful message
       if (error.type === 'StripeConnectionError' || error.code === 'ECONNRESET') {
         throw new Error(
@@ -166,7 +173,7 @@ export class JobPaymentService {
           'If the problem persists, please contact support.'
         );
       }
-      
+
       // Re-throw other errors as-is
       throw error;
     }

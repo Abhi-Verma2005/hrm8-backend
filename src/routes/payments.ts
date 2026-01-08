@@ -56,11 +56,197 @@ paymentsRouter.post('/job-checkout', async (req: Request, res: Response) => {
         sessionId: result.sessionId,
       },
     });
-  } catch (error) {
-    console.error('Error creating job checkout session', error);
+  } catch (error: any) {
+    console.error('❌ Error creating job checkout session:', {
+      message: error?.message,
+      stack: error?.stack,
+      type: error?.type,
+      code: error?.code,
+    });
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create checkout session',
+    });
+  }
+});
+
+// Verify job payment after redirect from Stripe (for local dev where webhooks don't work)
+paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) => {
+  try {
+    const { jobId, companyId } = req.body as {
+      jobId?: string;
+      companyId?: string;
+    };
+
+    if (!jobId) {
+      return res.status(400).json({ success: false, error: 'jobId is required' });
+    }
+
+    if (!companyId) {
+      return res.status(400).json({ success: false, error: 'companyId is required' });
+    }
+
+    // Find job and get stripe session ID
+    const { prisma } = await import('../lib/prisma');
+    const job = await prisma.job.findUnique({
+      where: { id: jobId },
+      select: {
+        id: true,
+        company_id: true,
+        stripe_session_id: true,
+        payment_status: true,
+        service_package: true,
+        status: true,
+      },
+    });
+
+    if (!job) {
+      return res.status(404).json({ success: false, error: 'Job not found' });
+    }
+
+    if (job.company_id !== companyId) {
+      return res.status(403).json({ success: false, error: 'Job does not belong to this company' });
+    }
+
+    // Already paid
+    if (job.payment_status === 'PAID') {
+      return res.status(200).json({
+        success: true,
+        data: { paymentStatus: 'PAID', alreadyPaid: true },
+      });
+    }
+
+    // No stripe session to verify
+    if (!job.stripe_session_id) {
+      return res.status(400).json({ success: false, error: 'No payment session found for this job' });
+    }
+
+    // Retrieve session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(job.stripe_session_id);
+
+    console.log('🔍 Verifying Stripe session:', {
+      sessionId: session.id,
+      paymentStatus: session.payment_status,
+      status: session.status,
+    });
+
+    if (session.payment_status === 'paid') {
+      const paymentIntentId = typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : (session.payment_intent as any)?.id;
+
+      const paymentAmount = (session.amount_total || 0) / 100;
+
+      // Update job payment status
+      await prisma.job.update({
+        where: { id: jobId },
+        data: {
+          payment_status: 'PAID',
+          stripe_payment_intent_id: paymentIntentId || undefined,
+          payment_completed_at: new Date(),
+          payment_failed_at: null,
+        },
+      });
+
+      // Auto-publish the job
+      const { JobService } = await import('../services/job/JobService');
+      try {
+        await JobService.publishJob(jobId, companyId);
+        console.log(`✅ Job ${jobId} auto-published after payment verification`);
+      } catch (publishError: any) {
+        console.log(`ℹ️ Job ${jobId} publishing note: ${publishError.message}`);
+      }
+
+      // Create commissions (same as webhook handler)
+      // 1. Commission for assigned consultant
+      try {
+        const { CommissionService } = await import('../services/hrm8/CommissionService');
+        const jobDetails = await prisma.job.findUnique({
+          where: { id: jobId },
+          select: {
+            id: true,
+            region_id: true,
+            hiring_mode: true,
+            service_package: true,
+            consultant_assignments: {
+              select: { consultant_id: true },
+              take: 1,
+            },
+          },
+        });
+
+        if (jobDetails?.consultant_assignments?.[0]?.consultant_id && jobDetails.region_id) {
+          const commissionResult = await CommissionService.createCommissionForJobAssignment(
+            jobId,
+            jobDetails.consultant_assignments[0].consultant_id,
+            jobDetails.region_id,
+            paymentAmount
+          );
+          if (commissionResult.success) {
+            console.log(`✅ Created consultant commission ${commissionResult.commissionId} for job ${jobId}`);
+          } else {
+            console.log(`ℹ️ Consultant commission not created: ${commissionResult.error}`);
+          }
+        }
+      } catch (commissionError: any) {
+        console.log(`ℹ️ Commission creation note: ${commissionError.message}`);
+      }
+
+      // 2. Commission for sales agent who acquired the company
+      try {
+        const { CommissionModel } = await import('../models/Commission');
+        const company = await prisma.company.findUnique({
+          where: { id: companyId },
+          select: {
+            id: true,
+            sales_agent_id: true,
+            region_id: true,
+            sales_agent: {
+              select: { default_commission_rate: true }
+            }
+          }
+        });
+
+        if (company?.sales_agent_id && company.region_id) {
+          const salesCommissionRate = company.sales_agent?.default_commission_rate || 0.10;
+          const salesCommissionAmount = Math.round(paymentAmount * salesCommissionRate * 100) / 100;
+
+          const salesCommission = await CommissionModel.create({
+            consultantId: company.sales_agent_id,
+            regionId: company.region_id,
+            jobId,
+            type: 'SUBSCRIPTION_SALE',
+            amount: salesCommissionAmount,
+            rate: salesCommissionRate,
+            status: 'PENDING',
+            description: `Sales commission for ${job.service_package} service - $${paymentAmount}`
+          });
+          console.log(`✅ Created sales agent commission ${salesCommission.id}: $${salesCommissionAmount}`);
+        }
+      } catch (salesError: any) {
+        console.log(`ℹ️ Sales commission note: ${salesError.message}`);
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: { paymentStatus: 'PAID', verified: true, published: true },
+      });
+    } else if (session.status === 'expired') {
+      return res.status(200).json({
+        success: true,
+        data: { paymentStatus: 'EXPIRED', verified: true },
+      });
+    } else {
+      return res.status(200).json({
+        success: true,
+        data: { paymentStatus: session.payment_status?.toUpperCase() || 'PENDING', verified: true },
+      });
+    }
+  } catch (error) {
+    console.error('Error verifying job payment', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to verify payment',
     });
   }
 });
@@ -235,6 +421,44 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
             } catch (commissionError: any) {
               // Non-fatal - log but don't fail payment processing
               console.log(`ℹ️ Commission creation note: ${commissionError.message}`);
+            }
+
+            // 5. Create commission for sales agent who acquired this company (dynamic rate from consultant record)
+            try {
+              const { CommissionModel } = await import('../models/Commission');
+              const company = await prisma.company.findUnique({
+                where: { id: companyId },
+                select: {
+                  id: true,
+                  sales_agent_id: true,
+                  region_id: true,
+                  sales_agent: {
+                    select: { default_commission_rate: true }
+                  }
+                }
+              });
+
+              if (company?.sales_agent_id && company.region_id) {
+                // Use dynamic rate from consultant record, fallback to 10%
+                const salesCommissionRate = company.sales_agent?.default_commission_rate || 0.10;
+                const paymentAmount = (session.amount_total || 0) / 100;
+                const salesCommissionAmount = Math.round(paymentAmount * salesCommissionRate * 100) / 100;
+
+                const salesCommission = await CommissionModel.create({
+                  consultantId: company.sales_agent_id,
+                  regionId: company.region_id,
+                  jobId,
+                  type: 'SUBSCRIPTION_SALE',
+                  amount: salesCommissionAmount,
+                  rate: salesCommissionRate,
+                  status: 'PENDING',
+                  description: `Sales commission for ${servicePackage} service payment - $${paymentAmount}`
+                });
+                console.log(`✅ Created sales agent commission ${salesCommission.id}: $${salesCommissionAmount} (${salesCommissionRate * 100}% of $${paymentAmount})`);
+              }
+            } catch (salesError: any) {
+              // Non-fatal - log but don't fail payment processing
+              console.log(`ℹ️ Sales commission note: ${salesError.message}`);
             }
           } catch (error) {
             console.error(`❌ Error processing payment for job ${jobId}:`, error);
