@@ -36,7 +36,7 @@ export class RegionController {
       // Apply regional isolation for licensees
       if (req.assignedRegionIds) {
         filters.regionIds = req.assignedRegionIds;
-        
+
         // If a specific licenseeId was requested, ensure it's the user's own licenseeId
         if (filters.licenseeId && filters.licenseeId !== req.hrm8User?.licenseeId) {
           res.json({ success: true, data: { regions: [] } });
@@ -270,6 +270,82 @@ export class RegionController {
       res.status(500).json({
         success: false,
         error: 'Failed to unassign licensee',
+      });
+    }
+  }
+
+  /**
+   * Get transfer impact analysis
+   * GET /api/hrm8/regions/:id/transfer-impact
+   * Returns counts of entities that would be transferred
+   */
+  static async getTransferImpact(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const impact = await RegionService.getTransferImpact(id);
+
+      if ('error' in impact) {
+        res.status(impact.status || 400).json({
+          success: false,
+          error: impact.error,
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: impact,
+      });
+    } catch (error) {
+      console.error('Get transfer impact error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get transfer impact',
+      });
+    }
+  }
+
+  /**
+   * Transfer region ownership to new licensee
+   * POST /api/hrm8/regions/:id/transfer
+   * Transfers all associated entities (companies, jobs, consultants, invoices)
+   */
+  static async transferOwnership(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { targetLicenseeId, auditNote } = req.body;
+
+      if (!targetLicenseeId) {
+        res.status(400).json({
+          success: false,
+          error: 'Target licensee ID is required',
+        });
+        return;
+      }
+
+      const result = await RegionService.transferOwnership(id, targetLicenseeId, {
+        auditNote,
+        performedBy: req.hrm8User?.id,
+      });
+
+      if ('error' in result) {
+        res.status(result.status || 400).json({
+          success: false,
+          error: result.error,
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error('Transfer ownership error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to transfer region ownership',
       });
     }
   }
