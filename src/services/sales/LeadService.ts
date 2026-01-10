@@ -22,6 +22,7 @@ export class LeadService {
     leadSource?: LeadSource;
     referredBy?: string; // Sales Agent ID
     createdBy?: string;
+    notes?: string;
   }) {
     // Check for existing lead with same email
     const existingLead = await prisma.lead.findFirst({
@@ -45,6 +46,7 @@ export class LeadService {
         lead_source: data.leadSource || LeadSource.MANUAL_ENTRY,
         referred_by: data.referredBy,
         created_by: data.createdBy,
+        notes: data.notes,
         status: LeadStatus.NEW,
         // Auto-assign if referred by an agent?
         assigned_consultant_id: data.referredBy, 

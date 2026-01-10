@@ -67,4 +67,3 @@ export function getSessionCookieOptions(maxAge?: number) {
     // Don't set domain - let browser handle it based on the request origin
   };
 }
-

@@ -4,6 +4,7 @@
  */
 
 import { Response } from 'express';
+import axios from 'axios';
 import { ConsultantAuthenticatedRequest } from '../../middleware/consultantAuth';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 import { LeadService } from '../../services/sales/LeadService';
@@ -23,6 +24,9 @@ export class LeadController {
         website,
         phone,
         leadSource,
+        budget,
+        timeline,
+        message,
       } = req.body;
 
       // Validate required fields
@@ -43,11 +47,41 @@ export class LeadController {
         leadSource: leadSource as LeadSource,
         referredBy: req.consultant?.id, // Auto-assign to creating agent
         createdBy: req.consultant?.id,
+        notes: message,
       });
+
+      // Post to n8n webhook for lead intake/qualification
+      let qualification = null;
+      try {
+        const WEBHOOK_URL = 'https://abhishekverma.app.n8n.cloud/webhook/lead-intake';
+        const n8nPayload = {
+          name: companyName, // Using company name since manual lead form doesn't have a contact name
+          email: email,
+          company: companyName,
+          budget: budget || 'N/A',
+          timeline: timeline || 'N/A',
+          message: message || `Manual lead entry by sales agent: ${req.consultant?.firstName} ${req.consultant?.lastName}`,
+          source: leadSource || 'sales-agent-manual',
+          submittedAt: new Date().toISOString(),
+          phone: phone,
+          country: country,
+          website: website,
+          agentId: req.consultant?.id
+        };
+
+        // We don't await this if we want to return the response to the user immediately,
+        // but since it's a small request, we'll await it to ensure it works or log error.
+        const n8nResponse = await axios.post(WEBHOOK_URL, n8nPayload);
+        qualification = n8nResponse.data;
+        console.log(`[LeadController] Successfully sent lead ${lead.id} to n8n webhook`);
+      } catch (webhookError: any) {
+        // We log but don't fail the request if n8n is down
+        console.error('[LeadController] Failed to send lead to n8n webhook:', webhookError.message);
+      }
 
       res.status(201).json({
         success: true,
-        data: { lead },
+        data: { lead, qualification },
       });
     } catch (error: any) {
       console.error('Create lead error:', error);
