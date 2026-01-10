@@ -54,9 +54,12 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
         const location = req.query.location as string;
         const tags = req.query.tags as string;
         const company = req.query.company as string;
+        const companyId = req.query.companyId as string;
         const department = req.query.department as string;
         const category = req.query.category as string;
         const region = req.query.region as string;
+        const workArrangement = req.query.workArrangement as string;
+        const employmentType = req.query.employmentType as string;
         const includeRemote = req.query.includeRemote !== 'false';
 
         const where: Prisma.JobWhereInput = {
@@ -88,6 +91,11 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
             };
         }
 
+        // Filter by company ID only
+        if (companyId) {
+            where.company_id = companyId;
+        }
+
         // Filter by department
         if (department) {
             where.department = { contains: department, mode: 'insensitive' };
@@ -96,6 +104,16 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
         // Filter by category
         if (category) {
             where.category = { contains: category, mode: 'insensitive' };
+        }
+
+        // Filter by work arrangement (REMOTE, ON_SITE, HYBRID)
+        if (workArrangement) {
+            where.work_arrangement = workArrangement.toUpperCase().replace('-', '_');
+        }
+
+        // Filter by employment type (FULL_TIME, PART_TIME, CONTRACT, etc.)
+        if (employmentType) {
+            where.employment_type = employmentType.toUpperCase().replace('-', '_');
         }
 
         // Region-wise filtering:
@@ -467,6 +485,11 @@ export const trackAnalytics = async (req: Request, res: Response) => {
  */
 export const getFilters = async (_req: Request, res: Response) => {
     try {
+        const baseWhere = {
+            status: 'OPEN' as const,
+            visibility: 'public',
+        };
+
         // Get active categories from JobCategory table
         const categories = await prisma.jobCategory.findMany({
             where: { is_active: true },
@@ -477,21 +500,37 @@ export const getFilters = async (_req: Request, res: Response) => {
             }
         });
 
-        // Get unique departments and locations from active jobs
+        // Get unique departments, locations, and promotional_tags from active jobs
         const jobs = await prisma.job.findMany({
-            where: {
-                status: 'OPEN',
-                visibility: 'public',
-            },
+            where: baseWhere,
             select: {
                 department: true,
                 location: true,
+                promotional_tags: true,
             }
+        });
+
+        // Get companies with active jobs
+        const companies = await prisma.company.findMany({
+            where: { jobs: { some: baseWhere } },
+            select: {
+                id: true,
+                name: true,
+            },
+            orderBy: { name: 'asc' },
         });
 
         // Extract unique non-null values
         const departments = [...new Set(jobs.map(j => j.department).filter(Boolean))].sort();
         const locations = [...new Set(jobs.map(j => j.location).filter(Boolean))].sort();
+
+        // Extract unique tags from promotional_tags arrays
+        const allTags = new Set<string>();
+        jobs.forEach(job => {
+            if (job.promotional_tags && Array.isArray(job.promotional_tags)) {
+                job.promotional_tags.forEach((tag: string) => allTags.add(tag));
+            }
+        });
 
         res.json({
             success: true,
@@ -499,6 +538,8 @@ export const getFilters = async (_req: Request, res: Response) => {
                 categories: categories.map(c => c.name.trim()),
                 departments,
                 locations,
+                companies: companies.map(c => ({ id: c.id, name: c.name })),
+                tags: Array.from(allTags).sort(),
             }
         });
     } catch (error: any) {
