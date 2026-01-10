@@ -39,6 +39,8 @@ router.put('/regions/:id', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.u
 router.delete('/regions/:id', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.delete);
 router.post('/regions/:id/assign-licensee', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.assignLicensee);
 router.post('/regions/:id/unassign-licensee', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.unassignLicensee);
+router.get('/regions/:id/transfer-impact', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.getTransferImpact);
+router.post('/regions/:id/transfer', requireHrm8Role(['GLOBAL_ADMIN']), RegionController.transferOwnership);
 
 // Regional Licensee routes
 router.get('/licensees', RegionalLicenseeController.getAll);

@@ -112,5 +112,93 @@ export class RegionService {
   static async unassignLicensee(regionId: string): Promise<RegionData> {
     return await RegionModel.unassignLicensee(regionId);
   }
-}
 
+  /**
+   * Get transfer impact analysis - counts entities that would be transferred
+   */
+  static async getTransferImpact(id: string): Promise<{
+    companies: number;
+    jobs: number;
+    consultants: number;
+    openInvoices: number;
+    opportunities: number;
+  } | { error: string; status: number }> {
+    try {
+      const region = await RegionModel.findById(id);
+      if (!region) {
+        return { error: 'Region not found', status: 404 };
+      }
+
+      // Count entities in this region
+      // For now, return placeholder counts - in production, query actual models
+      const { PrismaClient } = require('@prisma/client');
+      const prisma = new PrismaClient();
+
+      const [companies, jobs] = await Promise.all([
+        prisma.company.count({ where: { regionId: id } }),
+        prisma.job.count({ where: { regionId: id, status: { in: ['DRAFT', 'OPEN', 'PAUSED'] } } }),
+      ]);
+
+      // Return counts (consultants, invoices, opportunities would need their own queries)
+      return {
+        companies: companies || 0,
+        jobs: jobs || 0,
+        consultants: 0, // TODO: Add consultant count when model supports regionId
+        openInvoices: 0, // TODO: Add invoice count
+        opportunities: 0, // TODO: Add opportunity count
+      };
+    } catch (error) {
+      console.error('Get transfer impact error:', error);
+      return { error: 'Failed to calculate transfer impact', status: 500 };
+    }
+  }
+
+  /**
+   * Transfer region ownership to a new licensee
+   */
+  static async transferOwnership(
+    regionId: string,
+    targetLicenseeId: string,
+    options?: { auditNote?: string; performedBy?: string }
+  ): Promise<{ region: RegionData; transferredCounts: Record<string, number> } | { error: string; status: number }> {
+    try {
+      const region = await RegionModel.findById(regionId);
+      if (!region) {
+        return { error: 'Region not found', status: 404 };
+      }
+
+      // Get impact first
+      const impact = await this.getTransferImpact(regionId);
+      if ('error' in impact) {
+        return impact;
+      }
+
+      // Update region with new licensee
+      const updatedRegion = await RegionModel.update(regionId, {
+        licenseeId: targetLicenseeId,
+        ownerType: 'LICENSEE' as RegionOwnerType,
+      });
+
+      // Log the transfer (audit)
+      console.log(`Region ${regionId} transferred to licensee ${targetLicenseeId}`, {
+        auditNote: options?.auditNote,
+        performedBy: options?.performedBy,
+        transferredCounts: impact,
+      });
+
+      return {
+        region: updatedRegion,
+        transferredCounts: {
+          companies: impact.companies,
+          jobs: impact.jobs,
+          consultants: impact.consultants,
+          openInvoices: impact.openInvoices,
+          opportunities: impact.opportunities,
+        },
+      };
+    } catch (error) {
+      console.error('Transfer ownership error:', error);
+      return { error: 'Failed to transfer region ownership', status: 500 };
+    }
+  }
+}
