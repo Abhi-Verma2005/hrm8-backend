@@ -21,6 +21,8 @@ export class PublicJobController {
         workArrangement,
         category,
         department,
+        companyId,
+        tags,
         salaryMin,
         salaryMax,
         featured,
@@ -32,12 +34,24 @@ export class PublicJobController {
       const limitNum = parseInt(limit as string, 10);
       const offsetNum = parseInt(offset as string, 10);
 
+      // Parse tags array from query string (can be comma-separated or multiple params)
+      let tagsArray: string[] | undefined;
+      if (tags) {
+        if (Array.isArray(tags)) {
+          tagsArray = tags as string[];
+        } else if (typeof tags === 'string') {
+          tagsArray = tags.split(',').map(t => t.trim()).filter(Boolean);
+        }
+      }
+
       const result = await JobModel.findPublicJobs({
         location: location as string | undefined,
         employmentType: employmentType as string | undefined,
         workArrangement: workArrangement as string | undefined,
         category: category as string | undefined,
         department: department as string | undefined,
+        companyId: companyId as string | undefined,
+        tags: tagsArray,
         salaryMin: salaryMin ? parseFloat(salaryMin as string) : undefined,
         salaryMax: salaryMax ? parseFloat(salaryMax as string) : undefined,
         featured: featured === 'true' ? true : featured === 'false' ? false : undefined,

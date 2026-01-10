@@ -263,13 +263,15 @@ export class JobModel {
     workArrangement?: string;
     category?: string;
     department?: string;
+    companyId?: string;
+    tags?: string[];
     salaryMin?: number;
     salaryMax?: number;
     featured?: boolean;
     search?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ jobs: Array<Job & { company: { id: string; name: string; website: string } | null }>; total: number }> {
+  }): Promise<{ jobs: Array<Job & { company: { id: string; name: string; website: string; logoUrl?: string } | null }>; total: number }> {
     const where: any = {
       status: JobStatus.OPEN,
       visibility: 'public',
@@ -307,6 +309,18 @@ export class JobModel {
       where.department = {
         contains: filters.department,
         mode: 'insensitive',
+      };
+    }
+
+    // Filter by company
+    if (filters.companyId) {
+      where.company_id = filters.companyId;
+    }
+
+    // Filter by tags (promotional_tags)
+    if (filters.tags && filters.tags.length > 0) {
+      where.promotional_tags = {
+        hasSome: filters.tags,
       };
     }
 
@@ -402,6 +416,7 @@ export class JobModel {
               id: true,
               name: true,
               website: true,
+              logo_url: true,
             },
           },
         },
@@ -422,6 +437,7 @@ export class JobModel {
           id: job.company.id,
           name: job.company.name,
           website: job.company.website,
+          logoUrl: (job.company as any).logo_url || undefined,
         } : null,
       })),
       total,
@@ -436,6 +452,8 @@ export class JobModel {
     categories: string[];
     departments: string[];
     locations: string[];
+    companies: Array<{ id: string; name: string }>;
+    tags: string[];
   }> {
     const now = new Date();
     const where = {
@@ -448,7 +466,7 @@ export class JobModel {
       ],
     };
 
-    const [categories, departments, locations] = await Promise.all([
+    const [categories, departments, locations, jobsWithCompanies, jobsWithTags] = await Promise.all([
       prisma.job.findMany({
         where: where as any,
         select: { category: true },
@@ -464,7 +482,36 @@ export class JobModel {
         select: { location: true },
         distinct: ['location'],
       }),
+      prisma.job.findMany({
+        where: where as any,
+        select: {
+          company: {
+            select: { id: true, name: true },
+          },
+        },
+        distinct: ['company_id'],
+      }),
+      prisma.job.findMany({
+        where: where as any,
+        select: { promotional_tags: true },
+      }),
     ]);
+
+    // Extract unique tags from all jobs
+    const allTags = new Set<string>();
+    jobsWithTags.forEach((job) => {
+      if (job.promotional_tags && Array.isArray(job.promotional_tags)) {
+        job.promotional_tags.forEach((tag: string) => allTags.add(tag));
+      }
+    });
+
+    // Extract unique companies
+    const companiesMap = new Map<string, { id: string; name: string }>();
+    jobsWithCompanies.forEach((job) => {
+      if (job.company) {
+        companiesMap.set(job.company.id, { id: job.company.id, name: job.company.name });
+      }
+    });
 
     return {
       categories: categories
@@ -479,6 +526,8 @@ export class JobModel {
         .map((j) => j.location)
         .filter((l): l is string => l !== null && l !== undefined)
         .sort(),
+      companies: Array.from(companiesMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
+      tags: Array.from(allTags).sort(),
     };
   }
 
