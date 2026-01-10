@@ -29,7 +29,7 @@ import {
     getAttributionHistory,
 } from '../controllers/admin/billing.controller';
 
-const billingRouter = Router();
+const billingRouter: Router = Router();
 
 // ==================== COMMISSION ROUTES ====================
 

@@ -34,10 +34,12 @@ model Company {
   attribution_locked_at  DateTime?                 @map("attribution_locked_at")
   price_book_id          String?                   @map("price_book_id")
   referred_by            String?
+  sales_agent_id         String?                   @map("sales_agent_id")
   account_team           AccountTeam[]
   activity               Activity[]
   bill                   Bill[]
   price_book             PriceBook?                @relation(fields: [price_book_id], references: [id])
+  sales_agent            Consultant?               @relation("CompanySalesAgent", fields: [sales_agent_id], references: [id])
   region                 Region?                   @relation(fields: [region_id], references: [id])
   profile                CompanyProfile?
   company_settings       CompanySettings?
@@ -896,6 +898,7 @@ model Consultant {
   referred_leads             Lead[]                     @relation("ReferredLeads")
   opportunity                Opportunity[]
   subscription               Subscription[]
+  sales_companies            Company[]                  @relation("CompanySalesAgent")
 
   @@index([email])
   @@index([region_id])
