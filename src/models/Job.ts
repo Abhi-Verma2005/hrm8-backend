@@ -768,6 +768,8 @@ export class JobModel {
     stripe_payment_intent_id?: string | null;
     payment_completed_at?: Date | null;
     payment_failed_at?: Date | null;
+    views_count?: number;
+    clicks_count?: number;
     created_at: Date;
     updated_at: Date;
   }): Job {
@@ -848,6 +850,8 @@ export class JobModel {
       stripePaymentIntentId: prismaJob.stripe_payment_intent_id || undefined,
       paymentCompletedAt: prismaJob.payment_completed_at || undefined,
       paymentFailedAt: prismaJob.payment_failed_at || undefined,
+      viewsCount: prismaJob.views_count || 0,
+      clicksCount: prismaJob.clicks_count || 0,
       createdAt: prismaJob.created_at,
       updatedAt: prismaJob.updated_at,
     };

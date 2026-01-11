@@ -118,4 +118,12 @@ router.get('/sales/regional/opportunities', RegionalSalesController.getRegionalO
 router.get('/sales/regional/stats', RegionalSalesController.getRegionalStats);
 router.get('/sales/regional/activities', RegionalSalesController.getRegionalActivities);
 
+// HRM8 Job Board routes (Global Admin)
+import { Hrm8JobController } from '../controllers/hrm8/Hrm8JobController';
+router.get('/jobs/companies', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8JobController.getCompaniesWithJobStats);
+router.get('/jobs/company/:id', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8JobController.getCompanyJobs);
+router.get('/jobs/detail/:id', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8JobController.getJobDetail);
+router.put('/jobs/:id/visibility', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8JobController.toggleVisibility);
+router.put('/jobs/:id/status', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8JobController.updateStatus);
+
 export default router;
