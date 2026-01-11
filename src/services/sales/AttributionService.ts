@@ -24,17 +24,18 @@ export class AttributionService {
 
       // Check if attribution is locked and valid
       if (this.isAttributionLocked(company)) {
-        return { 
-          success: false, 
-          error: `Attribution is locked to agent ${company.referredBy} until ${this.getLockExpiryDate(company)}` 
+        return {
+          success: false,
+          error: `Attribution is locked to agent ${company.referredBy} until ${this.getLockExpiryDate(company)}`
         };
       }
 
-      // Update company attribution
+      // Update company attribution - set BOTH fields to keep them in sync
       await prisma.company.update({
         where: { id: companyId },
         data: {
           referred_by: agentId,
+          sales_agent_id: agentId, // Sync with referred_by for commission tracking
           // If simply assigned, we don't lock yet. Locking happens on payment.
         },
       });
@@ -94,7 +95,7 @@ export class AttributionService {
    */
   static getLockExpiryDate(company: any): Date | null {
     if (!company.attributionLockedAt) return null;
-    
+
     const lockDate = new Date(company.attributionLockedAt);
     lockDate.setFullYear(lockDate.getFullYear() + 1); // Add 1 year
     return lockDate;

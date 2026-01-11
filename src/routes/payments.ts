@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type Router as RouterType } from '
 import Stripe from 'stripe';
 import { StripeUpgradeService, type UpgradeTier } from '../services/payments/StripeUpgradeService';
 import { JobPaymentService } from '../services/payments/JobPaymentService';
+import { prisma } from '../lib/prisma';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
@@ -87,7 +88,6 @@ paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) =
     }
 
     // Find job and get stripe session ID
-    const { prisma } = await import('../lib/prisma');
     const job = await prisma.job.findUnique({
       where: { id: jobId },
       select: {
@@ -195,12 +195,17 @@ paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) =
       // 2. Commission for sales agent who acquired the company
       try {
         const { CommissionModel } = await import('../models/Commission');
+        const { differenceInMonths } = await import('date-fns');
+        const { AttributionService } = await import('../services/sales/AttributionService');
+
         const company = await prisma.company.findUnique({
           where: { id: companyId },
           select: {
             id: true,
             sales_agent_id: true,
             region_id: true,
+            attribution_locked: true,
+            attribution_locked_at: true,
             sales_agent: {
               select: { default_commission_rate: true }
             }
@@ -208,20 +213,54 @@ paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) =
         });
 
         if (company?.sales_agent_id && company.region_id) {
-          const salesCommissionRate = company.sales_agent?.default_commission_rate || 0.10;
-          const salesCommissionAmount = Math.round(paymentAmount * salesCommissionRate * 100) / 100;
-
-          const salesCommission = await CommissionModel.create({
+          // Check if commission already exists (prevent duplicates from webhook + verification)
+          const existingCommissions = await CommissionModel.findAll({
+            jobId: jobId,
             consultantId: company.sales_agent_id,
-            regionId: company.region_id,
-            jobId,
-            type: 'SUBSCRIPTION_SALE',
-            amount: salesCommissionAmount,
-            rate: salesCommissionRate,
-            status: 'PENDING',
-            description: `Sales commission for ${job.service_package} service - $${paymentAmount}`
+            type: 'SUBSCRIPTION_SALE'
           });
-          console.log(`✅ Created sales agent commission ${salesCommission.id}: $${salesCommissionAmount}`);
+
+          if (existingCommissions.length > 0) {
+            console.log(`✓ Commission already exists for job ${jobId}: ${existingCommissions[0].id}`);
+          } else {
+            // Check if attribution has expired (12-month limit)
+            let shouldCreateCommission = true;
+
+            if (company.attribution_locked_at) {
+              const monthsSinceLock = differenceInMonths(new Date(), new Date(company.attribution_locked_at));
+              if (monthsSinceLock >= 12) {
+                console.log(`⏰ Attribution expired for company ${companyId} (${monthsSinceLock} months since lock). No sales commission created.`);
+                shouldCreateCommission = false;
+              }
+            }
+
+            if (shouldCreateCommission) {
+              const salesCommissionRate = company.sales_agent?.default_commission_rate || 0.10;
+              const salesCommissionAmount = Math.round(paymentAmount * salesCommissionRate * 100) / 100;
+
+              const salesCommission = await CommissionModel.create({
+                consultantId: company.sales_agent_id,
+                regionId: company.region_id,
+                jobId,
+                type: 'SUBSCRIPTION_SALE',
+                amount: salesCommissionAmount,
+                rate: salesCommissionRate,
+                status: 'PENDING',
+                description: `Sales commission for ${job.service_package} service - $${paymentAmount}`
+              });
+              console.log(`✅ Created sales agent commission ${salesCommission.id}: $${salesCommissionAmount}`);
+
+              // Auto-lock attribution on first payment (starts 12-month commission period)
+              if (!company.attribution_locked) {
+                try {
+                  await AttributionService.lockAttribution(companyId);
+                  console.log(`🔒 Attribution locked for company ${companyId} - 12-month commission period started`);
+                } catch (lockError: any) {
+                  console.log(`ℹ️ Attribution lock note: ${lockError.message}`);
+                }
+              }
+            }
+          }
         }
       } catch (salesError: any) {
         console.log(`ℹ️ Sales commission note: ${salesError.message}`);
@@ -371,7 +410,6 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
 
             // 2. Double check and ensure job has correct service package and payment status in DB
             // This ensures the job is ready for publishing regardless of initial state
-            const { prisma } = await import('../lib/prisma');
             await prisma.job.update({
               where: { id: jobId },
               data: {
@@ -426,12 +464,17 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
             // 5. Create commission for sales agent who acquired this company (dynamic rate from consultant record)
             try {
               const { CommissionModel } = await import('../models/Commission');
+              const { differenceInMonths } = await import('date-fns');
+              const { AttributionService } = await import('../services/sales/AttributionService');
+
               const company = await prisma.company.findUnique({
                 where: { id: companyId },
                 select: {
                   id: true,
                   sales_agent_id: true,
                   region_id: true,
+                  attribution_locked: true,
+                  attribution_locked_at: true,
                   sales_agent: {
                     select: { default_commission_rate: true }
                   }
@@ -439,22 +482,56 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
               });
 
               if (company?.sales_agent_id && company.region_id) {
-                // Use dynamic rate from consultant record, fallback to 10%
-                const salesCommissionRate = company.sales_agent?.default_commission_rate || 0.10;
-                const paymentAmount = (session.amount_total || 0) / 100;
-                const salesCommissionAmount = Math.round(paymentAmount * salesCommissionRate * 100) / 100;
-
-                const salesCommission = await CommissionModel.create({
+                // Check if commission already exists (prevent duplicates from webhook + verification)
+                const existingCommissions = await CommissionModel.findAll({
+                  jobId: jobId,
                   consultantId: company.sales_agent_id,
-                  regionId: company.region_id,
-                  jobId,
-                  type: 'SUBSCRIPTION_SALE',
-                  amount: salesCommissionAmount,
-                  rate: salesCommissionRate,
-                  status: 'PENDING',
-                  description: `Sales commission for ${servicePackage} service payment - $${paymentAmount}`
+                  type: 'SUBSCRIPTION_SALE'
                 });
-                console.log(`✅ Created sales agent commission ${salesCommission.id}: $${salesCommissionAmount} (${salesCommissionRate * 100}% of $${paymentAmount})`);
+
+                if (existingCommissions.length > 0) {
+                  console.log(`✓ Commission already exists for job ${jobId}: ${existingCommissions[0].id}`);
+                } else {
+                  // Check if attribution has expired (12-month limit)
+                  let shouldCreateCommission = true;
+
+                  if (company.attribution_locked_at) {
+                    const monthsSinceLock = differenceInMonths(new Date(), new Date(company.attribution_locked_at));
+                    if (monthsSinceLock >= 12) {
+                      console.log(`⏰ Attribution expired for company ${companyId} (${monthsSinceLock} months since lock). No sales commission created.`);
+                      shouldCreateCommission = false;
+                    }
+                  }
+
+                  if (shouldCreateCommission) {
+                    // Use dynamic rate from consultant record, fallback to 10%
+                    const salesCommissionRate = company.sales_agent?.default_commission_rate || 0.10;
+                    const paymentAmount = (session.amount_total || 0) / 100;
+                    const salesCommissionAmount = Math.round(paymentAmount * salesCommissionRate * 100) / 100;
+
+                    const salesCommission = await CommissionModel.create({
+                      consultantId: company.sales_agent_id,
+                      regionId: company.region_id,
+                      jobId,
+                      type: 'SUBSCRIPTION_SALE',
+                      amount: salesCommissionAmount,
+                      rate: salesCommissionRate,
+                      status: 'PENDING',
+                      description: `Sales commission for ${servicePackage} service payment - $${paymentAmount}`
+                    });
+                    console.log(`✅ Created sales agent commission ${salesCommission.id}: $${salesCommissionAmount} (${salesCommissionRate * 100}% of $${paymentAmount})`);
+
+                    // Auto-lock attribution on first payment (starts 12-month commission period)
+                    if (!company.attribution_locked) {
+                      try {
+                        await AttributionService.lockAttribution(companyId);
+                        console.log(`🔒 Attribution locked for company ${companyId} - 12-month commission period started`);
+                      } catch (lockError: any) {
+                        console.log(`ℹ️ Attribution lock note: ${lockError.message}`);
+                      }
+                    }
+                  }
+                }
               }
             } catch (salesError: any) {
               // Non-fatal - log but don't fail payment processing

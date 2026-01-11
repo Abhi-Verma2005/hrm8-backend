@@ -8,6 +8,7 @@ import { authenticateConsultant } from '../middleware/consultantAuth';
 import { LeadController } from '../controllers/sales/LeadController';
 import { SalesDashboardController } from '../controllers/sales/SalesDashboardController';
 import { SalesController } from '../controllers/sales/SalesController';
+import { WithdrawalController } from '../controllers/sales/WithdrawalController';
 
 const router: Router = Router();
 
@@ -28,6 +29,12 @@ router.get('/opportunities/stats', SalesController.getPipelineStats);
 // Activity Routes
 router.get('/activities', SalesController.getActivities);
 router.post('/activities', SalesController.createActivity);
+
+// Withdrawal Routes
+router.get('/commissions/balance', WithdrawalController.getBalance);
+router.post('/commissions/withdraw', WithdrawalController.requestWithdrawal);
+router.get('/commissions/withdrawals', WithdrawalController.getWithdrawals);
+router.post('/commissions/withdrawals/:id/cancel', WithdrawalController.cancelWithdrawal);
 
 // Dashboard & Stats
 router.get('/dashboard/stats', SalesDashboardController.getStats);
