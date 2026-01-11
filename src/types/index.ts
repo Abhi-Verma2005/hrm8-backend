@@ -480,6 +480,8 @@ export interface Job {
   stripePaymentIntentId?: string | null;
   paymentCompletedAt?: Date | null;
   paymentFailedAt?: Date | null;
+  viewsCount?: number;
+  clicksCount?: number;
   createdAt: Date;
   updatedAt: Date;
 }
