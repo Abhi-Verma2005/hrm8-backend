@@ -42,10 +42,12 @@ export class SalesDashboardController {
       // 3. Get Active Companies (Attributed)
       const companies = await prisma.company.findMany({
         where: { referred_by: consultantId },
-        select: { id: true, name: true, created_at: true, attribution_locked: true, subscription: {
-          where: { status: 'ACTIVE' },
-          select: { id: true, plan_type: true, start_date: true }
-        }}
+        select: {
+          id: true, name: true, created_at: true, attribution_locked: true, subscription: {
+            where: { status: 'ACTIVE' },
+            select: { id: true, plan_type: true, start_date: true }
+          }
+        }
       });
 
       // Calculate active MRR (Monthly Recurring Revenue) - simplified
@@ -109,7 +111,7 @@ export class SalesDashboardController {
       }
 
       const companies = await prisma.company.findMany({
-        where: { referred_by: consultantId },
+        where: { sales_agent_id: consultantId },
         include: {
           subscription: {
             where: { status: 'ACTIVE' },
@@ -123,16 +125,16 @@ export class SalesDashboardController {
       const companyData = companies.map(c => {
         const hasActiveSub = c.subscription.length > 0;
         const sub = hasActiveSub ? c.subscription[0] : null;
-        
+
         let attributionStatus = 'OPEN';
         if (c.attribution_locked) {
-           // Check if expired
-           if (c.attribution_locked_at) {
-             const months = differenceInMonths(new Date(), c.attribution_locked_at);
-             attributionStatus = months < 12 ? 'LOCKED' : 'EXPIRED';
-           } else {
-             attributionStatus = 'LOCKED';
-           }
+          // Check if expired
+          if (c.attribution_locked_at) {
+            const months = differenceInMonths(new Date(), c.attribution_locked_at);
+            attributionStatus = months < 12 ? 'LOCKED' : 'EXPIRED';
+          } else {
+            attributionStatus = 'LOCKED';
+          }
         }
 
         return {

@@ -99,8 +99,8 @@ router.post('/finance/settlements/calculate', FinanceController.calculateSettlem
 router.get('/finance/dunning', FinanceController.getDunning);
 
 // Lead Management routes
-router.get('/leads/regional', LeadController.getRegionalLeads);
-router.post('/leads/:id/reassign', LeadController.reassign);
+router.get('/leads/regional', (req, res, next) => LeadController.getRegionalLeads(req, res).catch(next));
+router.post('/leads/:id/reassign', (req, res, next) => LeadController.reassign(req, res).catch(next));
 
 // Settlement routes
 router.get('/finance/settlements', FinanceController.getSettlements);

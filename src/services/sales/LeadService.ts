@@ -49,7 +49,7 @@ export class LeadService {
         notes: data.notes,
         status: LeadStatus.NEW,
         // Auto-assign if referred by an agent?
-        assigned_consultant_id: data.referredBy, 
+        assigned_consultant_id: data.referredBy,
         assigned_at: data.referredBy ? new Date() : null,
       },
     });
@@ -159,7 +159,7 @@ export class LeadService {
    * Convert Lead to Company
    */
   static async convertLeadToCompany(
-    leadId: string, 
+    leadId: string,
     conversionData: {
       adminFirstName: string;
       adminLastName: string;
@@ -181,18 +181,18 @@ export class LeadService {
     // Prepare Registration Data
     // Use provided overrides or fallback to lead data
     const emailToUse = conversionData.email || lead.email;
-    
+
     // Domain Handling
     // If domain is provided, we might want to ensure the website reflects it or just rely on CompanyService to extract it from email/website
     // CompanyService.registerCompany usually extracts domain from email if not enterprise flow.
     // However, if we want to enforce a specific domain (e.g. from the UI input), we should pass it or ensure website matches.
     // Let's assume registerCompany takes website/domain into account.
     // Ideally, we update the registration request to be explicit.
-    
+
     const registrationRequest = {
       companyName: lead.company_name,
       // If domain is provided (e.g. "acme.com"), prepend https:// to make it a valid URL for the website field
-      companyWebsite: conversionData.domain ? `https://${conversionData.domain}` : (lead.website || ''), 
+      companyWebsite: conversionData.domain ? `https://${conversionData.domain}` : (lead.website || ''),
       adminFirstName: conversionData.adminFirstName,
       adminLastName: conversionData.adminLastName,
       adminEmail: emailToUse,
@@ -238,7 +238,23 @@ export class LeadService {
         console.error(`Failed to assign attribution: ${result.error}`);
       } else {
         console.log(`Successfully assigned agent ${lead.referred_by} to company ${company.id}`);
-        
+
+        // Set company region from sales agent's region (required for commissions)
+        const salesAgent = await prisma.consultant.findUnique({
+          where: { id: lead.referred_by },
+          select: { region_id: true }
+        });
+
+        if (salesAgent?.region_id) {
+          await prisma.company.update({
+            where: { id: company.id },
+            data: { region_id: salesAgent.region_id }
+          });
+          console.log(`Set company region to ${salesAgent.region_id} from sales agent`);
+        } else {
+          console.warn(`Sales agent ${lead.referred_by} has no region assigned - commissions may not work`);
+        }
+
         // Also create an initial Opportunity for this company and agent
         // This ensures it shows up in the pipeline immediately
         await prisma.opportunity.create({

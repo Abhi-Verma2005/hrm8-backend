@@ -1,0 +1,15 @@
+Searching for company "Codecrafters"...
+------------------------------------------------
+Company: codecrafters (ID: 3e92416c-9dbb-40ee-8c5a-d08c25192efa)
+Status: VERIFIED
+Region ID: c8036bf9-7eba-47cf-9848-7fad90eb2a13
+Created At: Mon Jan 12 2026 11:26:57 GMT+0530 (India Standard Time)
+
+Subscriptions:
+No subscriptions found.
+
+Opportunities:
+- Opportunity: codecrafters - Initial Deal (ID: f69841c5-83c8-4308-a5f5-871ffeb48b9b)
+  Stage: CLOSED_WON
+  Amount: 1990
+  Sales Agent ID: bb6fce20-a1c3-41ad-ad41-3f792536f176

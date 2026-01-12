@@ -848,6 +848,50 @@ model Commission {
   @@index([type])
 }
 
+model CommissionWithdrawal {
+  id                    String              @id @default(uuid())
+  consultant_id         String              @map("consultant_id")
+  amount                Float
+  status                WithdrawalStatus    @default(PENDING)
+  payment_method        String              @map("payment_method")  // 'BANK_TRANSFER', 'PAYPAL', 'STRIPE', etc.
+  payment_details       Json?               @map("payment_details") // Bank account, PayPal email, etc.
+  commission_ids        String[]            @map("commission_ids")  // Array of commission IDs included
+  
+  // Admin fields
+  processed_by          String?             @map("processed_by")    // Admin consultant ID
+  processed_at          DateTime?           @map("processed_at")
+  payment_reference     String?             @map("payment_reference") // Transaction ID
+  admin_notes           String?             @map("admin_notes")
+  
+  // Rejection
+  rejection_reason      String?             @map("rejection_reason")
+  rejected_at           DateTime?           @map("rejected_at")
+  rejected_by           String?             @map("rejected_by")
+  
+  // Stripe Connect payout fields
+  stripe_transfer_id    String?             @map("stripe_transfer_id")
+  stripe_payout_id      String?             @map("stripe_payout_id")
+  transfer_initiated_at DateTime?           @map("transfer_initiated_at")
+  transfer_completed_at DateTime?           @map("transfer_completed_at")
+  transfer_failed_reason String?            @map("transfer_failed_reason")
+  
+  // Agent notes
+  notes                 String?
+  
+  created_at            DateTime            @default(now()) @map("created_at")
+  updated_at            DateTime            @default(now()) @updatedAt @map("updated_at")
+  
+  consultant            Consultant          @relation("ConsultantWithdrawals", fields: [consultant_id], references: [id])
+  // Removed relation constraints for admin fields to allow HRM8User IDs
+  // processor             Consultant?         @relation("WithdrawalProcessor", fields: [processed_by], references: [id])
+  // rejecter              Consultant?         @relation("WithdrawalRejecter", fields: [rejected_by], references: [id])
+  
+  @@index([consultant_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([processed_by])
+}
+
 model Consultant {
   id                         String                     @id @default(uuid())
   email                      String                     @unique
@@ -886,6 +930,10 @@ model Consultant {
   total_revenue              Float                      @default(0) @map("total_revenue")
   current_leads              Int                        @default(0)
   max_leads                  Int                        @default(20)
+  stripe_account_id          String?                    @map("stripe_account_id")
+  stripe_account_status      String?                    @map("stripe_account_status")
+  stripe_onboarded_at        DateTime?                  @map("stripe_onboarded_at")
+  payout_enabled             Boolean                    @default(false) @map("payout_enabled")
   account_team               AccountTeam[]
   commissions                Commission[]
   region                     Region                     @relation(fields: [region_id], references: [id])
@@ -899,6 +947,9 @@ model Consultant {
   opportunity                Opportunity[]
   subscription               Subscription[]
   sales_companies            Company[]                  @relation("CompanySalesAgent")
+  withdrawals                CommissionWithdrawal[]     @relation("ConsultantWithdrawals")
+  // processed_withdrawals      CommissionWithdrawal[]     @relation("WithdrawalProcessor")
+  // rejected_withdrawals       CommissionWithdrawal[]     @relation("WithdrawalRejecter")
 
   @@index([email])
   @@index([region_id])
@@ -2156,6 +2207,15 @@ enum CommissionType {
   SUBSCRIPTION_SALE
   RECRUITMENT_SERVICE
   CUSTOM
+}
+
+enum WithdrawalStatus {
+  PENDING       // Awaiting admin review
+  APPROVED      // Approved, ready for payment
+  PROCESSING    // Payment in progress
+  COMPLETED     // Payment completed
+  REJECTED      // Request rejected
+  CANCELLED     // Cancelled by agent
 }
 
 enum ConsultantRole {

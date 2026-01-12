@@ -75,7 +75,7 @@ export class CompanyModel {
    */
   static async findByDomain(domain: string): Promise<Company | null> {
     const normalizedDomain = domain.toLowerCase().trim();
-    
+
     // Try exact match first
     let company = await prisma.company.findUnique({
       where: { domain: normalizedDomain },
@@ -93,7 +93,7 @@ export class CompanyModel {
       company = await prisma.company.findUnique({
         where: { domain: baseDomain },
       });
-      
+
       if (company) {
         return this.mapPrismaToCompany(company);
       }
@@ -283,6 +283,7 @@ export class CompanyModel {
       attributionLocked: prismaCompany.attribution_locked,
       attributionLockedAt: prismaCompany.attribution_locked_at || undefined,
       referredBy: prismaCompany.referred_by || undefined,
+      salesAgentId: prismaCompany.sales_agent_id || undefined,
       createdAt: prismaCompany.created_at,
       updatedAt: prismaCompany.updated_at,
     };

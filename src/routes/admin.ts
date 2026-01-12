@@ -3,6 +3,8 @@ import { authenticateHrm8User } from '../middleware/hrm8Auth';
 import * as CategoryController from '../controllers/admin/categoryController';
 import * as TagController from '../controllers/admin/tagController';
 
+import { WithdrawalController } from '../controllers/sales/WithdrawalController';
+
 const router: Router = Router();
 
 // Middleware to require GLOBAL_ADMIN role
@@ -38,5 +40,11 @@ router.get('/tags/:id', TagController.getTagById);
 router.post('/tags', TagController.createTag);
 router.put('/tags/:id', TagController.updateTag);
 router.delete('/tags/:id', TagController.deleteTag);
+
+// Billing & Withdrawal Routes
+router.get('/billing/withdrawals', WithdrawalController.getPendingWithdrawals);
+router.post('/billing/withdrawals/:id/approve', WithdrawalController.approveWithdrawal);
+router.post('/billing/withdrawals/:id/process', WithdrawalController.processPayment);
+router.post('/billing/withdrawals/:id/reject', WithdrawalController.rejectWithdrawal);
 
 export default router;
