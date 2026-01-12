@@ -290,8 +290,23 @@ export class WithdrawalService {
 
     /**
      * Get all pending withdrawals (Admin only)
+     * Optionally filter by region for regional admins
      */
-    static async getPendingWithdrawals(): Promise<CommissionWithdrawalData[]> {
+    static async getPendingWithdrawals(regionId?: string): Promise<CommissionWithdrawalData[]> {
+        if (regionId) {
+            // Regional admin - only show withdrawals from consultants in their region
+            const withdrawals = await prisma.commissionWithdrawal.findMany({
+                where: {
+                    status: 'PENDING',
+                    consultant: {
+                        region_id: regionId
+                    }
+                },
+                orderBy: { created_at: 'desc' },
+            });
+            return withdrawals.map((w) => CommissionWithdrawalModel['mapPrismaToWithdrawal'](w));
+        }
+        // Global admin - show all pending withdrawals
         return await CommissionWithdrawalModel.findAll({ status: 'PENDING' });
     }
 }

@@ -245,7 +245,7 @@ paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) =
                 type: 'SUBSCRIPTION_SALE',
                 amount: salesCommissionAmount,
                 rate: salesCommissionRate,
-                status: 'PENDING',
+                status: 'CONFIRMED',
                 description: `Sales commission for ${job.service_package} service - $${paymentAmount}`
               });
               console.log(`✅ Created sales agent commission ${salesCommission.id}: $${salesCommissionAmount}`);
@@ -516,7 +516,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
                       type: 'SUBSCRIPTION_SALE',
                       amount: salesCommissionAmount,
                       rate: salesCommissionRate,
-                      status: 'PENDING',
+                      status: 'CONFIRMED',
                       description: `Sales commission for ${servicePackage} service payment - $${paymentAmount}`
                     });
                     console.log(`✅ Created sales agent commission ${salesCommission.id}: $${salesCommissionAmount} (${salesCommissionRate * 100}% of $${paymentAmount})`);

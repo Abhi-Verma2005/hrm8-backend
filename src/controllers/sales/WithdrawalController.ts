@@ -174,7 +174,10 @@ export class WithdrawalController {
                 return;
             }
 
-            const withdrawals = await WithdrawalService.getPendingWithdrawals();
+            // Regional admins only see withdrawals from their region
+            const regionId = req.hrm8User.role === 'REGIONAL_LICENSEE' ? req.hrm8User.region_id : undefined;
+
+            const withdrawals = await WithdrawalService.getPendingWithdrawals(regionId);
 
             res.json({
                 success: true,
