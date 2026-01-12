@@ -9,6 +9,7 @@ import { LeadController } from '../controllers/sales/LeadController';
 import { SalesDashboardController } from '../controllers/sales/SalesDashboardController';
 import { SalesController } from '../controllers/sales/SalesController';
 import { WithdrawalController } from '../controllers/sales/WithdrawalController';
+import { validateCreateLead, validateConvertLead } from '../validators/lead';
 
 const router: Router = Router();
 
@@ -16,9 +17,9 @@ const router: Router = Router();
 router.use(authenticateConsultant);
 
 // Lead Routes
-router.post('/leads', (req, res, next) => LeadController.create(req, res).catch(next));
+router.post('/leads', validateCreateLead, (req, res, next) => LeadController.create(req, res).catch(next));
 router.get('/leads', (req, res, next) => LeadController.getMyLeads(req, res).catch(next));
-router.post('/leads/:id/convert', (req, res, next) => LeadController.convert(req, res).catch(next));
+router.post('/leads/:id/convert', validateConvertLead, (req, res, next) => LeadController.convert(req, res).catch(next));
 
 // Opportunity Routes (Pipeline)
 router.get('/opportunities', SalesController.getOpportunities);

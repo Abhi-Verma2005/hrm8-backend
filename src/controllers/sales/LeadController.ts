@@ -29,24 +29,7 @@ export class LeadController {
         message,
       } = req.body;
 
-      // Validate required fields
-      if (!companyName || !email || !country) {
-        res.status(400).json({
-          success: false,
-          error: 'Company name, email, and country are required',
-        });
-        return;
-      }
-
-      // Basic email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid email format',
-        });
-        return;
-      }
+      // Note: Validation is now handled by Zod middleware in routes
 
       const lead = await LeadService.createLead({
         companyName,
@@ -206,13 +189,7 @@ export class LeadController {
       const { id } = req.params;
       const { adminFirstName, adminLastName, password, acceptTerms } = req.body;
 
-      if (!adminFirstName || !adminLastName || !password || acceptTerms === undefined) {
-        res.status(400).json({
-          success: false,
-          error: 'Admin details and terms acceptance are required',
-        });
-        return;
-      }
+      // Note: Validation is now handled by Zod middleware in routes
 
       const company = await LeadService.convertLeadToCompany(id, {
         adminFirstName,
