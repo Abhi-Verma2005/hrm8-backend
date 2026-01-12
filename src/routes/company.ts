@@ -5,6 +5,7 @@
 import { Router, type Router as RouterType } from 'express';
 import { CompanyController } from '../controllers/company/CompanyController';
 import { CompanySettingsController } from '../controllers/company/CompanySettingsController';
+import * as CompanyCareersController from '../controllers/company/companyCareersController';
 import { authenticate } from '../middleware/auth';
 import { enforceCompanyIsolation } from '../middleware/companyIsolation';
 import { validateProfileSectionUpdate } from '../validators/companyProfile';
@@ -13,6 +14,27 @@ const router: RouterType = Router();
 
 // All company routes require authentication
 router.use(authenticate);
+
+// Careers Page Management (must be before parameterized routes)
+router.get('/careers', CompanyCareersController.getCareersPage);
+router.post(
+  '/careers/upload',
+  CompanyCareersController.uploadMiddleware,
+  CompanyCareersController.uploadCareersImage
+);
+router.put('/careers', CompanyCareersController.updateCareersPage);
+
+// Company settings (office hours, timezone)
+// These routes use the authenticated user's company ID, not a route parameter
+router.get(
+  '/settings',
+  CompanySettingsController.getCompanySettings
+);
+
+router.put(
+  '/settings',
+  CompanySettingsController.updateCompanySettings
+);
 
 // Get company details
 router.get(
@@ -60,18 +82,6 @@ router.post(
   '/:id/profile/complete',
   enforceCompanyIsolation,
   CompanyController.completeProfile
-);
-
-// Company settings (office hours, timezone)
-// These routes use the authenticated user's company ID, not a route parameter
-router.get(
-  '/settings',
-  CompanySettingsController.getCompanySettings
-);
-
-router.put(
-  '/settings',
-  CompanySettingsController.updateCompanySettings
 );
 
 // Job assignment settings

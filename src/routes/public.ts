@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import * as PublicJobController from '../controllers/publicJob.controller';
+import * as CareersController from '../controllers/public/careersController';
 
 const router: Router = Router();
+
+// Company Careers Pages
+router.get('/careers/companies', CareersController.getPublicCompanies);
+router.get('/careers/companies/:id', CareersController.getPublicCompanyDetail);
 
 // GET /api/public/jobs - Global Job Search
 router.get('/jobs', PublicJobController.getGlobalJobs);
