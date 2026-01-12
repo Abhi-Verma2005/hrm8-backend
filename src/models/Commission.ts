@@ -24,6 +24,7 @@ export interface CommissionData {
   notes?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  companyName?: string;
 }
 
 export class CommissionModel {
@@ -57,6 +58,10 @@ export class CommissionModel {
         commission_expiry_date: commissionData.commissionExpiryDate || null,
         notes: commissionData.notes || null,
       },
+      include: {
+        job: { select: { company: { select: { name: true } } } },
+        subscription: { select: { company: { select: { name: true } } } }
+      }
     });
 
     return this.mapPrismaToCommission(commission);
@@ -68,6 +73,10 @@ export class CommissionModel {
   static async findById(id: string): Promise<CommissionData | null> {
     const commission = await prisma.commission.findUnique({
       where: { id },
+      include: {
+        job: { select: { company: { select: { name: true } } } },
+        subscription: { select: { company: { select: { name: true } } } }
+      }
     });
 
     return commission ? this.mapPrismaToCommission(commission) : null;
@@ -89,6 +98,10 @@ export class CommissionModel {
         ...(filters?.status && { status: filters.status }),
         ...(filters?.type && { type: filters.type }),
       },
+      include: {
+        job: { select: { company: { select: { name: true } } } },
+        subscription: { select: { company: { select: { name: true } } } }
+      },
       orderBy: { created_at: 'desc' },
     });
 
@@ -108,6 +121,10 @@ export class CommissionModel {
       where: {
         region_id: regionId,
         ...(filters?.status && { status: filters.status }),
+      },
+      include: {
+        job: { select: { company: { select: { name: true } } } },
+        subscription: { select: { company: { select: { name: true } } } }
       },
       orderBy: { created_at: 'desc' },
     });
@@ -134,6 +151,10 @@ export class CommissionModel {
         ...(filters?.jobId && { job_id: filters.jobId }),
         ...(filters?.status && { status: filters.status }),
         ...(filters?.type && { type: filters.type }),
+      },
+      include: {
+        job: { select: { company: { select: { name: true } } } },
+        subscription: { select: { company: { select: { name: true } } } }
       },
       orderBy: { created_at: 'desc' },
     });
@@ -163,6 +184,10 @@ export class CommissionModel {
         ...(data.paymentReference !== undefined && { payment_reference: data.paymentReference || null }),
         ...(data.notes !== undefined && { notes: data.notes || null }),
       },
+      include: {
+        job: { select: { company: { select: { name: true } } } },
+        subscription: { select: { company: { select: { name: true } } } }
+      }
     });
 
     return this.mapPrismaToCommission(commission);
@@ -202,6 +227,9 @@ export class CommissionModel {
    * Map Prisma commission to CommissionData interface
    */
   private static mapPrismaToCommission(prismaCommission: any): CommissionData {
+    // Extract company name from job or subscription relation
+    const companyName = prismaCommission.job?.company?.name || prismaCommission.subscription?.company?.name;
+
     return {
       id: prismaCommission.id,
       consultantId: prismaCommission.consultant_id,
@@ -220,6 +248,7 @@ export class CommissionModel {
       notes: prismaCommission.notes || undefined,
       createdAt: prismaCommission.created_at,
       updatedAt: prismaCommission.updated_at,
+      companyName,
     };
   }
 }
