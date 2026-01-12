@@ -868,6 +868,13 @@ model CommissionWithdrawal {
   rejected_at           DateTime?           @map("rejected_at")
   rejected_by           String?             @map("rejected_by")
   
+  // Stripe Connect payout fields
+  stripe_transfer_id    String?             @map("stripe_transfer_id")
+  stripe_payout_id      String?             @map("stripe_payout_id")
+  transfer_initiated_at DateTime?           @map("transfer_initiated_at")
+  transfer_completed_at DateTime?           @map("transfer_completed_at")
+  transfer_failed_reason String?            @map("transfer_failed_reason")
+  
   // Agent notes
   notes                 String?
   
@@ -923,6 +930,10 @@ model Consultant {
   total_revenue              Float                      @default(0) @map("total_revenue")
   current_leads              Int                        @default(0)
   max_leads                  Int                        @default(20)
+  stripe_account_id          String?                    @map("stripe_account_id")
+  stripe_account_status      String?                    @map("stripe_account_status")
+  stripe_onboarded_at        DateTime?                  @map("stripe_onboarded_at")
+  payout_enabled             Boolean                    @default(false) @map("payout_enabled")
   account_team               AccountTeam[]
   commissions                Commission[]
   region                     Region                     @relation(fields: [region_id], references: [id])

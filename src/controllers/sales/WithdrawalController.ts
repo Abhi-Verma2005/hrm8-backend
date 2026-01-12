@@ -304,4 +304,129 @@ export class WithdrawalController {
             });
         }
     }
+    /**
+     * Start Stripe Onboarding
+     * POST /api/sales/stripe/onboard
+     */
+    static async stripeOnboard(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const consultantId = req.consultant?.id;
+            if (!consultantId) {
+                res.status(401).json({ success: false, error: 'Unauthorized' });
+                return;
+            }
+
+            // Dynamically import service to avoid circular dependencies
+            const { StripeConnectService } = await import('../../services/sales/StripeConnectService');
+
+            const result = await StripeConnectService.createConnectAccount(consultantId);
+
+            res.json({
+                success: true,
+                data: result,
+            });
+        } catch (error: any) {
+            console.error('Stripe onboard error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to start Stripe onboarding',
+            });
+        }
+    }
+
+    /**
+     * Get Stripe Account Status
+     * GET /api/sales/stripe/status
+     */
+    static async getStripeStatus(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const consultantId = req.consultant?.id;
+            if (!consultantId) {
+                res.status(401).json({ success: false, error: 'Unauthorized' });
+                return;
+            }
+
+            const { StripeConnectService } = await import('../../services/sales/StripeConnectService');
+
+            const status = await StripeConnectService.checkAccountStatus(consultantId);
+
+            res.json({
+                success: true,
+                data: status,
+            });
+        } catch (error: any) {
+            console.error('Get Stripe status error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to get Stripe status',
+            });
+        }
+    }
+
+    /**
+     * Get Stripe Login Link
+     * POST /api/sales/stripe/login-link
+     */
+    static async getStripeLoginLink(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const consultantId = req.consultant?.id;
+            if (!consultantId) {
+                res.status(401).json({ success: false, error: 'Unauthorized' });
+                return;
+            }
+
+            const { StripeConnectService } = await import('../../services/sales/StripeConnectService');
+
+            const url = await StripeConnectService.getLoginLink(consultantId);
+
+            res.json({
+                success: true,
+                data: { url },
+            });
+        } catch (error: any) {
+            console.error('Get Stripe login link error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to get login link',
+            });
+        }
+    }
+
+    /**
+     * Execute Withdrawal (Agent triggers payout)
+     * POST /api/sales/withdrawals/:id/execute
+     */
+    static async executeWithdrawal(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const consultantId = req.consultant?.id;
+            if (!consultantId) {
+                res.status(401).json({ success: false, error: 'Unauthorized' });
+                return;
+            }
+
+            const { id } = req.params;
+
+            const { StripePayoutService } = await import('../../services/sales/StripePayoutService');
+
+            // Pass "AGENT" as the processor ID to indicate self-triggered
+            const result = await StripePayoutService.executeWithdrawal(id, "AGENT");
+
+            if (!result.success) {
+                res.status(400).json(result);
+                return;
+            }
+
+            res.json({
+                success: true,
+                data: { transfer: result.transfer },
+                message: 'Payout initiated successfully',
+            });
+        } catch (error: any) {
+            console.error('Execute withdrawal error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to execute withdrawal',
+            });
+        }
+    }
 }

@@ -38,6 +38,16 @@ export class LeadController {
         return;
       }
 
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid email format',
+        });
+        return;
+      }
+
       const lead = await LeadService.createLead({
         companyName,
         email,
@@ -217,6 +227,16 @@ export class LeadController {
       });
     } catch (error: any) {
       console.error('Convert lead error:', error);
+
+      // Handle validation errors gracefully
+      if (error.message && (error.message.includes('Invalid email format') || error.message.includes('Invalid website format'))) {
+        res.status(400).json({
+          success: false,
+          error: error.message,
+        });
+        return;
+      }
+
       res.status(500).json({
         success: false,
         error: error.message || 'Failed to convert lead',

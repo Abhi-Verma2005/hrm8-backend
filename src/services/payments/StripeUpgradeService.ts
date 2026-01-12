@@ -55,6 +55,18 @@ export class StripeUpgradeService {
     await CompanyProfileModel.updateByCompanyId(companyId, {
       profile_data: updatedProfileData as unknown as Prisma.JsonObject,
     });
+
+    // Create sales commission and lock attribution
+    try {
+      const { CommissionService } = await import('../hrm8/CommissionService');
+      await CommissionService.processSalesCommission(
+        companyId,
+        amount ?? UPGRADE_PRICE_MAP[tier].amount,
+        `Sales commission for ${UPGRADE_PRICE_MAP[tier].label} subscription`
+      );
+    } catch (commissionError) {
+      console.error('Error creating sales commission for upgrade:', commissionError);
+    }
   }
 }
 

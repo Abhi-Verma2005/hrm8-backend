@@ -79,7 +79,7 @@ export class CommissionService {
       }
 
       const subscription = bill.subscription;
-      
+
       // Check if subscription has a sales agent
       if (!subscription.sales_agent_id) {
         return { success: false, error: 'No sales agent assigned to subscription' };
@@ -262,6 +262,127 @@ export class CommissionService {
     } catch (error: any) {
       console.error('Process payment error:', error);
       return { success: false, error: error.message || 'Failed to process payment' };
+    }
+  }
+
+  /**
+   * Process generic sales commission (for both Job Payments and Subscription Upgrades)
+   * Handles:
+   * 1. Checking attribution expiry (12-month rule)
+   * 2. Creating commission record (idempotent)
+   * 3. Locking attribution if not locked
+   * 4. Closing related opportunity
+   */
+  static async processSalesCommission(
+    companyId: string,
+    amount: number, // Payment amount in dollars
+    description: string,
+    jobId?: string,
+    subscriptionId?: string,
+    eventType: 'JOB_PAYMENT' | 'SUBSCRIPTION_SALE' = 'SUBSCRIPTION_SALE'
+  ): Promise<{ success: boolean; commissionId?: string; error?: string }> {
+    try {
+      // Lazy load to avoid circular dependencies
+      const { CommissionModel } = await import('../../models/Commission');
+      const { CompanyModel } = await import('../../models/Company');
+      const { ConsultantModel } = await import('../../models/Consultant');
+      const { AttributionService } = await import('../sales/AttributionService');
+      const { differenceInMonths } = await import('date-fns');
+
+      const company = await CompanyModel.findById(companyId);
+      if (!company) {
+        return { success: false, error: 'Company not found' };
+      }
+
+      if (!company.salesAgentId) {
+        return { success: false, error: 'No sales agent assigned to company' };
+      }
+
+      // Check for existing commissions (idempotency)
+      const existingFilters: any = {
+        consultantId: company.salesAgentId,
+        type: CommissionType.SUBSCRIPTION_SALE
+      };
+      if (jobId) existingFilters.jobId = jobId;
+      if (subscriptionId) existingFilters.subscriptionId = subscriptionId;
+
+      // Note: For subscription upgrades without a unique ID (just companyId time-based), 
+      // strict idempotency might be tricky, but usually upgrades happen once per month max.
+      // We rely on caller to pass specific IDs if possible.
+
+      const existingCommissions = await CommissionModel.findAll(existingFilters);
+
+      // If passing specific job/sub ID, check duplicate strictly
+      if ((jobId || subscriptionId) && existingCommissions.length > 0) {
+        return { success: true, commissionId: existingCommissions[0].id, error: 'Commission already exists' };
+      }
+
+      // Check attribution expiry (12-month rule)
+      if (company.attributionLockedAt) {
+        const monthsSinceLock = differenceInMonths(new Date(), new Date(company.attributionLockedAt));
+        if (monthsSinceLock >= 12) {
+          console.log(`⏰ Attribution expired for company ${companyId} (${monthsSinceLock} months since lock). No sales commission created.`);
+          return { success: false, error: 'Attribution expired' };
+        }
+      }
+
+      // Fetch sales agent for dynamic rate
+      const salesAgent = await ConsultantModel.findById(company.salesAgentId);
+      const commissionRate = salesAgent?.defaultCommissionRate || 0.10; // Default 10%
+      const commissionAmount = Math.round(amount * commissionRate * 100) / 100;
+
+      // Create Commission
+      const commission = await CommissionModel.create({
+        consultantId: company.salesAgentId,
+        regionId: company.regionId || '', // Should ideally have region
+        jobId,
+        subscriptionId,
+        type: CommissionType.SUBSCRIPTION_SALE,
+        amount: commissionAmount,
+        rate: commissionRate,
+        status: CommissionStatus.CONFIRMED,
+        description: description,
+      });
+
+      console.log(`✅ Created sales commission ${commission.id}: $${commissionAmount} (${commissionRate * 100}%)`);
+
+      // Auto-lock attribution on first payment
+      if (!company.attributionLocked) {
+        await AttributionService.lockAttribution(companyId);
+        console.log(`🔒 Attribution locked for company ${companyId}`);
+      }
+
+      // Close related Opportunity if exists and is open
+      // We try to find an open opportunity for this company
+      try {
+        const openOpportunities = await prisma.opportunity.findMany({
+          where: {
+            company_id: companyId,
+            stage: { notIn: ['CLOSED_WON', 'CLOSED_LOST'] }
+          }
+        });
+
+        if (openOpportunities.length > 0) {
+          // Close the first applicable one (usually 'Initial Deal' or similar)
+          await prisma.opportunity.update({
+            where: { id: openOpportunities[0].id },
+            data: {
+              stage: 'CLOSED_WON',
+              amount: amount, // Update amount to actual deal value
+              closed_at: new Date()
+            }
+          });
+          console.log(`🎉 Closed opportunity ${openOpportunities[0].id} as WON`);
+        }
+      } catch (oppError) {
+        console.error('Error closing opportunity:', oppError);
+      }
+
+      return { success: true, commissionId: commission.id };
+
+    } catch (error: any) {
+      console.error('Process sales commission error:', error);
+      return { success: false, error: error.message };
     }
   }
 

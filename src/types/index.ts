@@ -85,6 +85,7 @@ export interface Company {
   attributionLocked?: boolean;
   attributionLockedAt?: Date;
   referredBy?: string;
+  salesAgentId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

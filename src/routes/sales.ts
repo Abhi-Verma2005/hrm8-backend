@@ -16,9 +16,9 @@ const router: Router = Router();
 router.use(authenticateConsultant);
 
 // Lead Routes
-router.post('/leads', LeadController.create);
-router.get('/leads', LeadController.getMyLeads);
-router.post('/leads/:id/convert', LeadController.convert);
+router.post('/leads', (req, res, next) => LeadController.create(req, res).catch(next));
+router.get('/leads', (req, res, next) => LeadController.getMyLeads(req, res).catch(next));
+router.post('/leads/:id/convert', (req, res, next) => LeadController.convert(req, res).catch(next));
 
 // Opportunity Routes (Pipeline)
 router.get('/opportunities', SalesController.getOpportunities);
@@ -35,6 +35,12 @@ router.get('/commissions/balance', WithdrawalController.getBalance);
 router.post('/commissions/withdraw', WithdrawalController.requestWithdrawal);
 router.get('/commissions/withdrawals', WithdrawalController.getWithdrawals);
 router.post('/commissions/withdrawals/:id/cancel', WithdrawalController.cancelWithdrawal);
+router.post('/commissions/withdrawals/:id/execute', WithdrawalController.executeWithdrawal);
+
+// Stripe Connect Routes
+router.post('/stripe/onboard', WithdrawalController.stripeOnboard);
+router.get('/stripe/status', WithdrawalController.getStripeStatus);
+router.post('/stripe/login-link', WithdrawalController.getStripeLoginLink);
 
 // Dashboard & Stats
 router.get('/dashboard/stats', SalesDashboardController.getStats);
