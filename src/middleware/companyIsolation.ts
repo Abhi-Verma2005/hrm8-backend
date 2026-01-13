@@ -24,9 +24,8 @@ export function enforceCompanyIsolation(
   }
 
   const userCompanyId = req.user.companyId;
-  
-  // Only check companyId in body, not in params.id (params.id might be a resource ID like job ID)
-  // For job routes, the company check is done in the service layer
+
+  // Check companyId in body
   if (req.body?.companyId && req.body.companyId !== userCompanyId) {
     res.status(403).json({
       success: false,
@@ -35,8 +34,19 @@ export function enforceCompanyIsolation(
     return;
   }
 
-  // Only override params.id if it's explicitly a companyId param
-  // Don't override for resource IDs (like job IDs)
+  // Check if route has :id param that represents a company ID
+  // This applies to routes like /companies/:id/profile
+  if (req.params.id && req.baseUrl.includes('/companies')) {
+    if (req.params.id !== userCompanyId) {
+      res.status(403).json({
+        success: false,
+        error: 'Access denied. You can only access your own company data.',
+      });
+      return;
+    }
+  }
+
+  // Also check explicit companyId param
   if (req.params.companyId && req.params.companyId !== userCompanyId) {
     res.status(403).json({
       success: false,

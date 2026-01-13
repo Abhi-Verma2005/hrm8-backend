@@ -33,8 +33,19 @@ export class LeadService {
       throw new Error(`Lead with email ${data.email} already exists`);
     }
 
-    // Check if email is already registered as a company admin (optional but good practice)
-    // For now, we focus on Lead duplication
+    // Resolve Region from Referrer (Sales Agent)
+    let regionId: string | null = null;
+    let assignedConsultantId = data.referredBy;
+
+    if (data.referredBy) {
+      const referrer = await prisma.consultant.findUnique({
+        where: { id: data.referredBy },
+        select: { id: true, region_id: true }
+      });
+      if (referrer?.region_id) {
+        regionId = referrer.region_id;
+      }
+    }
 
     return await prisma.lead.create({
       data: {
@@ -48,9 +59,9 @@ export class LeadService {
         created_by: data.createdBy,
         notes: data.notes,
         status: LeadStatus.NEW,
-        // Auto-assign if referred by an agent?
-        assigned_consultant_id: data.referredBy,
-        assigned_at: data.referredBy ? new Date() : null,
+        region_id: regionId, // Strict inheritance
+        assigned_consultant_id: assignedConsultantId,
+        assigned_at: assignedConsultantId ? new Date() : null,
       },
     });
   }
@@ -202,11 +213,27 @@ export class LeadService {
     };
 
     // Note: registerCompany throws if domain exists.
+
+    // Resolve Sales Agent & Region for Attribution
+    let salesAgentId = lead.referred_by;
+    let regionId = lead.region_id; // Use lead's region if available (set during creation)
+
+    if (salesAgentId && !regionId) {
+      // Fallback: Fetch agent if lead didn't have region_id set
+      const agent = await prisma.consultant.findUnique({
+        where: { id: salesAgentId },
+        select: { region_id: true }
+      });
+      if (agent?.region_id) regionId = agent.region_id;
+    }
+
     const { company } = await CompanyService.registerCompany(
       registrationRequest,
       {
         skipDomainValidation: true,
-        skipEmailVerification: true
+        skipEmailVerification: true,
+        regionId: regionId || undefined,
+        salesAgentId: salesAgentId || undefined
       }
     );
 
@@ -232,46 +259,27 @@ export class LeadService {
 
     // Assign Attribution if Lead had a referrer
     if (lead.referred_by) {
-      console.log(`Attempting to assign agent ${lead.referred_by} to company ${company.id}`);
-      const result = await AttributionService.assignAgentToCompany(company.id, lead.referred_by);
-      if (!result.success) {
-        console.error(`Failed to assign attribution: ${result.error}`);
-      } else {
-        console.log(`Successfully assigned agent ${lead.referred_by} to company ${company.id}`);
+      console.log(`Successfully assigned agent ${lead.referred_by} to company ${company.id} during creation (Region: ${regionId})`);
 
-        // Set company region from sales agent's region (required for commissions)
-        const salesAgent = await prisma.consultant.findUnique({
-          where: { id: lead.referred_by },
-          select: { region_id: true }
-        });
+      // We don't need to call update company region anymore as it's done in registerCompany
+      // But we keeping the Opportunity creation
 
-        if (salesAgent?.region_id) {
-          await prisma.company.update({
-            where: { id: company.id },
-            data: { region_id: salesAgent.region_id }
-          });
-          console.log(`Set company region to ${salesAgent.region_id} from sales agent`);
-        } else {
-          console.warn(`Sales agent ${lead.referred_by} has no region assigned - commissions may not work`);
+      // Also create an initial Opportunity for this company and agent
+      // This ensures it shows up in the pipeline immediately
+      await prisma.opportunity.create({
+        data: {
+          company_id: company.id,
+          sales_agent_id: lead.referred_by,
+          name: `${registrationRequest.companyName} - Initial Deal`,
+          stage: 'NEW', // Default stage
+          amount: 0, // Agent can update later
+          probability: 10,
+          // lead_source: 'outbound', // REMOVED: Field does not exist in OpportunityCreateInput
+          type: OpportunityType.SUBSCRIPTION, // Default to Subscription
+          expected_close_date: new Date(new Date().setMonth(new Date().getMonth() + 1)), // +1 month default
         }
-
-        // Also create an initial Opportunity for this company and agent
-        // This ensures it shows up in the pipeline immediately
-        await prisma.opportunity.create({
-          data: {
-            company_id: company.id,
-            sales_agent_id: lead.referred_by,
-            name: `${registrationRequest.companyName} - Initial Deal`,
-            stage: 'NEW', // Default stage
-            amount: 0, // Agent can update later
-            probability: 10,
-            // lead_source: 'outbound', // REMOVED: Field does not exist in OpportunityCreateInput
-            type: OpportunityType.SUBSCRIPTION, // Default to Subscription
-            expected_close_date: new Date(new Date().setMonth(new Date().getMonth() + 1)), // +1 month default
-          }
-        });
-        console.log(`Created initial opportunity for company ${company.id}`);
-      }
+      });
+      console.log(`Created initial opportunity for company ${company.id}`);
     } else {
       console.log('No referrer found for lead, skipping attribution');
     }

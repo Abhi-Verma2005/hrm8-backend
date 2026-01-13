@@ -17,7 +17,7 @@ export interface ConsultantData {
   role: ConsultantRole;
   status: ConsultantStatus;
   regionId?: string;
-  
+
   // Profile fields
   address?: string;
   city?: string;
@@ -26,24 +26,24 @@ export interface ConsultantData {
   languages?: Array<{ language: string; proficiency: string }>;
   industryExpertise?: string[];
   resumeUrl?: string;
-  
+
   // Payment details
   paymentMethod?: Record<string, unknown>;
   taxInformation?: Record<string, unknown>;
-  
+
   // Capacity & Availability
   availability: AvailabilityStatus;
   maxEmployers: number;
   currentEmployers: number;
   maxJobs: number;
   currentJobs: number;
-  
+
   // Commission
   commissionStructure?: string;
   defaultCommissionRate?: number;
   totalCommissionsPaid: number;
   pendingCommissions: number;
-  
+
   // Performance metrics
   totalPlacements: number;
   totalRevenue: number;
@@ -51,7 +51,7 @@ export interface ConsultantData {
   averageDaysToFill?: number;
   currentLeads: number;
   maxLeads: number;
-  
+
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -91,33 +91,33 @@ export class ConsultantModel {
     defaultCommissionRate?: number;
   }): Promise<ConsultantData> {
     const createData: any = {
-        email: consultantData.email.toLowerCase().trim(),
-        password_hash: consultantData.passwordHash,
-        first_name: consultantData.firstName.trim(),
-        last_name: consultantData.lastName.trim(),
-        phone: consultantData.phone?.trim() || null,
-        photo: consultantData.photo || null,
-        role: consultantData.role,
-        status: consultantData.status || ConsultantStatus.ACTIVE,
-        address: consultantData.address?.trim() || null,
-        city: consultantData.city?.trim() || null,
-        state_province: consultantData.stateProvince?.trim() || null,
-        country: consultantData.country?.trim() || null,
-        languages: consultantData.languages ? JSON.parse(JSON.stringify(consultantData.languages)) : null,
-        industry_expertise: consultantData.industryExpertise || [],
-        resume_url: consultantData.resumeUrl || null,
-        payment_method: consultantData.paymentMethod ? JSON.parse(JSON.stringify(consultantData.paymentMethod)) : null,
-        tax_information: consultantData.taxInformation ? JSON.parse(JSON.stringify(consultantData.taxInformation)) : null,
-        availability: consultantData.availability || AvailabilityStatus.AVAILABLE,
-        max_employers: consultantData.maxEmployers ?? 10,
-        current_employers: consultantData.currentEmployers ?? 0,
-        max_jobs: consultantData.maxJobs ?? 20,
-        current_jobs: consultantData.currentJobs ?? 0,
-        current_leads: consultantData.currentLeads ?? 0,
-        max_leads: consultantData.maxLeads ?? 20,
-        commission_structure: consultantData.commissionStructure || null,
-        default_commission_rate: consultantData.defaultCommissionRate || null,
-        region_id: consultantData.regionId, // Required field
+      email: consultantData.email.toLowerCase().trim(),
+      password_hash: consultantData.passwordHash,
+      first_name: consultantData.firstName.trim(),
+      last_name: consultantData.lastName.trim(),
+      phone: consultantData.phone?.trim() || null,
+      photo: consultantData.photo || null,
+      role: consultantData.role,
+      status: consultantData.status || ConsultantStatus.ACTIVE,
+      address: consultantData.address?.trim() || null,
+      city: consultantData.city?.trim() || null,
+      state_province: consultantData.stateProvince?.trim() || null,
+      country: consultantData.country?.trim() || null,
+      languages: consultantData.languages ? JSON.parse(JSON.stringify(consultantData.languages)) : null,
+      industry_expertise: consultantData.industryExpertise || [],
+      resume_url: consultantData.resumeUrl || null,
+      payment_method: consultantData.paymentMethod ? JSON.parse(JSON.stringify(consultantData.paymentMethod)) : null,
+      tax_information: consultantData.taxInformation ? JSON.parse(JSON.stringify(consultantData.taxInformation)) : null,
+      availability: consultantData.availability || AvailabilityStatus.AVAILABLE,
+      max_employers: consultantData.maxEmployers ?? 10,
+      current_employers: consultantData.currentEmployers ?? 0,
+      max_jobs: consultantData.maxJobs ?? 20,
+      current_jobs: consultantData.currentJobs ?? 0,
+      current_leads: consultantData.currentLeads ?? 0,
+      max_leads: consultantData.maxLeads ?? 20,
+      commission_structure: consultantData.commissionStructure || null,
+      default_commission_rate: consultantData.defaultCommissionRate || null,
+      region_id: consultantData.regionId, // Required field
     };
 
     const consultant = await prisma.consultant.create({
@@ -190,13 +190,15 @@ export class ConsultantModel {
    */
   static async update(id: string, data: Partial<ConsultantData>): Promise<ConsultantData> {
     const updateData: any = {};
-    
+
     if (data.firstName !== undefined) updateData.first_name = data.firstName.trim();
     if (data.lastName !== undefined) updateData.last_name = data.lastName.trim();
     if (data.phone !== undefined) updateData.phone = data.phone?.trim();
     if (data.photo !== undefined) updateData.photo = data.photo;
+    if (data.role !== undefined) updateData.role = data.role;
     if (data.status !== undefined) updateData.status = data.status;
     if (data.regionId !== undefined) {
+
       if (!data.regionId || data.regionId === '') {
         throw new Error('Consultants must always be assigned to a region. regionId cannot be empty or null.');
       }

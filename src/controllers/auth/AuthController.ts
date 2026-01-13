@@ -29,7 +29,7 @@ export class AuthController {
       // TODO: Validate request data using validators
 
       // Register company
-      const { company, verificationMethod, verificationRequired } = 
+      const { company, verificationMethod, verificationRequired } =
         await CompanyService.registerCompany(registrationData);
 
       // Register company admin
@@ -325,7 +325,7 @@ export class AuthController {
       // since they've proven their identity via email verification
       if (result.email) {
         const user = await UserModel.findByEmail(result.email);
-        
+
         if (user && user.status === UserStatus.ACTIVE) {
           // Generate session ID
           const sessionId = generateSessionId();
@@ -364,7 +364,7 @@ export class AuthController {
 
           res.json({
             success: true,
-            data: { 
+            data: {
               message: 'Company verified successfully. You have been automatically logged in.',
               email: result.email,
               user: {
@@ -387,7 +387,7 @@ export class AuthController {
       // Fallback: verification succeeded but couldn't create session
       res.json({
         success: true,
-        data: { 
+        data: {
           message: 'Company verified successfully. You can now login.',
           email: result.email, // Return email for frontend to use for auto-login
         },
