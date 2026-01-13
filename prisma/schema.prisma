@@ -35,6 +35,15 @@ model Company {
   price_book_id          String?                   @map("price_book_id")
   referred_by            String?
   sales_agent_id         String?                   @map("sales_agent_id")
+  // Careers page fields (public company profile)
+  careers_page_status    CareersPageStatus         @default(PENDING) @map("careers_page_status")
+  careers_page_logo      String?                   @map("careers_page_logo")
+  careers_page_banner    String?                   @map("careers_page_banner")
+  careers_page_about     String?                   @map("careers_page_about")
+  careers_page_social    Json?                     @map("careers_page_social")
+  careers_page_images    Json?                     @map("careers_page_images")
+  careers_pending_changes Json?                    @map("careers_pending_changes")
+  careers_review_notes   Json?                     @map("careers_review_notes")
   account_team           AccountTeam[]
   activity               Activity[]
   bill                   Bill[]
@@ -2074,6 +2083,13 @@ enum CompanyProfileSection {
   TEAM_MEMBERS
   BILLING
   BRANDING
+}
+
+enum CareersPageStatus {
+  PENDING    // Never submitted
+  SUBMITTED  // Full page awaiting initial review
+  APPROVED   // Page is live
+  REJECTED   // Initial submission rejected
 }
 
 enum VerificationMethod {
