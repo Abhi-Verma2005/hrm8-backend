@@ -130,4 +130,10 @@ router.get('/jobs/detail/:id', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8JobControl
 router.put('/jobs/:id/visibility', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8JobController.toggleVisibility);
 router.put('/jobs/:id/status', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8JobController.updateStatus);
 
+// Careers Page Approval routes (Global Admin)
+import * as Hrm8CareersController from '../controllers/hrm8/hrm8CareersController';
+router.get('/careers/requests', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8CareersController.getCareersRequests);
+router.post('/careers/:companyId/approve', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8CareersController.approveCareersRequest);
+router.post('/careers/:companyId/reject', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8CareersController.rejectCareersRequest);
+
 export default router;

@@ -7,6 +7,7 @@ import { CompanyController } from '../controllers/company/CompanyController';
 import { CompanySettingsController } from '../controllers/company/CompanySettingsController';
 import { ContactController } from '../controllers/company/ContactController';
 import { TransactionController } from '../controllers/company/TransactionController';
+import * as CompanyCareersController from '../controllers/company/companyCareersController';
 import { authenticate } from '../middleware/auth';
 import { enforceCompanyIsolation } from '../middleware/companyIsolation';
 import { validateProfileSectionUpdate } from '../validators/companyProfile';
@@ -27,6 +28,27 @@ router.get('/transactions/stats', (req, res, next) => {
   console.log('[Transaction Stats Route] GET /transactions/stats hit');
   TransactionController.getStats(req as any, res);
 });
+
+// Careers Page Management (must be before parameterized routes)
+router.get('/careers', CompanyCareersController.getCareersPage);
+router.post(
+  '/careers/upload',
+  CompanyCareersController.uploadMiddleware,
+  CompanyCareersController.uploadCareersImage
+);
+router.put('/careers', CompanyCareersController.updateCareersPage);
+
+// Company settings (office hours, timezone)
+// These routes use the authenticated user's company ID, not a route parameter
+router.get(
+  '/settings',
+  CompanySettingsController.getCompanySettings
+);
+
+router.put(
+  '/settings',
+  CompanySettingsController.updateCompanySettings
+);
 
 // Get company details
 router.get(
@@ -74,18 +96,6 @@ router.post(
   '/:id/profile/complete',
   enforceCompanyIsolation,
   CompanyController.completeProfile
-);
-
-// Company settings (office hours, timezone)
-// These routes use the authenticated user's company ID, not a route parameter
-router.get(
-  '/settings',
-  CompanySettingsController.getCompanySettings
-);
-
-router.put(
-  '/settings',
-  CompanySettingsController.updateCompanySettings
 );
 
 // Job assignment settings
