@@ -13,6 +13,8 @@ export interface Transaction {
     description: string;
     status: string;
     reference?: string;
+    refundStatus?: string; // PENDING, APPROVED, REJECTED, COMPLETED, CANCELLED
+    refundId?: string;
 }
 
 export class TransactionService {
@@ -21,6 +23,24 @@ export class TransactionService {
      */
     static async getCompanyTransactions(companyId: string): Promise<Transaction[]> {
         const transactions: Transaction[] = [];
+
+        // Fetch all refund requests for this company to map them to transactions
+        const refundRequests = await prisma.transactionRefundRequest.findMany({
+            where: { company_id: companyId },
+            select: {
+                id: true,
+                transaction_id: true,
+                status: true
+            }
+        });
+
+        const refundMap = new Map<string, { id: string; status: string }>();
+        refundRequests.forEach(req => {
+            // If there are multiple requests, we prioritize the most recent or active one
+            // Ideally, transaction_id should be unique for active requests, 
+            // but simple mapping here is sufficient for now.
+            refundMap.set(req.transaction_id, { id: req.id, status: req.status });
+        });
 
         // 1. Fetch paid job transactions
         const paidJobs = await prisma.job.findMany({
@@ -38,6 +58,7 @@ export class TransactionService {
         });
 
         paidJobs.forEach(job => {
+            const refundInfo = refundMap.get(job.id);
             transactions.push({
                 id: job.id,
                 type: 'JOB_PAYMENT',
@@ -45,6 +66,8 @@ export class TransactionService {
                 date: job.created_at,
                 description: `Job Posting: ${job.title}`,
                 status: 'PAID',
+                refundStatus: refundInfo?.status,
+                refundId: refundInfo?.id
             });
         });
 
@@ -70,6 +93,7 @@ export class TransactionService {
         });
 
         bills.forEach(bill => {
+            const refundInfo = refundMap.get(bill.id);
             transactions.push({
                 id: bill.id,
                 type: 'SUBSCRIPTION_BILL',
@@ -78,6 +102,8 @@ export class TransactionService {
                 description: `Subscription: ${bill.subscription?.name || 'Unknown'}`,
                 status: 'PAID',
                 reference: bill.payment_reference || bill.bill_number,
+                refundStatus: refundInfo?.status,
+                refundId: refundInfo?.id
             });
         });
 

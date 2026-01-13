@@ -15,6 +15,7 @@ import { PricingController } from '../controllers/hrm8/PricingController';
 import { FinanceController } from '../controllers/hrm8/FinanceController';
 import { IntegrationAdminController } from '../controllers/hrm8/IntegrationAdminController';
 import { RegionalSalesController } from '../controllers/hrm8/RegionalSalesController';
+import { RefundAdminController } from '../controllers/hrm8/RefundAdminController';
 import { LeadController } from '../controllers/sales/LeadController';
 import { authenticateHrm8User, requireHrm8Role } from '../middleware/hrm8Auth';
 
@@ -101,10 +102,18 @@ router.post('/pricing/companies/:id/assign', PricingController.assignCustomPrice
 router.get('/finance/invoices', FinanceController.getInvoices);
 router.post('/finance/settlements/calculate', FinanceController.calculateSettlement);
 router.get('/finance/dunning', FinanceController.getDunning);
+// router.get('/finance/licensee-summary', FinanceController.getLicenseeSummary);
+// router.get('/finance/job-revenue-breakdown', FinanceController.getJobRevenueBreakdown);
 
 // Lead Management routes
 router.get('/leads/regional', (req, res, next) => LeadController.getRegionalLeads(req, res).catch(next));
 router.post('/leads/:id/reassign', (req, res, next) => LeadController.reassign(req, res).catch(next));
+
+// Refund request admin routes
+router.get('/refund-requests', (req, res, next) => RefundAdminController.getAll(req, res).catch(next));
+router.put('/refund-requests/:id/approve', (req, res, next) => RefundAdminController.approve(req, res).catch(next));
+router.put('/refund-requests/:id/reject', (req, res, next) => RefundAdminController.reject(req, res).catch(next));
+router.put('/refund-requests/:id/complete', (req, res, next) => RefundAdminController.complete(req, res).catch(next));
 
 // Settlement routes
 router.get('/finance/settlements', FinanceController.getSettlements);

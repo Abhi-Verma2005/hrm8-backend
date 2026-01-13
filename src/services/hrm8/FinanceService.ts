@@ -24,7 +24,7 @@ export class FinanceService {
       where.due_date = { lt: date };
       // If filtering by aging, usually implies unpaid
       if (!filters.status) {
-         where.status = { in: [BillStatus.PENDING, BillStatus.OVERDUE] };
+        where.status = { in: [BillStatus.PENDING, BillStatus.OVERDUE] };
       }
     }
 
@@ -197,5 +197,104 @@ export class FinanceService {
       paidCount: paidSettlements.length,
       currentPeriodRevenue
     };
+  }
+
+  /**
+   * Process refund impact on revenue stats
+   * Deducts the refunded amount from the current period's RegionalRevenue
+   */
+  static async processRefundRevenue(transactionId: string, amount: number) {
+    // 1. Identify context (company -> region -> licensee) and original transaction
+    const job = await prisma.job.findUnique({
+      where: { id: transactionId },
+      include: {
+        company: {
+          include: {
+            region: {
+              include: {
+                licensee: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    let company = null;
+    if (job) {
+      company = job.company;
+    } else {
+      const bill = await prisma.bill.findUnique({
+        where: { id: transactionId },
+        include: {
+          company: {
+            include: {
+              region: {
+                include: {
+                  licensee: true
+                }
+              }
+            }
+          }
+        }
+      });
+      if (bill) company = bill.company;
+    }
+
+    if (!company || !company.region) {
+      console.warn(`Could not find company/region for transaction ${transactionId} to process refund revenue.`);
+      return;
+    }
+
+    const region = company.region;
+    const licensee = region.licensee;
+
+    // Determine revenue shares based on licensee settings
+    const revenueSharePercent = licensee?.revenue_share_percent || 20; // Default 20% to HRM8
+
+    // We need to update/create a RegionalRevenue for the CURRENT period to reflect the deduction.
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const hrm8Share = amount * (revenueSharePercent / 100);
+    const licenseeShare = amount - hrm8Share;
+
+    // Find existing revenue record for this period
+    const existingRevenue = await prisma.regionalRevenue.findFirst({
+      where: {
+        region_id: region.id,
+        licensee_id: licensee?.id,
+        period_start: periodStart,
+        period_end: periodEnd,
+        status: RevenueStatus.PENDING
+      }
+    });
+
+    if (existingRevenue) {
+      // Decrease values
+      await prisma.regionalRevenue.update({
+        where: { id: existingRevenue.id },
+        data: {
+          total_revenue: { decrement: amount },
+          licensee_share: { decrement: licenseeShare },
+          hrm8_share: { decrement: hrm8Share }
+        }
+      });
+    } else {
+      // Create negative revenue record (Credit)
+      await prisma.regionalRevenue.create({
+        data: {
+          region_id: region.id,
+          licensee_id: licensee?.id,
+          period_start: periodStart,
+          period_end: periodEnd,
+          total_revenue: -amount,
+          licensee_share: -licenseeShare,
+          hrm8_share: -hrm8Share,
+          status: RevenueStatus.CONFIRMED
+        }
+      });
+    }
   }
 }

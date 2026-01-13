@@ -64,6 +64,7 @@ model Company {
   subscription           Subscription[]
   users                  User[]
   verification_tokens    VerificationToken[]
+  refund_requests        TransactionRefundRequest[]
 
   @@index([domain])
   @@index([verification_status])
@@ -2234,6 +2235,15 @@ enum WithdrawalStatus {
   CANCELLED     // Cancelled by agent
 }
 
+enum RefundStatus {
+  PENDING       // Awaiting admin review
+  APPROVED      // Approved, ready for refund
+  REJECTED      // Request rejected
+  COMPLETED     // Refund processed
+  CANCELLED     // Cancelled by company
+}
+
+
 enum ConsultantRole {
   RECRUITER
   SALES_AGENT
@@ -2622,4 +2632,42 @@ model JobAnalytics {
   @@index([created_at])
   @@index([session_id])
   @@map("job_analytics")
+}
+
+model TransactionRefundRequest {
+  id                    String        @id @default(uuid())
+  company_id            String        @map("company_id")
+  transaction_id        String        @map("transaction_id") // Job or Bill ID
+  transaction_type      String        @map("transaction_type") // 'JOB_PAYMENT' | 'SUBSCRIPTION_BILL'
+  amount                Float         // Refund amount (can be partial)
+  status                RefundStatus  @default(PENDING)
+  reason                String        // Required: why refund is requested
+  
+  // Admin fields
+  processed_by          String?       @map("processed_by")    // HRM8User ID or Admin
+  processed_at          DateTime?     @map("processed_at")
+  payment_reference     String?       @map("payment_reference")
+  admin_notes           String?       @map("admin_notes")
+  
+  // Rejection
+  rejection_reason      String?       @map("rejection_reason")
+  rejected_at           DateTime?     @map("rejected_at")
+  rejected_by           String?       @map("rejected_by")
+  
+  // Stripe refund fields (for auto-processing)
+  stripe_refund_id      String?       @map("stripe_refund_id")
+  refund_initiated_at   DateTime?     @map("refund_initiated_at")
+  refund_completed_at   DateTime?     @map("refund_completed_at")
+  refund_failed_reason  String?       @map("refund_failed_reason")
+  
+  created_at            DateTime      @default(now()) @map("created_at")
+  updated_at            DateTime      @default(now()) @updatedAt @map("updated_at")
+  
+  company               Company       @relation(fields: [company_id], references: [id])
+  
+  @@index([company_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([processed_by])
+  @@map("transaction_refund_requests")
 }

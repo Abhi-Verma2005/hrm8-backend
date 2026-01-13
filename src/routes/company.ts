@@ -7,6 +7,7 @@ import { CompanyController } from '../controllers/company/CompanyController';
 import { CompanySettingsController } from '../controllers/company/CompanySettingsController';
 import { ContactController } from '../controllers/company/ContactController';
 import { TransactionController } from '../controllers/company/TransactionController';
+import { RefundRequestController } from '../controllers/company/RefundRequestController';
 import * as CompanyCareersController from '../controllers/company/companyCareersController';
 import { authenticate } from '../middleware/auth';
 import { enforceCompanyIsolation } from '../middleware/companyIsolation';
@@ -28,6 +29,14 @@ router.get('/transactions/stats', (req, res, next) => {
   console.log('[Transaction Stats Route] GET /transactions/stats hit');
   TransactionController.getStats(req as any, res);
 });
+
+// Refund request routes (also must be before parametric routes)
+router.post('/refund-requests', RefundRequestController.create);
+router.get('/refund-requests', RefundRequestController.getAll);
+router.put('/refund-requests/:id/withdraw', RefundRequestController.withdraw);
+router.delete('/refund-requests/:id', RefundRequestController.cancel);
+
+
 
 // Careers Page Management (must be before parameterized routes)
 router.get('/careers', CompanyCareersController.getCareersPage);
