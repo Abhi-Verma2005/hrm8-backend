@@ -24,7 +24,7 @@ export class ConsultantManagementController {
       } = {};
 
       if (req.query.regionId) filters.regionId = req.query.regionId as string;
-      
+
       // Apply regional isolation for licensees
       if (req.assignedRegionIds) {
         if (filters.regionId) {
@@ -113,9 +113,9 @@ export class ConsultantManagementController {
       const consultantData = req.body;
 
       // Validate required fields
-      if (!consultantData.email || !consultantData.password || 
-          !consultantData.firstName || !consultantData.lastName || 
-          !consultantData.role || !consultantData.regionId) {
+      if (!consultantData.email || !consultantData.password ||
+        !consultantData.firstName || !consultantData.lastName ||
+        !consultantData.role || !consultantData.regionId) {
         res.status(400).json({
           success: false,
           error: 'Email, password, firstName, lastName, role, and regionId are required',
@@ -377,6 +377,47 @@ export class ConsultantManagementController {
       });
     }
   }
+
+  /**
+   * Delete consultant
+   * DELETE /api/hrm8/consultants/:id
+   */
+  static async delete(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      // Verify access if licensee
+      if (req.assignedRegionIds) {
+        const consultant = await ConsultantManagementService.getConsultantById(id);
+        if (!consultant || (consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId))) {
+          res.status(403).json({ success: false, error: 'Access denied' });
+          return;
+        }
+      }
+
+      const result = await ConsultantManagementService.deleteConsultant(id);
+
+      if (result && 'error' in result) {
+        res.status(result.status || 400).json({
+          success: false,
+          error: result.error,
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: 'Consultant deleted successfully',
+      });
+    } catch (error) {
+      console.error('Delete consultant error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete consultant',
+      });
+    }
+  }
+
 
   /**
    * Generate HRM8 email address for consultant

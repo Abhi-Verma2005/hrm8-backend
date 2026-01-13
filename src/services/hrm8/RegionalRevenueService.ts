@@ -82,7 +82,18 @@ export class RegionalRevenueService {
   static async markAsPaid(id: string): Promise<RegionalRevenueData> {
     return await RegionalRevenueModel.markAsPaid(id);
   }
+
+  /**
+   * Get company revenue breakdown
+   * Aggregates revenue from jobs and subscriptions per company
+   */
+  static async getCompanyRevenueBreakdown(filters: {
+    regionIds?: string[];
+  }): Promise<any[]> {
+    return await RegionalRevenueModel.getCompanyRevenueBreakdown(filters);
+  }
 }
+
 
 
 

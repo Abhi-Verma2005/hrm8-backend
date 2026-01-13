@@ -206,5 +206,74 @@ export class RegionalRevenueModel {
       updatedAt: prismaRevenue.updated_at,
     };
   }
+
+  /**
+   * Get company revenue breakdown
+   * Aggregates revenue from Jobs and Subscriptions per company
+   */
+  static async getCompanyRevenueBreakdown(filters: { regionIds?: string[] }) {
+    const companies = await prisma.company.findMany({
+      where: filters.regionIds ? { region_id: { in: filters.regionIds } } : {},
+      include: {
+        region: { select: { name: true, code: true } },
+        jobs: {
+          where: { payment_status: 'PAID' },
+          select: { payment_amount: true, status: true }
+        },
+        subscription: {
+          include: {
+            bill: {
+              where: { status: 'PAID' },
+              select: { amount: true, paid_at: true }
+            }
+          }
+        }
+      }
+    });
+
+    return companies.map(company => {
+      // Calculate job revenue
+      const jobRevenue = company.jobs.reduce((sum, job) => sum + (job.payment_amount || 0), 0);
+
+      // Calculate subscription revenue
+      let subscriptionRevenue = 0;
+      let lastPaymentAt: Date | null = null;
+
+      company.subscription.forEach(sub => {
+        const paidBills = sub.bill.filter(b => b.status === 'PAID');
+        paidBills.forEach(bill => {
+          subscriptionRevenue += bill.amount || 0;
+          if (bill.paid_at && (!lastPaymentAt || bill.paid_at > lastPaymentAt)) {
+            lastPaymentAt = bill.paid_at;
+          }
+        });
+      });
+
+      // Check for last job payment as well
+      const paidJobs = company.jobs.filter(j => j.payment_status === 'PAID');
+      // Note: Job model doesn't have paid_at, so we can't check last payment from jobs easily
+
+      const totalRevenue = jobRevenue + subscriptionRevenue;
+      const hrm8Share = totalRevenue * 0.8;
+      const licenseeShare = totalRevenue * 0.2;
+
+      // Count active jobs
+      const activeJobs = company.jobs.filter(j => j.status === 'OPEN' || j.status === 'IN_PROGRESS').length;
+
+      return {
+        id: company.id,
+        name: company.name,
+        regionId: company.region_id,
+        regionName: company.region?.name || 'Unknown',
+        totalRevenue,
+        jobRevenue,
+        subscriptionRevenue,
+        hrm8Share,
+        licenseeShare,
+        activeJobs,
+        lastPaymentAt
+      };
+    });
+  }
 }
 

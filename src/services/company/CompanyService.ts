@@ -19,6 +19,8 @@ export class CompanyService {
     options?: {
       skipDomainValidation?: boolean;
       skipEmailVerification?: boolean;
+      regionId?: string; // Explicit region assignment
+      salesAgentId?: string; // Explicit agent assignment
     }
   ): Promise<{
     company: Company;
@@ -32,7 +34,7 @@ export class CompanyService {
     // Ensure the admin email belongs to the same organization as the company domain
     // Skip if requested (e.g. internal sales flow)
     const domainsMatch = doDomainsBelongToSameOrg(domain, adminEmailDomain);
-    
+
     if (!domainsMatch && !options?.skipDomainValidation) {
       throw new Error(
         'Admin email domain must match your company website domain. Please use your corporate email address.'
@@ -46,9 +48,11 @@ export class CompanyService {
       domain: domain,
       countryOrRegion: registrationData.countryOrRegion.trim(),
       acceptedTerms: registrationData.acceptTerms,
-      verificationStatus: options?.skipEmailVerification 
-        ? CompanyVerificationStatus.VERIFIED 
+      verificationStatus: options?.skipEmailVerification
+        ? CompanyVerificationStatus.VERIFIED
         : CompanyVerificationStatus.PENDING,
+      region_id: options?.regionId, // Use Provided Region
+      sales_agent_id: options?.salesAgentId, // Use Provided Agent
     });
 
     // Initialize onboarding profile for company
@@ -63,8 +67,8 @@ export class CompanyService {
 
     return {
       company,
-      verificationMethod: options?.skipEmailVerification 
-        ? VerificationMethod.MANUAL_VERIFICATION 
+      verificationMethod: options?.skipEmailVerification
+        ? VerificationMethod.MANUAL_VERIFICATION
         : VerificationMethod.VERIFICATION_EMAIL,
       verificationRequired: !options?.skipEmailVerification,
     };

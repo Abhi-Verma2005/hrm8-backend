@@ -81,14 +81,14 @@ export class ConsultantManagementService {
   static async updateConsultant(
     id: string,
     data: {
-        firstName?: string;
-        lastName?: string;
-        phone?: string;
-        photo?: string;
-        role?: ConsultantRole;
-        status?: ConsultantStatus;
-        regionId?: string;
-      }
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      photo?: string;
+      role?: ConsultantRole;
+      status?: ConsultantStatus;
+      regionId?: string;
+    }
   ): Promise<ConsultantData | { error: string; status: number }> {
     try {
       // If updating regionId, check if that region already has a consultant
@@ -137,6 +137,21 @@ export class ConsultantManagementService {
   }
 
   /**
+   * Delete consultant
+   * Soft delete by setting status to INACTIVE
+   */
+  static async deleteConsultant(id: string): Promise<void | { error: string; status: number }> {
+    try {
+      // Soft delete by setting status to INACTIVE
+      await ConsultantModel.updateStatus(id, ConsultantStatus.INACTIVE);
+    } catch (error: any) {
+      console.error('Delete consultant error:', error);
+      throw error;
+    }
+  }
+
+
+  /**
    * Generate HRM8 email address for consultant
    * Format: firstname.lastname@hrm8.com
    * If email exists, appends number (e.g., firstname.lastname2@hrm8.com)
@@ -183,7 +198,7 @@ export class ConsultantManagementService {
       // If base email exists, try with numbers
       let counter = 2;
       let generatedEmail = `${normalizedFirstName}.${normalizedLastName}${counter}@hrm8.com`;
-      
+
       while (counter < 1000) {
         const existing = await prisma.consultant.findUnique({
           where: { email: generatedEmail },

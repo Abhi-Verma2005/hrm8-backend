@@ -37,7 +37,7 @@ export class RegionalRevenueController {
         } else {
           filters.regionIds = req.assignedRegionIds;
         }
-        
+
         // Also ensure licenseeId matches
         if (filters.licenseeId && filters.licenseeId !== req.hrm8User?.licenseeId) {
           res.json({ success: true, data: { revenues: [] } });
@@ -118,8 +118,8 @@ export class RegionalRevenueController {
       const revenueData = req.body;
 
       // Validate required fields
-      if (!revenueData.regionId || !revenueData.periodStart || 
-          !revenueData.periodEnd || revenueData.totalRevenue === undefined) {
+      if (!revenueData.regionId || !revenueData.periodStart ||
+        !revenueData.periodEnd || revenueData.totalRevenue === undefined) {
         res.status(400).json({
           success: false,
           error: 'Region ID, period start, period end, and total revenue are required',
@@ -144,7 +144,7 @@ export class RegionalRevenueController {
       // Calculate shares if not provided
       let licenseeShare = revenueData.licenseeShare;
       let hrm8Share = revenueData.hrm8Share;
-      
+
       if (licenseeShare === undefined || hrm8Share === undefined) {
         // Default: 100% HRM8 if no licensee
         hrm8Share = revenueData.totalRevenue;
@@ -241,7 +241,35 @@ export class RegionalRevenueController {
       });
     }
   }
+  /**
+   * Get company revenue breakdown
+   * GET /api/hrm8/revenue/companies
+   */
+  static async getCompanyRevenueBreakdown(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const filters: { regionIds?: string[] } = {};
+
+      // Apply regional isolation
+      if (req.assignedRegionIds) {
+        filters.regionIds = req.assignedRegionIds;
+      }
+
+      const companies = await RegionalRevenueService.getCompanyRevenueBreakdown(filters);
+
+      res.json({
+        success: true,
+        data: { companies },
+      });
+    } catch (error) {
+      console.error('Get company revenue error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch company revenue breakdown',
+      });
+    }
+  }
 }
+
 
 
 

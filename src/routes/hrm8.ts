@@ -59,6 +59,8 @@ router.put('/consultants/:id', ConsultantManagementController.update);
 router.post('/consultants/:id/assign-region', ConsultantManagementController.assignRegion);
 router.post('/consultants/:id/suspend', ConsultantManagementController.suspend);
 router.post('/consultants/:id/reactivate', ConsultantManagementController.reactivate);
+router.delete('/consultants/:id', ConsultantManagementController.delete);
+
 
 // Job Allocation routes
 router.get('/jobs/unassigned', JobAllocationController.getUnassignedJobs);
@@ -81,7 +83,9 @@ router.get('/commissions/regional', CommissionController.getRegional);
 
 // Revenue routes
 router.get('/revenue', RegionalRevenueController.getAll);
+router.get('/revenue/companies', RegionalRevenueController.getCompanyRevenueBreakdown);
 router.post('/revenue', RegionalRevenueController.create);
+
 router.get('/revenue/:id', RegionalRevenueController.getById);
 router.put('/revenue/:id/confirm', RegionalRevenueController.confirm);
 router.put('/revenue/:id/pay', RegionalRevenueController.markAsPaid);
