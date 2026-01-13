@@ -16,6 +16,8 @@ import { FinanceController } from '../controllers/hrm8/FinanceController';
 import { IntegrationAdminController } from '../controllers/hrm8/IntegrationAdminController';
 import { RegionalSalesController } from '../controllers/hrm8/RegionalSalesController';
 import { RefundAdminController } from '../controllers/hrm8/RefundAdminController';
+import { LeadConversionAdminController } from '../controllers/hrm8/LeadConversionAdminController';
+import { RevenueController } from '../controllers/hrm8/RevenueController';
 import { LeadController } from '../controllers/sales/LeadController';
 import { authenticateHrm8User, requireHrm8Role } from '../middleware/hrm8Auth';
 
@@ -82,11 +84,20 @@ router.put('/commissions/:id/pay', CommissionController.markAsPaid);
 router.post('/commissions/pay', CommissionController.processPayments);
 router.get('/commissions/regional', CommissionController.getRegional);
 
-// Revenue routes
+// Revenue routes (existing regional revenue)
 router.get('/revenue', RegionalRevenueController.getAll);
 router.get('/revenue/companies', RegionalRevenueController.getCompanyRevenueBreakdown);
 router.post('/revenue', RegionalRevenueController.create);
 
+// Revenue analytics routes (must come before :id wildcard)
+router.get('/revenue/dashboard', (req, res, next) => RevenueController.getDashboard(req, res).catch(next));
+router.get('/revenue/summary', (req, res, next) => RevenueController.getSummary(req, res).catch(next));
+router.get('/revenue/by-region', (req, res, next) => RevenueController.getByRegion(req, res).catch(next));
+router.get('/revenue/commissions/breakdown', (req, res, next) => RevenueController.getCommissionBreakdown(req, res).catch(next));
+router.get('/revenue/consultants/top', (req, res, next) => RevenueController.getTopConsultants(req, res).catch(next));
+router.get('/revenue/timeline', (req, res, next) => RevenueController.getTimeline(req, res).catch(next));
+
+// Wildcard routes (must come last)
 router.get('/revenue/:id', RegionalRevenueController.getById);
 router.put('/revenue/:id/confirm', RegionalRevenueController.confirm);
 router.put('/revenue/:id/pay', RegionalRevenueController.markAsPaid);
@@ -114,6 +125,12 @@ router.get('/refund-requests', (req, res, next) => RefundAdminController.getAll(
 router.put('/refund-requests/:id/approve', (req, res, next) => RefundAdminController.approve(req, res).catch(next));
 router.put('/refund-requests/:id/reject', (req, res, next) => RefundAdminController.reject(req, res).catch(next));
 router.put('/refund-requests/:id/complete', (req, res, next) => RefundAdminController.complete(req, res).catch(next));
+
+// Lead conversion request routes (admin approval)
+router.get('/conversion-requests', (req, res, next) => LeadConversionAdminController.getAll(req, res).catch(next));
+router.get('/conversion-requests/:id', (req, res, next) => LeadConversionAdminController.getOne(req, res).catch(next));
+router.put('/conversion-requests/:id/approve', (req, res, next) => LeadConversionAdminController.approve(req, res).catch(next));
+router.put('/conversion-requests/:id/decline', (req, res, next) => LeadConversionAdminController.decline(req, res).catch(next));
 
 // Settlement routes
 router.get('/finance/settlements', FinanceController.getSettlements);

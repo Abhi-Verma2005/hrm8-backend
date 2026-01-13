@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { authenticateConsultant } from '../middleware/consultantAuth';
 import { LeadController } from '../controllers/sales/LeadController';
+import { LeadConversionController } from '../controllers/sales/LeadConversionController';
 import { SalesDashboardController } from '../controllers/sales/SalesDashboardController';
 import { SalesController } from '../controllers/sales/SalesController';
 import { WithdrawalController } from '../controllers/sales/WithdrawalController';
@@ -20,6 +21,12 @@ router.use(authenticateConsultant);
 router.post('/leads', validateCreateLead, (req, res, next) => LeadController.create(req, res).catch(next));
 router.get('/leads', (req, res, next) => LeadController.getMyLeads(req, res).catch(next));
 router.post('/leads/:id/convert', validateConvertLead, (req, res, next) => LeadController.convert(req, res).catch(next));
+
+// Lead Conversion Request Routes
+router.post('/leads/:id/conversion-request', (req, res, next) => LeadConversionController.submitRequest(req, res).catch(next));
+router.get('/conversion-requests', (req, res, next) => LeadConversionController.getMyRequests(req, res).catch(next));
+router.get('/conversion-requests/:id', (req, res, next) => LeadConversionController.getRequest(req, res).catch(next));
+router.put('/conversion-requests/:id/cancel', (req, res, next) => LeadConversionController.cancelRequest(req, res).catch(next));
 
 // Opportunity Routes (Pipeline)
 router.get('/opportunities', SalesController.getOpportunities);

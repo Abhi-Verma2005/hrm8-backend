@@ -88,6 +88,10 @@ export class LeadService {
         },
         referrer: {
           select: { id: true, first_name: true, last_name: true, email: true }
+        },
+        conversion_requests: {
+          orderBy: { created_at: 'desc' },
+          take: 1
         }
       }
     });
@@ -203,7 +207,10 @@ export class LeadService {
     const registrationRequest = {
       companyName: lead.company_name,
       // If domain is provided (e.g. "acme.com"), prepend https:// to make it a valid URL for the website field
-      companyWebsite: conversionData.domain ? `https://${conversionData.domain}` : (lead.website || ''),
+      // If no website/domain, use email domain to avoid empty domain conflicts
+      companyWebsite: conversionData.domain
+        ? `https://${conversionData.domain}`
+        : (lead.website || `https://${emailToUse.split('@')[1]}`),
       adminFirstName: conversionData.adminFirstName,
       adminLastName: conversionData.adminLastName,
       adminEmail: emailToUse,

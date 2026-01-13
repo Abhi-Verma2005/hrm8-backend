@@ -66,6 +66,7 @@ model Company {
   verification_tokens    VerificationToken[]
   refund_requests        TransactionRefundRequest[]
 
+  conversion_requests        LeadConversionRequest[]
   @@index([domain])
   @@index([verification_status])
   @@index([region_id])
@@ -959,6 +960,7 @@ model Consultant {
   sales_companies            Company[]                  @relation("CompanySalesAgent")
   withdrawals                CommissionWithdrawal[]     @relation("ConsultantWithdrawals")
   // processed_withdrawals      CommissionWithdrawal[]     @relation("WithdrawalProcessor")
+  conversion_requests        LeadConversionRequest[]    @relation("ConversionRequests")
   // rejected_withdrawals       CommissionWithdrawal[]     @relation("WithdrawalRejecter")
 
   @@index([email])
@@ -1037,6 +1039,7 @@ model HRM8User {
   updated_at    DateTime       @default(now()) @updatedAt @map("updated_at")
   last_login_at DateTime?      @map("last_login_at")
   sessions      HRM8Session[]
+  reviewed_conversion_requests LeadConversionRequest[] @relation("ReviewedRequests")
 
   @@index([email])
   @@index([licensee_id])
@@ -1097,6 +1100,7 @@ model Region {
   licensee       RegionalLicensee? @relation(fields: [licensee_id], references: [id])
   revenue        RegionalRevenue[]
   bills          Bill[]
+  conversion_requests        LeadConversionRequest[]
 
   @@index([is_active])
   @@index([licensee_id])
@@ -1634,6 +1638,7 @@ model Lead {
   updated_at                 DateTime                   @default(now()) @updatedAt
   activity                   Activity[]
   consultant_lead_assignment ConsultantLeadAssignment[]
+  conversion_requests        LeadConversionRequest[]
   consultant                 Consultant?                @relation("AssignedLeads", fields: [assigned_consultant_id], references: [id])
   creator                    Consultant?                @relation("CreatedLeads", fields: [created_by], references: [id])
   referrer                   Consultant?                @relation("ReferredLeads", fields: [referred_by], references: [id])
@@ -1647,6 +1652,50 @@ model Lead {
   @@index([region_id])
   @@index([status])
 }
+model LeadConversionRequest {
+  id                String                   @id @default(uuid())
+  lead_id           String                   @map("lead_id")
+  consultant_id     String                   @map("consultant_id")
+  region_id         String                   @map("region_id")
+  status            ConversionRequestStatus  @default(PENDING)
+  
+  // Company details from lead
+  company_name      String                   @map("company_name")
+  email             String
+  phone             String?
+  website           String?
+  country           String
+  city              String?
+  state_province    String?                  @map("state_province")
+  agent_notes       String?                  @map("agent_notes")
+  
+  // Admin review
+  reviewed_by       String?                  @map("reviewed_by")
+  reviewed_at       DateTime?                @map("reviewed_at")
+  admin_notes       String?                  @map("admin_notes")
+  decline_reason    String?                  @map("decline_reason")
+  
+  // Conversion tracking
+  converted_at      DateTime?                @map("converted_at")
+  company_id        String?                  @map("company_id")
+  
+  created_at        DateTime                 @default(now()) @map("created_at")
+  updated_at        DateTime                 @updatedAt @map("updated_at")
+  
+  lead              Lead                     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  consultant        Consultant               @relation("ConversionRequests", fields: [consultant_id], references: [id])
+  reviewer          HRM8User?                @relation("ReviewedRequests", fields: [reviewed_by], references: [id])
+  region            Region                   @relation(fields: [region_id], references: [id])
+  company           Company?                 @relation(fields: [company_id], references: [id])
+  
+  @@index([lead_id])
+  @@index([consultant_id])
+  @@index([region_id])
+  @@index([status])
+  @@index([reviewed_by])
+  @@map("lead_conversion_requests")
+}
+
 
 model OfferDocument {
   id             String           @id @default(uuid())
@@ -2527,6 +2576,14 @@ enum LeadStatus {
   CONVERTED
   LOST
   NURTURING
+}
+
+enum ConversionRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  CONVERTED
+  CANCELLED
 }
 
 enum NegotiationMessageType {
