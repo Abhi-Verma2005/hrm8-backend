@@ -299,13 +299,6 @@ export const getJobDetail = async (req: Request, res: Response) => {
     try {
         const { jobId } = req.params;
 
-        // Increment view count (fire and forget/await)
-        // We use updateMany to avoid error if ID not found
-        await prisma.job.updateMany({
-            where: { id: jobId },
-            data: { views_count: { increment: 1 } }
-        }).catch(err => console.error('Failed to increment view count', err));
-
         const job = await prisma.job.findUnique({
             where: { id: jobId },
             select: {
@@ -332,6 +325,8 @@ export const getJobDetail = async (req: Request, res: Response) => {
                 created_at: true,
                 benefits: true,
                 region_id: true,
+                status: true,
+                visibility: true,
                 company: {
                     select: {
                         id: true,
@@ -354,7 +349,20 @@ export const getJobDetail = async (req: Request, res: Response) => {
             return;
         }
 
-        // Transform job to camelCase for frontend
+        // Only show OPEN jobs with public visibility
+        // Other statuses: DRAFT, CLOSED, ON_HOLD, FILLED, CANCELLED are hidden from public
+        if (job.status !== 'OPEN' || job.visibility !== 'public') {
+            res.status(404).json({ success: false, error: 'Job not available' });
+            return;
+        }
+
+        // Increment view count for valid public jobs
+        await prisma.job.update({
+            where: { id: jobId },
+            data: { views_count: { increment: 1 } }
+        }).catch(err => console.error('Failed to increment view count', err));
+
+        // Transform job to camelCase for frontend (exclude status/visibility from public response)
         const transformedJob = transformJobForPublic(job);
 
         res.json({ success: true, data: transformedJob });

@@ -136,4 +136,10 @@ router.get('/careers/requests', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8CareersCo
 router.post('/careers/:companyId/approve', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8CareersController.approveCareersRequest);
 router.post('/careers/:companyId/reject', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8CareersController.rejectCareersRequest);
 
+// Platform Analytics routes (Global Admin)
+import * as Hrm8AnalyticsController from '../controllers/hrm8/hrm8AnalyticsController';
+router.get('/analytics/overview', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8AnalyticsController.getPlatformAnalyticsOverview);
+router.get('/analytics/trends', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8AnalyticsController.getPlatformAnalyticsTrends);
+router.get('/analytics/top-companies', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8AnalyticsController.getTopPerformingCompanies);
+
 export default router;
