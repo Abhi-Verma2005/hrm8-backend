@@ -148,6 +148,9 @@ router.post('/documents/portfolio', documentUpload.single('file'), CandidateDocu
 router.put('/documents/portfolio/:id', documentUpload.single('file'), CandidateDocumentController.updatePortfolioItem);
 router.delete('/documents/portfolio/:id', CandidateDocumentController.deletePortfolioItem);
 
+// Recommended Jobs
+router.get('/recommended-jobs', CandidateJobController.getRecommendedJobs);
+
 // Saved Jobs
 router.get('/saved-jobs', CandidateJobController.getSavedJobs);
 router.post('/saved-jobs/:jobId', CandidateJobController.saveJob);

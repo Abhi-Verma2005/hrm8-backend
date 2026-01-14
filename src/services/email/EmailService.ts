@@ -81,7 +81,7 @@ class EmailService {
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
         console.log('📧 Verification Email (Development Mode):');
@@ -425,7 +425,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
         console.log('📧 Invitation Email (Development Mode):');
@@ -558,7 +558,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
         console.log('📧 Signup Request Notification (Development Mode):');
@@ -677,7 +677,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
         console.log('📧 Signup Request Approval (Development Mode):');
@@ -786,7 +786,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
         console.log('📧 Signup Request Rejection (Development Mode):');
@@ -904,7 +904,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Hiring Team Invitation Email (Development Mode):');
         console.log('To:', data.to);
@@ -955,7 +955,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Hiring Team Notification Email (Development Mode):');
         console.log('To:', data.to);
@@ -1186,7 +1186,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Job Invitation Email (Development Mode):');
         console.log('To:', data.to);
@@ -1431,7 +1431,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
         console.log('\n📧 ===== ACCOUNT CREATION EMAIL (Development Mode) =====');
@@ -1473,7 +1473,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       // In development without SMTP, log the email
       if (!process.env.SMTP_USER) {
         console.log('\n📧 ===== APPLICATION SUBMITTED EMAIL (Development Mode) =====');
@@ -1699,7 +1699,7 @@ The HRM8 Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Interview Invitation Email (Development Mode):');
         console.log('To:', data.to);
@@ -1879,7 +1879,7 @@ ${data.recruiterName || data.recruiterEmail ? `Best regards,\n${data.recruiterNa
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Assessment Invitation Email (Development Mode):');
         console.log('To:', data.to);
@@ -1909,16 +1909,16 @@ ${data.recruiterName || data.recruiterEmail ? `Best regards,\n${data.recruiterNa
     expiryDate?: Date | null;
     deadlineDays?: number;
   }): string {
-    const deadlineText = data.deadlineDays 
+    const deadlineText = data.deadlineDays
       ? `${data.deadlineDays} day${data.deadlineDays !== 1 ? 's' : ''}`
       : data.expiryDate
-      ? data.expiryDate.toLocaleDateString('en-US', {
+        ? data.expiryDate.toLocaleDateString('en-US', {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
           day: 'numeric',
         })
-      : null;
+        : null;
 
     return `
       <!DOCTYPE html>
@@ -1979,16 +1979,16 @@ ${data.recruiterName || data.recruiterEmail ? `Best regards,\n${data.recruiterNa
     expiryDate?: Date | null;
     deadlineDays?: number;
   }): string {
-    const deadlineText = data.deadlineDays 
+    const deadlineText = data.deadlineDays
       ? `${data.deadlineDays} day${data.deadlineDays !== 1 ? 's' : ''}`
       : data.expiryDate
-      ? data.expiryDate.toLocaleDateString('en-US', {
+        ? data.expiryDate.toLocaleDateString('en-US', {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
           day: 'numeric',
         })
-      : null;
+        : null;
 
     return `
 Assessment Invitation
@@ -2035,7 +2035,7 @@ The ${data.companyName} Hiring Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Assessment Completion Email (Development Mode):');
         console.log('To:', data.to);
@@ -2171,7 +2171,7 @@ The ${data.companyName} Hiring Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Assessment Results Notification (Development Mode):');
         console.log('To:', data.to);
@@ -2204,10 +2204,10 @@ The ${data.companyName} Hiring Team
     assessmentUrl: string;
     candidateProfileUrl: string;
   }): string {
-    const scoreDisplay = data.assessmentScore !== undefined 
+    const scoreDisplay = data.assessmentScore !== undefined
       ? `${data.assessmentScore}${data.passThreshold ? ` / ${data.passThreshold}` : ''}`
       : 'Pending Review';
-    
+
     const statusBadge = data.passed !== undefined
       ? data.passed
         ? '<span style="background-color: #10b981; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">PASSED</span>'
@@ -2279,10 +2279,10 @@ The ${data.companyName} Hiring Team
     assessmentUrl: string;
     candidateProfileUrl: string;
   }): string {
-    const scoreDisplay = data.assessmentScore !== undefined 
+    const scoreDisplay = data.assessmentScore !== undefined
       ? `${data.assessmentScore}${data.passThreshold ? ` / ${data.passThreshold}` : ''}`
       : 'Pending Review';
-    
+
     const statusText = data.passed !== undefined
       ? data.passed ? 'PASSED' : 'DID NOT PASS'
       : 'PENDING REVIEW';
@@ -2341,7 +2341,7 @@ HRM8 System
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Interview Rescheduled Email (Development Mode):');
         console.log('To:', data.to);
@@ -2563,7 +2563,7 @@ ${data.recruiterName || data.recruiterEmail ? `Best regards,\n${data.recruiterNa
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Interview Cancelled Email (Development Mode):');
         console.log('To:', data.to);
@@ -2740,7 +2740,7 @@ ${data.autoRescheduleEnabled ? 'We will automatically reschedule your interview 
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Interview No-Show Email (Development Mode):');
         console.log('To:', data.to);
@@ -2919,7 +2919,7 @@ ${data.reason ? `Note:\n${data.reason}\n\n` : ''}${data.autoRescheduleEnabled ? 
       const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
 
       const subject = `🎉 Job Offer - ${data.jobTitle}`;
-      const expiryDateFormatted = data.expiryDate 
+      const expiryDateFormatted = data.expiryDate
         ? new Date(data.expiryDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
         : null;
       const expiryText = expiryDateFormatted
@@ -3215,7 +3215,7 @@ This is an automated email. Please do not reply directly to this message.
       console.log('[EmailService.sendOfferEmail] Sending email via transporter...');
       const result = await transporter.sendMail(mailOptions);
       console.log('[EmailService.sendOfferEmail] Email sent successfully:', result.messageId || 'N/A');
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Offer Email (Development Mode - No SMTP configured):');
         console.log('To:', data.to);
@@ -3326,7 +3326,7 @@ The Hiring Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Negotiation Update Email (Development Mode):');
         console.log('To:', data.to);
@@ -3410,7 +3410,7 @@ The Hiring Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Document Request Email (Development Mode):');
         console.log('To:', data.to);
@@ -3490,7 +3490,7 @@ The Hiring Team
       };
 
       await transporter.sendMail(mailOptions);
-      
+
       if (!process.env.SMTP_USER) {
         console.log('📧 Offer Accepted Email (Development Mode):');
         console.log('To:', data.to);
@@ -3509,14 +3509,14 @@ The Hiring Team
    */
   renderTemplate(template: string, variables: Record<string, any>): string {
     let rendered = template;
-    
+
     // Replace all {{variableName}} with actual values
     Object.keys(variables).forEach(key => {
       const value = variables[key];
       const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
       rendered = rendered.replace(regex, value !== null && value !== undefined ? String(value) : '');
     });
-    
+
     return rendered;
   }
 
@@ -3564,7 +3564,7 @@ The Hiring Team
       variables.jobTitle = job.title;
       variables.jobLocation = job.location;
       variables.jobDepartment = job.department || '';
-      
+
       // Get company name
       const { CompanyModel } = await import('../../models/Company');
       const company = await CompanyModel.findById(job.companyId);
@@ -3619,7 +3619,7 @@ The Hiring Team
       // Get template
       const { EmailTemplateModel } = await import('../../models/EmailTemplate');
       const template = await EmailTemplateModel.findById(data.templateId);
-      
+
       if (!template) {
         throw new Error('Template not found');
       }
@@ -3723,6 +3723,171 @@ The Hiring Team
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
       .trim();
+  }
+
+  /**
+   * Send job alert email to candidate
+   */
+  async sendJobAlertEmail(data: {
+    to: string;
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    location: string;
+    employmentType?: string;
+    workArrangement?: string;
+    salaryMin?: number;
+    salaryMax?: number;
+    salaryCurrency?: string;
+    jobUrl: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: `New Job Alert: ${data.jobTitle} at ${data.companyName}`,
+        html: this.getJobAlertEmailTemplate(data),
+        text: this.getJobAlertEmailText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Job Alert Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Job URL:', data.jobUrl);
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send job alert email:', error);
+      throw new Error('Failed to send job alert email');
+    }
+  }
+
+  /**
+   * Get HTML template for job alert email
+   */
+  private getJobAlertEmailTemplate(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    location: string;
+    employmentType?: string;
+    workArrangement?: string;
+    salaryMin?: number;
+    salaryMax?: number;
+    salaryCurrency?: string;
+    jobUrl: string;
+  }): string {
+    const formatSalary = (min?: number, max?: number, currency: string = 'USD') => {
+      if (!min && !max) return null;
+      const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 });
+      if (min && max) return `${formatter.format(min)} - ${formatter.format(max)}`;
+      if (min) return `From ${formatter.format(min)}`;
+      if (max) return `Up to ${formatter.format(max)}`;
+      return null;
+    };
+
+    const salary = formatSalary(data.salaryMin, data.salaryMax, data.salaryCurrency);
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">🔔 New Job Match!</h1>
+            
+            <p>Hello ${data.candidateName},</p>
+            
+            <p>Great news! A new job matching your alert criteria has been posted:</p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h2 style="margin: 0 0 10px 0; color: #1a1a1a;">${data.jobTitle}</h2>
+              <p style="margin: 5px 0; color: #666;"><strong>Company:</strong> ${data.companyName}</p>
+              <p style="margin: 5px 0; color: #666;"><strong>Location:</strong> ${data.location}${data.workArrangement ? ` (${data.workArrangement.replace('_', ' ')})` : ''}</p>
+              ${data.employmentType ? `<p style="margin: 5px 0; color: #666;"><strong>Type:</strong> ${data.employmentType.replace('_', ' ')}</p>` : ''}
+              ${salary ? `<p style="margin: 5px 0; color: #666;"><strong>Salary:</strong> ${salary}</p>` : ''}
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.jobUrl}" 
+                 style="background-color: #7c3aed; color: white; padding: 14px 35px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 16px;">
+                View Job & Apply
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666;">
+              You're receiving this email because you set up a job alert on HRM8. 
+              You can manage your alerts in your <a href="${process.env.FRONTEND_URL || 'http://localhost:8080'}/candidate/saved-jobs" style="color: #7c3aed;">dashboard</a>.
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Good luck with your job search!<br>
+              The HRM8 Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of job alert email
+   */
+  private getJobAlertEmailText(data: {
+    candidateName: string;
+    jobTitle: string;
+    companyName: string;
+    location: string;
+    employmentType?: string;
+    workArrangement?: string;
+    salaryMin?: number;
+    salaryMax?: number;
+    salaryCurrency?: string;
+    jobUrl: string;
+  }): string {
+    const formatSalary = (min?: number, max?: number, currency: string = 'USD') => {
+      if (!min && !max) return null;
+      const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 });
+      if (min && max) return `${formatter.format(min)} - ${formatter.format(max)}`;
+      if (min) return `From ${formatter.format(min)}`;
+      if (max) return `Up to ${formatter.format(max)}`;
+      return null;
+    };
+
+    const salary = formatSalary(data.salaryMin, data.salaryMax, data.salaryCurrency);
+
+    return `
+New Job Match!
+
+Hello ${data.candidateName},
+
+Great news! A new job matching your alert criteria has been posted:
+
+${data.jobTitle}
+Company: ${data.companyName}
+Location: ${data.location}${data.workArrangement ? ` (${data.workArrangement.replace('_', ' ')})` : ''}
+${data.employmentType ? `Type: ${data.employmentType.replace('_', ' ')}` : ''}
+${salary ? `Salary: ${salary}` : ''}
+
+View and apply: ${data.jobUrl}
+
+You're receiving this email because you set up a job alert on HRM8.
+
+Good luck with your job search!
+The HRM8 Team
+    `.trim();
   }
 }
 
