@@ -9,7 +9,7 @@ import prisma from '../../lib/prisma';
  * Get all approved companies with careers pages
  * GET /api/public/companies
  */
-export const getPublicCompanies = async (req: Request, res: Response) => {
+export const getPublicCompanies = async (req: Request, res: Response): Promise<any> => {
     try {
         const { search, limit = '50', offset = '0' } = req.query;
 
@@ -54,7 +54,7 @@ export const getPublicCompanies = async (req: Request, res: Response) => {
 
         const total = await prisma.company.count({ where });
 
-        res.json({
+        return res.json({
             success: true,
             data: {
                 companies: companies.map((c) => ({
@@ -76,7 +76,7 @@ export const getPublicCompanies = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Failed to fetch public companies:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             error: 'Failed to fetch companies',
         });
@@ -87,7 +87,7 @@ export const getPublicCompanies = async (req: Request, res: Response) => {
  * Get a single company's public careers page with their open jobs
  * GET /api/public/careers/companies/:id
  */
-export const getPublicCompanyDetail = async (req: Request, res: Response) => {
+export const getPublicCompanyDetail = async (req: Request, res: Response): Promise<any> => {
     try {
         const { id } = req.params;
         const { department, location, tags, search, limit = '20', offset = '0' } = req.query;
@@ -205,7 +205,7 @@ export const getPublicCompanyDetail = async (req: Request, res: Response) => {
             // Continue with empty jobs if there's an error
         }
 
-        res.json({
+        return res.json({
             success: true,
             data: {
                 company: {
@@ -246,7 +246,7 @@ export const getPublicCompanyDetail = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Failed to fetch public company detail:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             error: 'Failed to fetch company details',
             details: error instanceof Error ? error.message : 'Unknown error',

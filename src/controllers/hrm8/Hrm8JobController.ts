@@ -3,7 +3,7 @@
  * Global admin job management with analytics
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import prisma from '../../lib/prisma';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 
@@ -11,7 +11,7 @@ export class Hrm8JobController {
     /**
      * Get all companies with job statistics
      */
-    static async getCompaniesWithJobStats(req: Hrm8AuthenticatedRequest, res: Response) {
+    static async getCompaniesWithJobStats(_req: Hrm8AuthenticatedRequest, res: Response): Promise<any> {
         try {
             const companies = await prisma.company.findMany({
                 where: {
@@ -72,7 +72,7 @@ export class Hrm8JobController {
     /**
      * Get jobs for a specific company
      */
-    static async getCompanyJobs(req: Hrm8AuthenticatedRequest, res: Response) {
+    static async getCompanyJobs(req: Hrm8AuthenticatedRequest, res: Response): Promise<any> {
         try {
             const { id } = req.params;
 
@@ -133,7 +133,7 @@ export class Hrm8JobController {
     /**
      * Get job detail with analytics
      */
-    static async getJobDetail(req: Hrm8AuthenticatedRequest, res: Response) {
+    static async getJobDetail(req: Hrm8AuthenticatedRequest, res: Response): Promise<any> {
         try {
             const { id } = req.params;
 
@@ -236,7 +236,7 @@ export class Hrm8JobController {
     /**
      * Toggle job visibility
      */
-    static async toggleVisibility(req: Hrm8AuthenticatedRequest, res: Response) {
+    static async toggleVisibility(req: Hrm8AuthenticatedRequest, res: Response): Promise<any> {
         try {
             const { id } = req.params;
             const { hidden } = req.body;
@@ -260,10 +260,10 @@ export class Hrm8JobController {
     /**
      * Update job status (global admin override)
      */
-    static async updateStatus(req: Hrm8AuthenticatedRequest, res: Response) {
+    static async updateStatus(req: Hrm8AuthenticatedRequest, res: Response): Promise<any> {
         try {
             const { id } = req.params;
-            const { status, notes } = req.body;
+            const { status, notes: _notes } = req.body;
 
             await prisma.job.update({
                 where: { id },

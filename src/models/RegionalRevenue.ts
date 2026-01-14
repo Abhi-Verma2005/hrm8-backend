@@ -224,7 +224,7 @@ export class RegionalRevenueModel {
           include: {
             bill: {
               where: { status: 'PAID' },
-              select: { amount: true, paid_at: true }
+              select: { amount: true, paid_at: true, status: true }
             }
           }
         }
@@ -250,7 +250,6 @@ export class RegionalRevenueModel {
       });
 
       // Check for last job payment as well
-      const paidJobs = company.jobs.filter(j => j.payment_status === 'PAID');
       // Note: Job model doesn't have paid_at, so we can't check last payment from jobs easily
 
       const totalRevenue = jobRevenue + subscriptionRevenue;
@@ -258,7 +257,7 @@ export class RegionalRevenueModel {
       const licenseeShare = totalRevenue * 0.2;
 
       // Count active jobs
-      const activeJobs = company.jobs.filter(j => j.status === 'OPEN' || j.status === 'IN_PROGRESS').length;
+      const activeJobs = company.jobs.filter(j => j.status === 'OPEN').length;
 
       return {
         id: company.id,

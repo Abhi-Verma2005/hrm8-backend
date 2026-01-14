@@ -111,7 +111,6 @@ export class DuplicateDetectionService {
                     where: {
                         OR: [
                             { domain: { contains: emailDomain, mode: 'insensitive' } },
-                            { email: { contains: emailDomain, mode: 'insensitive' } },
                         ],
                         id: {
                             notIn: duplicates.map(d => d.companyId),
@@ -222,7 +221,7 @@ export class DuplicateDetectionService {
         // Get all companies with domains
         const companies = await prisma.company.findMany({
             where: {
-                domain: { not: null },
+                domain: { not: '' },
             },
             select: {
                 id: true,

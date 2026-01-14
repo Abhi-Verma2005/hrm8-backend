@@ -49,7 +49,7 @@ async function processRenewalOpportunities(): Promise<RenewalCheckResult> {
                     select: {
                         id: true,
                         name: true,
-                        sales_owner_id: true,
+                        sales_agent_id: true,
                     },
                 },
             },
@@ -61,10 +61,10 @@ async function processRenewalOpportunities(): Promise<RenewalCheckResult> {
             try {
                 const companyId = subscription.company_id;
                 const companyName = subscription.company?.name || 'Unknown Company';
-                const salesOwnerId = subscription.company?.sales_owner_id;
+                const salesAgentId = subscription.company?.sales_agent_id;
 
-                if (!salesOwnerId) {
-                    console.log(`  ⚠️  Skipping ${companyName}: No sales owner assigned`);
+                if (!salesAgentId) {
+                    console.log(`  ⚠️  Skipping ${companyName}: No sales agent assigned`);
                     result.skipped++;
                     continue;
                 }
@@ -95,17 +95,17 @@ async function processRenewalOpportunities(): Promise<RenewalCheckResult> {
                 const daysUntilExpiry = differenceInDays(subscription.end_date!, now);
 
                 // Create renewal opportunity
-                const opportunity = await prisma.opportunity.create({
+                await prisma.opportunity.create({
                     data: {
                         company_id: companyId,
-                        name: `Renewal: ${companyName} - ${subscription.plan_name || 'Subscription'}`,
+                        name: `Renewal: ${companyName} - ${subscription.name || 'Subscription'}`,
                         type: 'RENEWAL' as OpportunityType,
                         stage: 'NEW' as OpportunityStage,
-                        amount: subscription.amount || 0,
+                        amount: subscription.base_price || 0,
                         currency: subscription.currency || 'USD',
                         probability: 70, // Higher probability for renewals
                         expected_close_date: subscription.end_date,
-                        sales_agent_id: salesOwnerId,
+                        sales_agent_id: salesAgentId,
                         description: `Auto-created renewal opportunity. Subscription expires in ${daysUntilExpiry} days.`,
                         tags: ['auto-renewal', 'subscription'],
                     },

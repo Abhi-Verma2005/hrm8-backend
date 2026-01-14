@@ -30,8 +30,8 @@ export class RefundAdminController {
             }
 
             // Regional filtering for licensees
-            if (hrm8User.role === 'REGIONAL_LICENSEE' && hrm8User.regionIds) {
-                filters.regionIds = hrm8User.regionIds;
+            if (hrm8User.role === 'REGIONAL_LICENSEE' && req.assignedRegionIds) {
+                filters.regionIds = req.assignedRegionIds;
             }
 
             const refundRequests = await RefundAdminService.getAllRefundRequests(filters);

@@ -15,42 +15,21 @@ import cors from 'cors';
 import routes from './routes';
 import paymentsRouter, { stripeWebhookHandler } from './routes/payments';
 import { wss } from './websocket';
+import prisma from './lib/prisma';
 
-// Memory monitoring
-const logMemoryUsage = () => {
-  const usage = process.memoryUsage();
-  const formatMB = (bytes: number) => (bytes / 1024 / 1024).toFixed(2);
-  console.log(`📊 Memory Usage : RSS=${formatMB(usage.rss)}MB, Heap=${formatMB(usage.heapUsed)}/${formatMB(usage.heapTotal)}MB, External=${formatMB(usage.external)}MB`);
-};
 
-// Log memory on startup
-logMemoryUsage();
-
-// Log memory every 5 minutes
-const memoryInterval = setInterval(() => {
-  logMemoryUsage();
-}, 5 * 60 * 1000);
-
-// Cleanup memory interval on exit
-process.on('SIGTERM', () => {
-  clearInterval(memoryInterval);
-});
-
-process.on('SIGINT', () => {
-  clearInterval(memoryInterval);
-});
 
 // Handle unhandled promise rejections to prevent server crashes
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  logMemoryUsage();
+
   // Don't exit the process, just log the error
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
-  logMemoryUsage();
+
   // Don't exit the process, just log the error
 });
 
@@ -92,6 +71,27 @@ app.get('/', (_req: Request, res: Response) => {
 // Health check route
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok' });
+});
+
+// Database health check
+app.get('/health/db', async (_req: Request, res: Response) => {
+  try {
+    const start = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    const duration = Date.now() - start;
+    res.json({
+      status: 'ok',
+      message: 'Database connection successful',
+      duration: `${duration}ms`,
+    });
+  } catch (error: any) {
+    console.error('❌ Database health check failed:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Database connection failed',
+      error: error.message,
+    });
+  }
 });
 
 // Memory usage endpoint for debugging
@@ -179,27 +179,24 @@ server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) =>
 // Graceful shutdown handler
 const gracefulShutdown = (signal: string) => {
   console.log(`\n🛑 ${signal} received, starting graceful shutdown...`);
-  logMemoryUsage();
-  
+
   // Close HTTP server
   server.close(() => {
     console.log('✅ HTTP server closed');
-    
+
     // Close WebSocket server
     wss.clients.forEach((ws) => {
       ws.terminate();
     });
     wss.close(() => {
       console.log('✅ WebSocket server closed');
-      clearInterval(memoryInterval);
       process.exit(0);
     });
   });
-  
+
   // Force close after 10 seconds
   setTimeout(() => {
     console.error('⚠️ Forcing shutdown after timeout');
-    clearInterval(memoryInterval);
     process.exit(1);
   }, 10000);
 };
@@ -213,6 +210,5 @@ server.listen(PORT, () => {
   console.log(`API endpoints available at http://localhost:${PORT}/api`);
   console.log(`🌐 WebSocket endpoint: ws://localhost:${PORT}`);
   console.log(`✅ WebSocket server attached and ready`);
-  logMemoryUsage();
 });
 

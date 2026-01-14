@@ -109,7 +109,7 @@ export class StripePayoutService {
      */
     static async handleWebhook(event: Stripe.Event): Promise<void> {
         try {
-            switch (event.type) {
+            switch (event.type as string) {
                 case 'transfer.paid': {
                     const transfer = event.data.object as Stripe.Transfer;
                     const withdrawalId = transfer.metadata?.withdrawal_id;
@@ -135,11 +135,11 @@ export class StripePayoutService {
                             data: {
                                 // Keep status as PROCESSING or move to failed? 
                                 // Best to keep as PROCESSING but adding note, so admin can intervene
-                                transfer_failed_reason: transfer.failure_message || 'Transfer failed',
-                                admin_notes: `Transfer failed: ${transfer.failure_message}`
+                                transfer_failed_reason: (transfer as any).failure_message || 'Transfer failed',
+                                admin_notes: `Transfer failed: ${(transfer as any).failure_message || 'Unknown error'}`
                             }
                         });
-                        console.log(`❌ Automatic payout failed for withdrawal ${withdrawalId}: ${transfer.failure_message}`);
+                        console.log(`❌ Automatic payout failed for withdrawal ${withdrawalId}: ${(transfer as any).failure_message || 'Unknown error'}`);
                     }
                     break;
                 }

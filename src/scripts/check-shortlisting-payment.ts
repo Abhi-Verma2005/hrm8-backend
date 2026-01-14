@@ -29,7 +29,8 @@ async function checkShortlistingJob() {
                             email: true,
                             default_commission_rate: true
                         }
-                    }
+                    },
+                    attribution_locked: true
                 }
             },
             commissions: true
@@ -61,7 +62,7 @@ async function checkShortlistingJob() {
             console.log(`   - Type: ${comm.type}`);
             console.log(`     Amount: $${comm.amount}`);
             console.log(`     Status: ${comm.status}`);
-            console.log(`     Rate: ${comm.rate * 100}%`);
+            console.log(`     Rate: ${(comm.rate || 0) * 100}%`);
         });
     }
 
@@ -112,7 +113,7 @@ async function checkShortlistingJob() {
                     const commissionRate = job.company.sales_agent?.default_commission_rate || 0.10;
                     const commissionAmount = Math.round(paymentAmount * commissionRate * 100) / 100;
 
-                    const commission = await prisma.commission.create({
+                    await prisma.commission.create({
                         data: {
                             consultant_id: job.company.sales_agent_id,
                             region_id: job.company.region_id,

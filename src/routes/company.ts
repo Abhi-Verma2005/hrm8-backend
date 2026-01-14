@@ -4,9 +4,9 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { CompanyController } from '../controllers/company/CompanyController';
+import { CompanySubscriptionController } from '../controllers/company/CompanySubscriptionController';
 import { CompanySettingsController } from '../controllers/company/CompanySettingsController';
 import * as CompanyCareersController from '../controllers/company/companyCareersController';
-import { ContactController } from '../controllers/company/ContactController';
 import { TransactionController } from '../controllers/company/TransactionController';
 import { RefundRequestController } from '../controllers/company/RefundRequestController';
 import { authenticate } from '../middleware/auth';
@@ -21,13 +21,10 @@ router.use(authenticate);
 
 // Transaction routes MUST come BEFORE parametric routes like /:id
 // Otherwise Express will try to match "transactions" as an ID parameter
-console.log('[Company Router] Registering transaction routes...');
 router.get('/transactions', (req, res) => {
-  console.log('[Transaction Route] GET /transactions hit');
   TransactionController.getAll(req as any, res);
 });
 router.get('/transactions/stats', (req, res) => {
-  console.log('[Transaction Stats Route] GET /transactions/stats hit');
   TransactionController.getStats(req as any, res);
 });
 
@@ -56,6 +53,20 @@ router.get(
 router.put(
   '/settings',
   CompanySettingsController.updateCompanySettings
+);
+
+// Company statistics (must be before /:id route)
+router.get(
+  '/:id/stats',
+  enforceCompanyIsolation,
+  CompanyController.getCompanyStats
+);
+
+// Active subscription (must be before /:id route)
+router.get(
+  '/:id/subscription/active',
+  enforceCompanyIsolation,
+  CompanySubscriptionController.getActiveSubscription
 );
 
 // Get company details
@@ -117,56 +128,6 @@ router.put(
   '/:id/job-assignment-mode',
   enforceCompanyIsolation,
   CompanyController.updateJobAssignmentMode
-);
-
-// Contact Management Routes
-// Get all contacts for a company
-router.get(
-  '/:companyId/contacts',
-  enforceCompanyIsolation,
-  ContactController.getContacts
-);
-
-// Get primary contact
-router.get(
-  '/:companyId/contacts/primary',
-  enforceCompanyIsolation,
-  ContactController.getPrimaryContact
-);
-
-// Get single contact
-router.get(
-  '/:companyId/contacts/:id',
-  enforceCompanyIsolation,
-  ContactController.getContact
-);
-
-// Create contact
-router.post(
-  '/:companyId/contacts',
-  enforceCompanyIsolation,
-  ContactController.createContact
-);
-
-// Update contact
-router.put(
-  '/:companyId/contacts/:id',
-  enforceCompanyIsolation,
-  ContactController.updateContact
-);
-
-// Delete contact
-router.delete(
-  '/:companyId/contacts/:id',
-  enforceCompanyIsolation,
-  ContactController.deleteContact
-);
-
-// Set primary contact
-router.put(
-  '/:companyId/contacts/:id/set-primary',
-  enforceCompanyIsolation,
-  ContactController.setPrimaryContact
 );
 
 console.log('[Company Router] All routes registered successfully');

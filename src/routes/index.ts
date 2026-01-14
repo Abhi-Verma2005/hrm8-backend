@@ -27,6 +27,7 @@ import resumeRoutes from './resume';
 import devRoutes from './dev';
 import adminRoutes from './admin';
 import billingRoutes from './billing';
+import walletRoutes from './wallet';
 import { authenticateHrm8User } from '../middleware/hrm8Auth';
 import { JobAllocationController } from '../controllers/hrm8/JobAllocationController';
 
@@ -57,6 +58,7 @@ router.use('/api', offerRoutes);
 router.use('/api/sales', salesRoutes);
 router.use('/api/admin', adminRoutes);
 router.use('/api/admin/billing', billingRoutes);
+router.use('/api/wallet', walletRoutes);
 router.use('/', devRoutes); // Dev routes (only enabled in development)
 
 export default router;

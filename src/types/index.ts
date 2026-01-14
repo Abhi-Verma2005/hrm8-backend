@@ -373,6 +373,7 @@ export interface AuthenticatedRequest extends Request {
     name: string;
     companyId: string;
     role: UserRole;
+    type?: 'COMPANY' | 'CONSULTANT' | 'SALES_AGENT';
   };
 }
 

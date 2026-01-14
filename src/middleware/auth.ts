@@ -47,6 +47,7 @@ export async function authenticate(
       name: session.name,
       companyId: session.companyId,
       role: session.userRole,
+      type: session.companyId ? 'COMPANY' : undefined,
     };
 
     next();
