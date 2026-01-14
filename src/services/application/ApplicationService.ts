@@ -43,7 +43,7 @@ export interface AnonymousApplicationRequest {
   firstName?: string;
   lastName?: string;
   phone?: string;
-  
+
   // Application fields
   jobId: string;
   resumeUrl?: string;
@@ -57,7 +57,7 @@ export interface AnonymousApplicationRequest {
   }>;
   questionnaireData?: any;
   tags?: string[];
-  
+
   // Resume file buffer for parsing (if provided)
   resumeFile?: {
     buffer: Buffer;
@@ -162,7 +162,7 @@ export class ApplicationService {
 
             // Find resume document
             const resume = await CandidateDocumentService.findByUrl(applicationData.resumeUrl!);
-            
+
             if (resume && resume.content) {
               // Parse resume text
               console.log('🤖 Parsing resume content for auto-population...');
@@ -284,13 +284,13 @@ export class ApplicationService {
             participantEmail: string;
             displayName: string;
           }> = [
-            {
-              participantType: ParticipantType.CANDIDATE,
-              participantId: candidate.id,
-              participantEmail: candidate.email,
-              displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
-            },
-          ];
+              {
+                participantType: ParticipantType.CANDIDATE,
+                participantId: candidate.id,
+                participantEmail: candidate.email,
+                displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
+              },
+            ];
 
           if (owner) {
             participants.push({
@@ -313,7 +313,7 @@ export class ApplicationService {
           // Only create conversation if we have at least one other participant (owner or consultant)
           if (owner || consultant) {
             console.log(`💬 Creating conversation for application - Job: ${job.id}, Candidate: ${candidate.id}, Owner: ${owner?.id || 'none'}, Consultant: ${consultant?.id || 'none'}`);
-            
+
             const newConversation = await prisma.conversation.create({
               data: {
                 job_id: job.id,
@@ -397,7 +397,7 @@ export class ApplicationService {
     }
   ): Promise<ApplicationData[]> {
     const applications = await ApplicationModel.findByJobId(jobId);
-    
+
     if (!filters) {
       return applications;
     }
@@ -473,7 +473,7 @@ export class ApplicationService {
       if (conversation) {
         const job = await JobModel.findById(application.jobId);
         const jobTitle = job?.title || 'the position';
-        
+
         await ConversationService.archiveConversation(
           conversation.id,
           `This conversation has been archived because your application for "${jobTitle}" was withdrawn. You can no longer send messages in this conversation.`
@@ -761,7 +761,7 @@ export class ApplicationService {
       // Step 1: Validate email format
       const { isValidEmail } = await import('../../utils/email');
       const email = normalizeEmail(applicationData.email);
-      
+
       if (!isValidEmail(email)) {
         return { error: 'Invalid email address format', code: 'INVALID_EMAIL' };
       }
@@ -800,12 +800,12 @@ export class ApplicationService {
           mimeType: applicationData.resumeFile.mimetype,
           size: applicationData.resumeFile.size,
         });
-        
+
         try {
           // Use the same parseDocument method that logged-in users use
           // This ensures consistency and handles all file types correctly
           console.log('📖 Parsing document with mime type:', applicationData.resumeFile.mimetype);
-          
+
           // Create a file-like object for parseDocument
           const { Readable } = await import('stream');
           const fileForParsing: Express.Multer.File = {
@@ -820,7 +820,7 @@ export class ApplicationService {
             filename: applicationData.resumeFile.originalname,
             path: '',
           };
-          
+
           const parsedDocument = await DocumentParserService.parseDocument(fileForParsing);
           resumeText = parsedDocument.text || '';
 
@@ -853,8 +853,8 @@ export class ApplicationService {
             // Fallback: Upload to local storage
             const { LocalStorageService } = await import('../storage/LocalStorageService');
             const uploadResult = await LocalStorageService.uploadFile(
-              applicationData.resumeFile.buffer, 
-              applicationData.resumeFile.originalname, 
+              applicationData.resumeFile.buffer,
+              applicationData.resumeFile.originalname,
               { folder: `applications/temp` }
             );
             const API_BASE_URL = process.env.API_URL || 'http://localhost:3000';
@@ -876,7 +876,7 @@ export class ApplicationService {
 
       // Step 5: Create candidate account
       const passwordHash = await hashPassword(applicationData.password);
-      
+
       // Extract name from parsed resume or use provided/default
       const firstName = parsedResumeData?.firstName || applicationData.firstName || 'Candidate';
       const lastName = parsedResumeData?.lastName || applicationData.lastName || 'User';
@@ -918,7 +918,7 @@ export class ApplicationService {
           certifications: parsedResumeData.certifications?.length || 0,
           training: parsedResumeData.training?.length || 0,
         });
-        
+
         try {
           // Save work experience
           if (parsedResumeData.workExperience && parsedResumeData.workExperience.length > 0) {
@@ -1103,7 +1103,7 @@ export class ApplicationService {
               }
             }
           }
-          
+
           console.log('✅ Successfully saved all parsed resume data');
         } catch (error: any) {
           console.error('❌ Failed to save parsed resume data:', {
@@ -1141,7 +1141,7 @@ export class ApplicationService {
             applicationData.resumeFile.mimetype,
             resumeText
           );
-          
+
           // Set as default if it's the first resume
           const { prisma } = await import('../../lib/prisma');
           const resumeCount = await prisma.candidateResume.count({
@@ -1265,13 +1265,13 @@ export class ApplicationService {
             participantEmail: string;
             displayName: string;
           }> = [
-            {
-              participantType: ParticipantType.CANDIDATE,
-              participantId: candidate.id,
-              participantEmail: candidate.email,
-              displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
-            },
-          ];
+              {
+                participantType: ParticipantType.CANDIDATE,
+                participantId: candidate.id,
+                participantEmail: candidate.email,
+                displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
+              },
+            ];
 
           if (owner) {
             participants.push({
@@ -1294,7 +1294,7 @@ export class ApplicationService {
           // Only create conversation if we have at least one other participant (owner or consultant)
           if (owner || consultant) {
             console.log(`💬 Creating conversation for anonymous application - Job: ${job.id}, Candidate: ${candidate.id}, Owner: ${owner?.id || 'none'}, Consultant: ${consultant?.id || 'none'}`);
-            
+
             const newConversation = await prisma.conversation.create({
               data: {
                 job_id: job.id,
@@ -1379,33 +1379,33 @@ export class ApplicationService {
     // Handle fallback round IDs (e.g., "fixed-OFFER-{jobId}")
     // These are created by the frontend when fixed rounds don't exist in the database
     let round = await JobRoundModel.findById(jobRoundId);
-    
+
     if (!round && jobRoundId.startsWith('fixed-')) {
       // Extract fixedKey from fallback ID format: "fixed-{FIXEDKEY}-{jobId}"
       const parts = jobRoundId.split('-');
       if (parts.length >= 2) {
         const fixedKey = parts[1]; // e.g., "OFFER", "HIRED", "NEW", "REJECTED"
-        
+
         // First, try to find the actual round (it might already exist)
         round = await JobRoundModel.findByJobIdAndFixedKey(application.jobId, fixedKey);
-        
+
         // If not found, ensure fixed rounds exist for this job
         if (!round) {
           await JobRoundService.initializeFixedRounds(application.jobId);
-          
+
           // Try to find the actual round again
           round = await JobRoundModel.findByJobIdAndFixedKey(application.jobId, fixedKey);
         }
-        
+
         if (!round) {
           throw new Error(`Fixed round '${fixedKey}' not found for job`);
         }
-        
+
         // Update jobRoundId to use the actual round ID
         jobRoundId = round.id;
       }
     }
-    
+
     if (!round) {
       throw new Error('Round not found');
     }
@@ -1439,7 +1439,7 @@ export class ApplicationService {
     // Map round to stage for backward compatibility
     // Map fixed rounds to ApplicationStage
     let mappedStage: ApplicationStage = ApplicationStage.NEW_APPLICATION;
-    
+
     if (round.isFixed) {
       switch (round.fixedKey) {
         case 'NEW':
@@ -1518,7 +1518,7 @@ export class ApplicationService {
   private static async autoScoreApplication(applicationId: string, jobId: string): Promise<void> {
     try {
       console.log(`🤖 Starting auto-scoring for application ${applicationId}`);
-      
+
       const scoringResult = await CandidateScoringService.scoreCandidate({
         applicationId,
         jobId,

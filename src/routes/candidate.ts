@@ -23,6 +23,8 @@ router.get('/auth/me', CandidateAuthController.getCurrentCandidate);
 // Profile routes
 router.get('/profile', CandidateController.getProfile);
 router.put('/profile', CandidateController.updateProfile);
+router.delete('/profile', CandidateController.deleteAccount);
+router.get('/profile/export', CandidateController.exportData);
 router.put('/profile/password', CandidateController.updatePassword);
 
 // Resume routes

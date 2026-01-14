@@ -50,6 +50,32 @@ const logRoomState = (conversationId?: string) => {
   }
 };
 
+/**
+ * Transform Prisma message object to frontend camelCase format
+ */
+const transformMessageForFrontend = (msg: any, currentUserId?: string) => ({
+  id: msg.id,
+  conversationId: msg.conversation_id,
+  senderEmail: msg.sender_email,
+  senderType: msg.sender_type,
+  senderId: msg.sender_id,
+  content: msg.content,
+  contentType: msg.content_type,
+  readBy: msg.read_by || [],
+  deliveredAt: msg.delivered_at,
+  readAt: msg.read_at,
+  createdAt: msg.created_at,
+  updatedAt: msg.updated_at,
+  isOwn: currentUserId ? msg.sender_id === currentUserId : false,
+  attachments: msg.attachments?.map((a: any) => ({
+    id: a.id,
+    fileName: a.file_name,
+    fileUrl: a.file_url,
+    mimeType: a.mime_type,
+    size: a.size,
+  })) || [],
+});
+
 console.log('📊 Initialized connection maps and room management');
 
 // WebSocket Server - will be attached to main server
@@ -456,114 +482,113 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
                   `🔍 Fetching conversation from database: ${conversationId}`
                 );
 
-              // Fetch conversation from database
-              const conversation = await ConversationService.getConversation(conversationId);
+                // Fetch conversation from database
+                const conversation = await ConversationService.getConversation(conversationId);
 
-              if (!conversation) {
-                console.log(`❌ Conversation not found: ${conversationId}`);
-                sendError(ws, 'Conversation not found', 4004);
-                return;
-              }
+                if (!conversation) {
+                  console.log(`❌ Conversation not found: ${conversationId}`);
+                  sendError(ws, 'Conversation not found', 4004);
+                  return;
+                }
 
-              console.log(`✅ Conversation found: ${conversation.id}`);
-              console.log(
-                `👥 Conversation participants:`,
-                conversation.participants.map((p) => `${p.participant_type}:${p.participant_email}`)
-              );
-
-              const isParticipant = conversation.participants.some(
-                (p) => p.participant_id === currentConnection.userId
-              );
-
-              if (!isParticipant) {
+                console.log(`✅ Conversation found: ${conversation.id}`);
                 console.log(
-                  `🚫 Access denied - ${currentConnection.userEmail} not in participants list`
+                  `👥 Conversation participants:`,
+                  conversation.participants.map((p) => `${p.participant_type}:${p.participant_email}`)
                 );
-                sendError(ws, 'Access denied to this conversation', 4003);
-                return;
-              }
 
-              console.log(
-                `✅ User ${currentConnection.userEmail} is authorized for conversation ${conversationId}`
-              );
-              console.log(
-                `🧩 Participant resolution => email=${currentConnection.userEmail}, connectionKey=${currentConnection.connectionKey}`
-              );
+                const isParticipant = conversation.participants.some(
+                  (p) => p.participant_id === currentConnection.userId
+                );
 
-              // Leave previous room if any
-              if (currentConnection.conversationId) {
+                if (!isParticipant) {
+                  console.log(
+                    `🚫 Access denied - ${currentConnection.userEmail} not in participants list`
+                  );
+                  sendError(ws, 'Access denied to this conversation', 4003);
+                  return;
+                }
+
                 console.log(
-                  `🚪 User leaving previous conversation: ${currentConnection.conversationId}`
+                  `✅ User ${currentConnection.userEmail} is authorized for conversation ${conversationId}`
                 );
-                removeUserFromRoom(
-                  currentConnection.conversationId,
+                console.log(
+                  `🧩 Participant resolution => email=${currentConnection.userEmail}, connectionKey=${currentConnection.connectionKey}`
+                );
+
+                // Leave previous room if any
+                if (currentConnection.conversationId) {
+                  console.log(
+                    `🚪 User leaving previous conversation: ${currentConnection.conversationId}`
+                  );
+                  removeUserFromRoom(
+                    currentConnection.conversationId,
+                    currentConnection.connectionKey
+                  );
+                }
+
+                // Join new room
+                console.log(
+                  `🚪 User joining new conversation: ${conversationId}`
+                );
+                currentConnection.conversationId = conversationId;
+                addUserToRoom(conversationId, currentConnection.connectionKey);
+                logRoomState(conversationId);
+
+                // Send recent messages
+                console.log(
+                  `💬 Loading conversation messages for ${conversationId}`
+                );
+                const conversationMessages = await getConversationMessages(conversationId);
+                console.log(
+                  `📤 Sending ${conversationMessages.length} messages to ${currentConnection.userEmail}`
+                );
+
+                ws.send(
+                  JSON.stringify({
+                    type: 'messages_loaded',
+                    payload: {
+                      conversationId,
+                      messages: conversationMessages.map((msg) =>
+                        transformMessageForFrontend(msg, currentConnection!.userId)
+                      ),
+                    },
+                  })
+                );
+
+                console.log(
+                  `✅ Messages sent successfully to ${currentConnection.userEmail}`
+                );
+
+                // Mark messages as read
+                console.log(
+                  `👁️ Marking messages as read for ${currentConnection.userEmail} in conversation ${conversationId}`
+                );
+
+                const updateResult = await ConversationService.markMessagesAsRead(
+                  conversationId,
+                  currentConnection.userId
+                );
+                console.log(`✅ Marked ${updateResult} messages as read`);
+
+                // Notify others in the room that user joined
+                console.log(
+                  `📢 Broadcasting user_joined event for ${currentConnection.userEmail}`
+                );
+                broadcastToRoom(
+                  conversationId,
+                  {
+                    type: 'user_joined',
+                    payload: {
+                      userEmail: currentConnection.userEmail,
+                    },
+                  },
                   currentConnection.connectionKey
                 );
-              }
 
-              // Join new room
-              console.log(
-                `🚪 User joining new conversation: ${conversationId}`
-              );
-              currentConnection.conversationId = conversationId;
-              addUserToRoom(conversationId, currentConnection.connectionKey);
-              logRoomState(conversationId);
-
-              // Send recent messages
-              console.log(
-                `💬 Loading conversation messages for ${conversationId}`
-              );
-              const conversationMessages = await getConversationMessages(conversationId);
-              console.log(
-                `📤 Sending ${conversationMessages.length} messages to ${currentConnection.userEmail}`
-              );
-
-              ws.send(
-                JSON.stringify({
-                  type: 'messages_loaded',
-                  payload: {
-                    conversationId,
-                    messages: conversationMessages.map((msg) => ({
-                      ...msg,
-                      isOwn: msg.sender_id === currentConnection!.userId,
-                    })),
-                  },
-                })
-              );
-
-              console.log(
-                `✅ Messages sent successfully to ${currentConnection.userEmail}`
-              );
-
-              // Mark messages as read
-              console.log(
-                `👁️ Marking messages as read for ${currentConnection.userEmail} in conversation ${conversationId}`
-              );
-
-              const updateResult = await ConversationService.markMessagesAsRead(
-                conversationId,
-                currentConnection.userId
-              );
-              console.log(`✅ Marked ${updateResult} messages as read`);
-
-              // Notify others in the room that user joined
-              console.log(
-                `📢 Broadcasting user_joined event for ${currentConnection.userEmail}`
-              );
-              broadcastToRoom(
-                conversationId,
-                {
-                  type: 'user_joined',
-                  payload: {
-                    userEmail: currentConnection.userEmail,
-                  },
-                },
-                currentConnection.connectionKey
-              );
-
-              console.log(
-                `✅ Join conversation completed successfully for ${currentConnection.userEmail}`
-              );
+                console.log(
+                  `✅ Join conversation completed successfully for ${currentConnection.userEmail}`
+                );
               } catch (error) {
                 console.error(
                   `❌ Error joining conversation ${conversationId}:`,
@@ -605,94 +630,88 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
               }
 
               const { conversationId: msgConvId, content } = message.payload;
-            console.log(
-              `💬 User ${currentConnection.userEmail} sending message to conversation ${msgConvId}`
-            );
-            console.log(`💬 Message content: "${content}"`);
-
-            try {
               console.log(
-                `🔍 Verifying conversation access for ${msgConvId}`
+                `💬 User ${currentConnection.userEmail} sending message to conversation ${msgConvId}`
               );
+              console.log(`💬 Message content: "${content}"`);
 
-              // Verify conversation exists and user has access
-              const msgConversation = await ConversationService.getConversation(msgConvId);
-
-              if (!msgConversation) {
-                console.log(`❌ Conversation not found: ${msgConvId}`);
-                sendError(ws, 'Conversation not found', 4004);
-                return;
-              }
-
-              const isParticipant = msgConversation.participants.some(
-                (p) => p.participant_id === currentConnection.userId
-              );
-
-              if (!isParticipant) {
+              try {
                 console.log(
-                  `🚫 Access denied - ${currentConnection.userEmail} not in participants list`
+                  `🔍 Verifying conversation access for ${msgConvId}`
                 );
-                sendError(ws, 'Access denied to this conversation', 4003);
-                return;
-              }
 
-              console.log(
-                `✅ User ${currentConnection.userEmail} is authorized for conversation ${msgConvId}`
-              );
-              console.log(
-                `👥 Conversation participants:`,
-                msgConversation.participants.map((p) => `${p.participant_type}:${p.participant_email}`)
-              );
-              logRoomState(msgConvId);
+                // Verify conversation exists and user has access
+                const msgConversation = await ConversationService.getConversation(msgConvId);
 
-              // Create message in database
-              console.log(`💾 Creating message in database...`);
+                if (!msgConversation) {
+                  console.log(`❌ Conversation not found: ${msgConvId}`);
+                  sendError(ws, 'Conversation not found', 4004);
+                  return;
+                }
 
-              const newMessage = await ConversationService.createMessage({
-                conversationId: msgConvId,
-                senderEmail: currentConnection.userEmail,
-                senderType: resolveParticipantType(currentConnection.userType),
-                senderId: currentConnection.userId,
-                content: content.trim(),
-              });
+                const isParticipant = msgConversation.participants.some(
+                  (p) => p.participant_id === currentConnection.userId
+                );
 
-              console.log(
-                `✅ Message created in database with ID: ${newMessage.id}`
-              );
+                if (!isParticipant) {
+                  console.log(
+                    `🚫 Access denied - ${currentConnection.userEmail} not in participants list`
+                  );
+                  sendError(ws, 'Access denied to this conversation', 4003);
+                  return;
+                }
 
-              // Broadcast message to all participants in the conversation
-              console.log(
-                `📢 Broadcasting new message to conversation participants`
-              );
+                console.log(
+                  `✅ User ${currentConnection.userEmail} is authorized for conversation ${msgConvId}`
+                );
+                console.log(
+                  `👥 Conversation participants:`,
+                  msgConversation.participants.map((p) => `${p.participant_type}:${p.participant_email}`)
+                );
+                logRoomState(msgConvId);
 
-              broadcastToRoom(
-                msgConvId,
-                {
-                  type: 'new_message',
-                  payload: {
-                    ...newMessage,
-                    isOwn: false,
+                // Create message in database
+                console.log(`💾 Creating message in database...`);
+
+                const newMessage = await ConversationService.createMessage({
+                  conversationId: msgConvId,
+                  senderEmail: currentConnection.userEmail,
+                  senderType: resolveParticipantType(currentConnection.userType),
+                  senderId: currentConnection.userId,
+                  content: content.trim(),
+                });
+
+                console.log(
+                  `✅ Message created in database with ID: ${newMessage.id}`
+                );
+
+                // Broadcast message to all participants in the conversation
+                console.log(
+                  `📢 Broadcasting new message to conversation participants`
+                );
+
+                broadcastToRoom(
+                  msgConvId,
+                  {
+                    type: 'new_message',
+                    payload: transformMessageForFrontend(newMessage, undefined),
                   },
-                },
-                currentConnection.connectionKey
-              );
+                  currentConnection.connectionKey
+                );
 
-              console.log(
-                `📤 Sending message confirmation to sender ${currentConnection.userEmail}`
-              );
-              ws.send(
-                JSON.stringify({
-                  type: 'message_sent',
-                  payload: {
-                    ...newMessage,
-                    isOwn: true,
-                  },
-                })
-              );
+                console.log(
+                  `📤 Sending message confirmation to sender ${currentConnection.userEmail}`
+                );
+                ws.send(
+                  JSON.stringify({
+                    type: 'message_sent',
+                    payload: transformMessageForFrontend(newMessage, currentConnection.userId),
+                  })
+                );
 
-              console.log(
-                `✅ Message sent successfully by ${currentConnection.userEmail}`
-              );
+                console.log(
+                  `✅ Message sent successfully by ${currentConnection.userEmail}`
+                );
               } catch (error) {
                 console.error(
                   `❌ Error sending message from ${currentConnection.userEmail}:`,
@@ -735,7 +754,7 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
       console.error(`📨 Error details:`, error instanceof Error ? error.message : String(error));
       console.error(`📨 Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
       console.error(`📨 Problematic message data:`, data.toString());
-      
+
       // Only send error if connection is still open
       if (ws.readyState === 1) {
         try {

@@ -126,7 +126,7 @@ export class CandidateService {
     }
 
     const updateData: any = { ...data, updated_at: new Date() };
-    
+
     // Map camelCase to snake_case if they exist in data
     if (data.startDate) {
       updateData.start_date = new Date(data.startDate);
@@ -226,6 +226,79 @@ export class CandidateService {
   static async deleteAllSkills(candidateId: string) {
     return await prisma.candidateSkill.deleteMany({
       where: { candidate_id: candidateId },
+    });
+  }
+
+  /**
+   * Export candidate data
+   */
+  static async exportCandidateData(candidateId: string) {
+    const candidate = await this.getProfile(candidateId);
+    if (!candidate) {
+      throw new Error('Candidate not found');
+    }
+
+    const [workHistory, skills, education, certifications, training, resumes, coverLetters, portfolio] = await Promise.all([
+      this.getWorkHistory(candidateId),
+      this.getSkills(candidateId),
+      prisma.candidateEducation.findMany({ where: { candidate_id: candidateId } }),
+      prisma.candidateCertification.findMany({ where: { candidate_id: candidateId } }),
+      prisma.candidateTraining.findMany({ where: { candidate_id: candidateId } }),
+      prisma.candidateResume.findMany({ where: { candidate_id: candidateId } }),
+      prisma.candidateCoverLetter.findMany({ where: { candidate_id: candidateId } }),
+      prisma.candidatePortfolio.findMany({ where: { candidate_id: candidateId } }),
+    ]);
+
+    return {
+      profile: candidate,
+      workHistory,
+      skills,
+      education,
+      certifications,
+      training,
+      documents: {
+        resumes,
+        coverLetters,
+        portfolio
+      },
+      exportedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Delete candidate account
+   */
+  static async deleteCandidate(candidateId: string) {
+    // Start a transaction to delete all related data
+    return await prisma.$transaction(async (tx) => {
+      // 1. Delete dependent data
+      await tx.candidateWorkExperience.deleteMany({ where: { candidate_id: candidateId } });
+      await tx.candidateSkill.deleteMany({ where: { candidate_id: candidateId } });
+      await tx.candidateEducation.deleteMany({ where: { candidate_id: candidateId } });
+      await tx.candidateCertification.deleteMany({ where: { candidate_id: candidateId } });
+      await tx.candidateTraining.deleteMany({ where: { candidate_id: candidateId } });
+      // Documents are split across tables
+      await tx.candidateResume.deleteMany({ where: { candidate_id: candidateId } });
+      await tx.candidateCoverLetter.deleteMany({ where: { candidate_id: candidateId } });
+      await tx.candidatePortfolio.deleteMany({ where: { candidate_id: candidateId } });
+
+      await tx.jobAlert.deleteMany({ where: { candidate_id: candidateId } });
+      await tx.savedJob.deleteMany({ where: { candidate_id: candidateId } });
+      await tx.savedSearch.deleteMany({ where: { candidate_id: candidateId } });
+      await tx.candidateSession.deleteMany({ where: { candidate_id: candidateId } });
+
+      // Note: We might want to keep applications but anonymize them, 
+      // or strictly delete depending on policy. For now, we'll keep applications 
+      // but nullify the candidate reference if the schema allows, or cascaded delete 
+      // will fail if FK constraints exist. Assuming Cascade Delete is configured in DB 
+      // or manual deletion is required. 
+      // If we need to delete applications:
+      // await tx.application.deleteMany({ where: { candidate_id: candidateId } });
+
+      // 2. Delete the candidate
+      return await tx.candidate.delete({
+        where: { id: candidateId },
+      });
     });
   }
 }

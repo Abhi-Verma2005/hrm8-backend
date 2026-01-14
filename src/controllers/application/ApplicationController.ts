@@ -44,7 +44,7 @@ export class ApplicationController {
       }
 
       const resume = await CandidateDocumentService.findByUrl(application.resumeUrl);
-      
+
       if (!resume) {
         res.status(404).json({ success: false, error: 'Resume document not found' });
         return;
@@ -75,7 +75,7 @@ export class ApplicationController {
       }
 
       const normalizedEmail = normalizeEmail(email);
-      
+
       if (!isValidEmail(normalizedEmail)) {
         res.status(400).json({
           success: false,
@@ -94,11 +94,11 @@ export class ApplicationController {
         hasCoverLetter: !!files?.coverLetter?.[0],
         hasPortfolio: !!files?.portfolio?.[0],
       });
-      
+
       const resumeFile = files?.resume?.[0];
       const coverLetterFile = files?.coverLetter?.[0];
       const portfolioFile = files?.portfolio?.[0];
-      
+
       if (resumeFile) {
         console.log('[ApplicationController.submitAnonymousApplication] Resume file details:', {
           originalname: resumeFile.originalname,
@@ -185,11 +185,11 @@ export class ApplicationController {
       try {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
         const applicationTrackingUrl = `${frontendUrl}/candidate/applications/${application.id}`;
-        
+
         // Fetch job title for email
         const job = await JobModel.findById(application.jobId);
         const jobTitle = job?.title || 'the position';
-        
+
         await emailService.sendApplicationConfirmationEmail({
           to: candidate.email,
           name: `${candidate.firstName} ${candidate.lastName}`,
@@ -305,11 +305,11 @@ export class ApplicationController {
       try {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
         const applicationTrackingUrl = `${frontendUrl}/candidate/applications/${result.id}`;
-        
+
         // Fetch job title for email
         const job = await JobModel.findById(result.jobId);
         const jobTitle = job?.title || 'the position';
-        
+
         await emailService.sendApplicationSubmittedEmail({
           to: candidate.email,
           name: `${candidate.firstName} ${candidate.lastName}`,
@@ -523,8 +523,8 @@ export class ApplicationController {
         filters.shortlisted = req.query.shortlisted === 'true';
       }
 
-      console.log('[ApplicationController.getJobApplications] recruiter view', { 
-        jobId, 
+      console.log('[ApplicationController.getJobApplications] recruiter view', {
+        jobId,
         filters,
         requestedJobId: jobId,
       });
@@ -589,7 +589,7 @@ export class ApplicationController {
 
       res.json({
         success: true,
-        data: { 
+        data: {
           applications,
           roundProgress: roundProgressData,
         },
@@ -658,7 +658,7 @@ export class ApplicationController {
         if (conversation) {
           const job = await JobModel.findById(application.jobId);
           const jobTitle = job?.title || 'the position';
-          
+
           await ConversationService.closeConversation(
             conversation.id,
             `This conversation has been closed because your application for "${jobTitle}" was deleted. You can no longer send messages in this conversation.`
@@ -1234,13 +1234,13 @@ export class ApplicationController {
 
       // Generate invitation token
       const token = generateInvitationToken();
-      
+
       // Set expiration (7 days from now)
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
       // Wrap invitation creation in transaction for atomicity
-      
+
       let invitation;
       try {
         // Use transaction to ensure atomicity of invitation creation
@@ -1324,9 +1324,9 @@ export class ApplicationController {
 
       res.status(201).json({
         success: true,
-        data: { 
+        data: {
           invitationId: invitation.id,
-          message: emailSent 
+          message: emailSent
             ? 'Invitation sent to candidate successfully'
             : 'Invitation created but email delivery failed. The candidate can still access the invitation link.',
           emailSent,
@@ -1577,7 +1577,7 @@ export class ApplicationController {
 
       // Set up progress tracking
       const progressUpdates: Array<{ completed: number; total: number; current: string }> = [];
-      
+
       const results = await CandidateScoringService.bulkScoreCandidates(
         applicationIds,
         jobId,
