@@ -967,6 +967,7 @@ model Consultant {
   // processed_withdrawals      CommissionWithdrawal[]     @relation("WithdrawalProcessor")
   conversion_requests        LeadConversionRequest[]    @relation("ConversionRequests")
   // rejected_withdrawals       CommissionWithdrawal[]     @relation("WithdrawalRejecter")
+  integrations               Integration[]
 
   @@index([email])
   @@index([region_id])
@@ -1045,6 +1046,7 @@ model HRM8User {
   last_login_at                DateTime?               @map("last_login_at")
   sessions                     HRM8Session[]
   reviewed_conversion_requests LeadConversionRequest[] @relation("ReviewedRequests")
+  integrations                 Integration[]
 
   @@index([email])
   @@index([licensee_id])
@@ -1592,9 +1594,20 @@ model Contact {
 model Integration {
   id            String            @id @default(uuid())
   company_id    String?
+  hrm8_user_id  String? // For HRM8 dashboard integrations
+  consultant_id String? // For consultant dashboard integrations
   type          IntegrationType
   name          String
   status        IntegrationStatus @default(ACTIVE)
+
+  // Stripe-specific fields
+  stripe_account_id     String? // Stripe Connect account ID
+  stripe_account_status String? // active, pending, restricted
+  stripe_onboarded_at   DateTime?
+  stripe_refresh_url    String?
+  stripe_return_url     String?
+
+  // Generic integration fields
   api_key       String?
   api_secret    String?
   login_url     String?
@@ -1604,11 +1617,17 @@ model Integration {
   last_sync_at  DateTime?
   sync_status   String?
   error_message String?
-  created_at    DateTime          @default(now())
-  updated_at    DateTime          @default(now()) @updatedAt
-  company       Company?          @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @default(now()) @updatedAt
+
+  // Relations
+  company    Company?    @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  hrm8_user  HRM8User?   @relation(fields: [hrm8_user_id], references: [id], onDelete: Cascade)
+  consultant Consultant? @relation(fields: [consultant_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
+  @@index([hrm8_user_id])
+  @@index([consultant_id])
   @@index([status])
   @@index([type])
 }
@@ -2573,6 +2592,7 @@ enum IntegrationType {
   ACCOUNTING_SYSTEM
   EMAIL_PROVIDER
   CALENDAR
+  STRIPE_PAYMENTS
   OTHER
 }
 
