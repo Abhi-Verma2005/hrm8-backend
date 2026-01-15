@@ -20,6 +20,23 @@ export class CandidateJobController {
         }
     }
 
+    // Recommended Jobs
+    static async getRecommendedJobs(req: Request, res: Response) {
+        try {
+            const candidateId = (req as CandidateAuthenticatedRequest).candidate?.id;
+            if (!candidateId) {
+                res.status(401).json({ success: false, error: 'Unauthorized' });
+                return;
+            }
+
+            const jobs = await CandidateJobService.getRecommendedJobs(candidateId);
+            res.json({ success: true, data: jobs });
+        } catch (error: any) {
+            console.error('Error fetching recommended jobs:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
     static async saveJob(req: Request, res: Response) {
         try {
             const candidateId = (req as CandidateAuthenticatedRequest).candidate?.id;

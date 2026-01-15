@@ -9,6 +9,7 @@ import { RevenueStatus } from '@prisma/client';
 export interface RegionalRevenueData {
   id: string;
   regionId: string;
+  regionName?: string;
   licenseeId?: string;
   periodStart: Date;
   periodEnd: Date;
@@ -143,6 +144,11 @@ export class RegionalRevenueModel {
           },
         }),
       },
+      include: {
+        region: {
+          select: { name: true }
+        }
+      },
       orderBy: { period_start: 'desc' },
     });
 
@@ -194,6 +200,7 @@ export class RegionalRevenueModel {
     return {
       id: prismaRevenue.id,
       regionId: prismaRevenue.region_id,
+      regionName: prismaRevenue.region?.name || undefined,
       licenseeId: prismaRevenue.licensee_id || undefined,
       periodStart: prismaRevenue.period_start,
       periodEnd: prismaRevenue.period_end,
@@ -240,8 +247,7 @@ export class RegionalRevenueModel {
       let lastPaymentAt: Date | null = null;
 
       company.subscription.forEach(sub => {
-        const paidBills = sub.bill.filter(b => b.status === 'PAID');
-        paidBills.forEach(bill => {
+        sub.bill.forEach(bill => {
           subscriptionRevenue += bill.amount || 0;
           if (bill.paid_at && (!lastPaymentAt || bill.paid_at > lastPaymentAt)) {
             lastPaymentAt = bill.paid_at;
@@ -256,7 +262,7 @@ export class RegionalRevenueModel {
       const hrm8Share = totalRevenue * 0.8;
       const licenseeShare = totalRevenue * 0.2;
 
-      // Count active jobs
+      // Count active jobs (OPEN status only, as IN_PROGRESS doesn't exist in JobStatus enum)
       const activeJobs = company.jobs.filter(j => j.status === 'OPEN').length;
 
       return {

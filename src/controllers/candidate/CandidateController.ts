@@ -179,5 +179,101 @@ export class CandidateController {
       });
     }
   }
+  /**
+   * Export candidate data
+   * GET /api/candidate/profile/export
+   */
+  static async exportData(req: CandidateAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const candidate = req.candidate;
+
+      if (!candidate) {
+        res.status(401).json({
+          success: false,
+          error: 'Not authenticated',
+        });
+        return;
+      }
+
+      const data = await CandidateService.exportCandidateData(candidate.id);
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename=candidate-data-${candidate.id}.json`);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to export data',
+      });
+    }
+  }
+
+  /**
+   * Delete candidate account
+   * DELETE /api/candidate/profile
+   */
+  static async deleteAccount(req: CandidateAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const candidate = req.candidate;
+
+      if (!candidate) {
+        res.status(401).json({
+          success: false,
+          error: 'Not authenticated',
+        });
+        return;
+      }
+
+      const { password } = req.body;
+
+      // Require password confirmation for security
+      if (!password) {
+        res.status(400).json({
+          success: false,
+          error: 'Password is required to delete account',
+        });
+        return;
+      }
+
+      // Verify password first (using service internal helper or re-implementing verify here)
+      // Since CandidateService doesn't expose a verifyPassword method directly efficiently w/o fetching, 
+      // we'll use the updatePassword logic pattern or rely on a new service method.
+      // For now, let's reuse updatePassword's verification step equivalent or manual import.
+      const { comparePassword } = await import('../../utils/password');
+      const { CandidateModel } = await import('../../models/Candidate');
+
+      const candidateRecord = await CandidateModel.findById(candidate.id);
+      if (!candidateRecord) {
+        res.status(404).json({ success: false, error: 'Candidate not found' });
+        return;
+      }
+
+      const isValid = await comparePassword(password, candidateRecord.passwordHash);
+      if (!isValid) {
+        res.status(401).json({
+          success: false,
+          error: 'Incorrect password',
+        });
+        return;
+      }
+
+      await CandidateService.deleteCandidate(candidate.id);
+
+      // Clear session cookie
+      const { getSessionCookieOptions } = await import('../../utils/session');
+      res.clearCookie('candidateSessionId', getSessionCookieOptions());
+
+      res.json({
+        success: true,
+        message: 'Account deleted successfully',
+      });
+    } catch (error) {
+      console.error('Delete account error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete account',
+      });
+    }
+  }
 }
 

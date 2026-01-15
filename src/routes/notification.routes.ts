@@ -42,4 +42,10 @@ router.patch('/:id/read', NotificationController.markAsRead);
  */
 router.delete('/:id', NotificationController.deleteNotification);
 
+/**
+ * @route POST /api/notifications/test
+ * @desc Create a test notification (Dev/Admin only)
+ */
+router.post('/test', NotificationController.createTestNotification);
+
 export default router;

@@ -7,6 +7,7 @@ import { Response } from 'express';
 import { CommissionService } from '../../services/hrm8/CommissionService';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 import { CommissionStatus, CommissionType } from '@prisma/client';
+import prisma from '../../lib/prisma';
 
 export class CommissionController {
   /**
@@ -27,7 +28,7 @@ export class CommissionController {
       if (req.query.consultantId) filters.consultantId = req.query.consultantId as string;
       if (req.query.regionId) filters.regionId = req.query.regionId as string;
       if (req.query.jobId) filters.jobId = req.query.jobId as string;
-      
+
       // Apply regional isolation for licensees
       if (req.assignedRegionIds) {
         if (filters.regionId) {
@@ -159,6 +160,25 @@ export class CommissionController {
     try {
       const { id } = req.params;
       const { paymentReference } = req.body;
+
+      // Security Check: Ensure licensee owns the commission's region
+      const { CommissionModel } = await import('../../models/Commission');
+      const commission = await CommissionModel.findById(id);
+
+      if (!commission) {
+        res.status(404).json({ success: false, error: 'Commission not found' });
+        return;
+      }
+
+      const assignedRegions = req.assignedRegionIds;
+      if (assignedRegions && assignedRegions.length > 0) {
+        // CommissionModel returns camelCase properties
+        if (!commission.regionId || !assignedRegions.includes(commission.regionId)) {
+          res.status(403).json({ success: false, error: 'Access denied: Cannot pay commission for another region' });
+          return;
+        }
+      }
+
       const result = await CommissionService.processPayment(id, paymentReference);
 
       if (!result.success) {
@@ -169,12 +189,12 @@ export class CommissionController {
         return;
       }
 
-      const { CommissionModel } = await import('../../models/Commission');
-      const commission = await CommissionModel.findById(id);
+      // Re-fetch updated commission
+      const updatedCommission = await CommissionModel.findById(id);
 
       res.json({
         success: true,
-        data: { commission },
+        data: { commission: updatedCommission },
       });
     } catch (error) {
       console.error('Mark commission as paid error:', error);
@@ -207,6 +227,27 @@ export class CommissionController {
           error: 'paymentReference is required',
         });
         return;
+      }
+
+      // Security Check for Batch Processing
+      const assignedRegions = req.assignedRegionIds;
+      if (assignedRegions && assignedRegions.length > 0) {
+        // Verify ALL commissions belong to allowed regions
+        // Use Prisma directly for efficient counting
+        const invalidCount = await prisma.commission.count({
+          where: {
+            id: { in: commissionIds },
+            region_id: { notIn: assignedRegions }
+          }
+        });
+
+        if (invalidCount > 0) {
+          res.status(403).json({
+            success: false,
+            error: `Access denied: ${invalidCount} commissions belong to regions you do not manage.`
+          });
+          return;
+        }
       }
 
       const result = await CommissionService.processPayments(commissionIds, paymentReference);

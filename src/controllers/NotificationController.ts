@@ -46,7 +46,45 @@ function extractUserInfo(req: Request): { recipientType: NotificationRecipientTy
     return null;
 }
 
+import { UniversalNotificationType } from '@prisma/client';
+
 export class NotificationController {
+    /**
+     * Create a test notification (Dev/Admin only)
+     * POST /api/notifications/test
+     */
+    static async createTestNotification(req: Request, res: Response) {
+        try {
+            const userInfo = extractUserInfo(req);
+            if (!userInfo) {
+                return res.status(401).json({ error: 'Not authenticated' });
+            }
+
+            const { title, message, type } = req.body;
+
+            const notification = await UniversalNotificationService.createNotification({
+                recipientType: userInfo.recipientType,
+                recipientId: userInfo.recipientId,
+                type: (type as UniversalNotificationType) || UniversalNotificationType.SYSTEM_ANNOUNCEMENT,
+                title: title || 'Test Notification',
+                message: message || 'This is a test notification sent at ' + new Date().toLocaleTimeString(),
+                data: {
+                    source: 'manual_test',
+                    timestamp: Date.now(),
+                },
+            });
+
+            return res.json({
+                success: true,
+                data: notification,
+                message: 'Test notification created and broadcasted',
+            });
+        } catch (error) {
+            console.error('Error creating test notification:', error);
+            return res.status(500).json({ error: 'Failed to create test notification' });
+        }
+    }
+
     /**
      * Get notifications for the authenticated user
      * GET /api/notifications

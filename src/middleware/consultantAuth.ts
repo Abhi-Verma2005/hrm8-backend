@@ -15,6 +15,7 @@ export interface ConsultantAuthenticatedRequest extends Request {
     firstName: string;
     lastName: string;
     role: string;
+    regionId: string;
   };
 }
 
@@ -69,6 +70,7 @@ export async function authenticateConsultant(
       firstName: consultant.firstName,
       lastName: consultant.lastName,
       role: consultant.role,
+      regionId: consultant.regionId || '',
     };
 
     next();

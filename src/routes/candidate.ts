@@ -23,6 +23,8 @@ router.get('/auth/me', CandidateAuthController.getCurrentCandidate);
 // Profile routes
 router.get('/profile', CandidateController.getProfile);
 router.put('/profile', CandidateController.updateProfile);
+router.delete('/profile', CandidateController.deleteAccount);
+router.get('/profile/export', CandidateController.exportData);
 router.put('/profile/password', CandidateController.updatePassword);
 
 // Resume routes
@@ -145,6 +147,9 @@ router.get('/documents/portfolio', CandidateDocumentController.getPortfolioItems
 router.post('/documents/portfolio', documentUpload.single('file'), CandidateDocumentController.createPortfolioItem);
 router.put('/documents/portfolio/:id', documentUpload.single('file'), CandidateDocumentController.updatePortfolioItem);
 router.delete('/documents/portfolio/:id', CandidateDocumentController.deletePortfolioItem);
+
+// Recommended Jobs
+router.get('/recommended-jobs', CandidateJobController.getRecommendedJobs);
 
 // Saved Jobs
 router.get('/saved-jobs', CandidateJobController.getSavedJobs);

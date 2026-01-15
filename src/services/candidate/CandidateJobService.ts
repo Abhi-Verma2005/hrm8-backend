@@ -209,6 +209,129 @@ export class CandidateJobService {
     }
 
     /**
+     * Get recommended jobs based on candidate profile (resume skills, preferences)
+     * Scoring algorithm:
+     * - Skills match: 10 points per match
+     * - Location match: 20 points
+     * - Job type match: 15 points
+     * - Salary match: 10 points
+     * - Title match: 20 points
+     */
+    static async getRecommendedJobs(candidateId: string) {
+        const { prisma } = await import('../../lib/prisma');
+
+        // 1. Fetch candidate profile with skills and preferences
+        const candidate = await prisma.candidate.findUnique({
+            where: { id: candidateId },
+            include: {
+                skills: true,
+                work_experience: true,
+            }
+        });
+
+        if (!candidate) {
+            return [];
+        }
+
+        // 2. Fetch all OPEN jobs with necessary fields
+        // Optimization: In real-world, we would filter by database query first (e.g. location)
+        // For now, we fetch recent open jobs and score them in-memory
+        const jobs = await prisma.job.findMany({
+            where: {
+                status: 'OPEN',
+                archived: false,
+            },
+            include: {
+                company: {
+                    select: { id: true, name: true }
+                }
+            },
+            take: 100, // Limit to 100 recent jobs for detailed scoring
+            orderBy: { posting_date: 'desc' }
+        });
+
+        // 3. Score each job
+        const scoredJobs = jobs.map(job => {
+            let score = 0;
+            const reasons: string[] = [];
+
+            // Skill Matching (Highest Weight)
+            // Parse job requirements and description for skill keywords
+            const jobText = `${job.requirements.join(' ')} ${job.description} ${job.title}`.toLowerCase();
+            let skillMatches = 0;
+
+            candidate.skills.forEach(skill => {
+                if (jobText.includes(skill.name.toLowerCase())) {
+                    skillMatches++;
+                }
+            });
+
+            if (skillMatches > 0) {
+                const points = Math.min(skillMatches * 10, 50); // Cap at 50 points
+                score += points;
+                reasons.push(`${skillMatches} matching skills`);
+            }
+
+            // Location Matching
+            // Check if matches candidate city/state OR if remote logic applies
+            const isRemoteJob = job.work_arrangement === 'REMOTE' || job.location.toLowerCase().includes('remote');
+            const candidateWantsRemote = candidate.remote_preference === 'REMOTE_ONLY' || candidate.remote_preference === 'HYBRID';
+
+            if (isRemoteJob && candidateWantsRemote) {
+                score += 20;
+                reasons.push('Matches remote preference');
+            } else if (candidate.city && job.location.toLowerCase().includes(candidate.city.toLowerCase())) {
+                score += 20;
+                reasons.push('In your city');
+            }
+
+            // Job Type Matching
+            if (candidate.job_type_preference && candidate.job_type_preference.length > 0) {
+                // Map enum values if necessary, assuming string match for now
+                if (candidate.job_type_preference.some(pref => pref === job.employment_type)) {
+                    score += 15;
+                    reasons.push('Matches job type');
+                }
+            }
+
+            // Title Matching (Experience/Role check)
+            // Check against previous job titles
+            const pastTitles = candidate.work_experience.map(exp => exp.role.toLowerCase());
+            const hasTitleMatch = pastTitles.some(title => {
+                const words = title.split(' ');
+                // Check if meaningful words match (e.g. "Senior", "Engineer", "Manager")
+                return words.some((word: string) => word.length > 3 && job.title.toLowerCase().includes(word));
+            });
+
+            if (hasTitleMatch) {
+                score += 20;
+                reasons.push('Matches your experience');
+            }
+
+            // Salary Matching
+            if (candidate.salary_preference) {
+                const pref = candidate.salary_preference as any;
+                if (pref.min && job.salary_max && job.salary_max >= pref.min) {
+                    score += 10;
+                    reasons.push('Within salary range');
+                }
+            }
+
+            return {
+                ...job,
+                matchScore: score,
+                matchReasons: reasons
+            };
+        });
+
+        // 4. Sort and return top recommendations
+        return scoredJobs
+            .filter(job => job.matchScore > 0) // Only return jobs with some relevance
+            .sort((a, b) => b.matchScore - a.matchScore)
+            .slice(0, 10); // Return top 10
+    }
+
+    /**
      * Process job alerts when a new job is created
      * Matches the job against all active alerts and sends notifications
      */
@@ -343,22 +466,30 @@ export class CandidateJobService {
      * Send email notification about new job
      */
     private static async sendEmailNotification(candidate: any, job: any) {
-        // For now, just log - in production, integrate with email service
-        console.log(`📧 EMAIL NOTIFICATION:`);
-        console.log(`To: ${candidate.email} (${candidate.first_name} ${candidate.last_name})`);
-        console.log(`Subject: New Job Alert: ${job.title}`);
-        console.log(`Job: ${job.title} at ${job.location}`);
-        console.log(`Employment Type: ${job.employment_type}`);
-        console.log(`Work Arrangement: ${job.work_arrangement}`);
+        try {
+            const { emailService } = await import('../email/EmailService');
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+            const jobUrl = `${frontendUrl}/jobs/${job.id}`;
 
-        // TODO: Integrate with actual email service (SendGrid, AWS SES, etc.)
-        // Example:
-        // await EmailService.send({
-        //     to: candidate.email,
-        //     subject: `New Job Alert: ${job.title}`,
-        //     template: 'job-alert',
-        //     data: { candidate, job }
-        // });
+            await emailService.sendJobAlertEmail({
+                to: candidate.email,
+                candidateName: `${candidate.first_name} ${candidate.last_name}`,
+                jobTitle: job.title,
+                companyName: job.company?.name || 'Company',
+                location: job.location,
+                employmentType: job.employment_type,
+                workArrangement: job.work_arrangement,
+                salaryMin: job.salary_min,
+                salaryMax: job.salary_max,
+                salaryCurrency: job.salary_currency || 'USD',
+                jobUrl,
+            });
+
+            console.log(`✅ Job alert email sent to ${candidate.email} for job: ${job.title}`);
+        } catch (error) {
+            console.error(`❌ Failed to send job alert email to ${candidate.email}:`, error);
+            // Don't throw - we don't want to fail the alert processing if email fails
+        }
     }
 
     /**

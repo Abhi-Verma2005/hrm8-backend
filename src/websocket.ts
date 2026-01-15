@@ -19,9 +19,19 @@ const conversationRooms = new Map<string, Set<string>>();
 const buildConnectionKey = (userType: 'USER' | 'CANDIDATE' | 'CONSULTANT' | 'HRM8', userId: string) =>
   `${userType}:${userId}`;
 
-const resolveParticipantType = (userType: 'USER' | 'CANDIDATE'): ParticipantType => {
-  if (userType === 'USER') return ParticipantType.EMPLOYER;
-  return ParticipantType.CANDIDATE;
+const resolveParticipantType = (userType: 'USER' | 'CANDIDATE' | 'CONSULTANT' | 'HRM8'): ParticipantType => {
+  switch (userType) {
+    case 'USER':
+      return ParticipantType.EMPLOYER;
+    case 'CANDIDATE':
+      return ParticipantType.CANDIDATE;
+    case 'CONSULTANT':
+      return ParticipantType.CONSULTANT;
+    case 'HRM8':
+      return ParticipantType.SYSTEM;
+    default:
+      return ParticipantType.CANDIDATE;
+  }
 };
 
 const describeConnectionKey = (connectionKey: string) => {
@@ -49,6 +59,32 @@ const logRoomState = (conversationId?: string) => {
     );
   }
 };
+
+/**
+ * Transform Prisma message object to frontend camelCase format
+ */
+const transformMessageForFrontend = (msg: any, currentUserId?: string) => ({
+  id: msg.id,
+  conversationId: msg.conversation_id,
+  senderEmail: msg.sender_email,
+  senderType: msg.sender_type,
+  senderId: msg.sender_id,
+  content: msg.content,
+  contentType: msg.content_type,
+  readBy: msg.read_by || [],
+  deliveredAt: msg.delivered_at,
+  readAt: msg.read_at,
+  createdAt: msg.created_at,
+  updatedAt: msg.updated_at,
+  isOwn: currentUserId ? msg.sender_id === currentUserId : false,
+  attachments: msg.attachments?.map((a: any) => ({
+    id: a.id,
+    fileName: a.file_name,
+    fileUrl: a.file_url,
+    mimeType: a.mime_type,
+    size: a.size,
+  })) || [],
+});
 
 console.log('📊 Initialized connection maps and room management');
 
@@ -523,10 +559,9 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
                     type: 'messages_loaded',
                     payload: {
                       conversationId,
-                      messages: conversationMessages.map((msg) => ({
-                        ...msg,
-                        isOwn: msg.sender_id === currentConnection!.userId,
-                      })),
+                      messages: conversationMessages.map((msg) =>
+                        transformMessageForFrontend(msg, currentConnection!.userId)
+                      ),
                     },
                   })
                 );
@@ -669,10 +704,7 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
                   msgConvId,
                   {
                     type: 'new_message',
-                    payload: {
-                      ...newMessage,
-                      isOwn: false,
-                    },
+                    payload: transformMessageForFrontend(newMessage, undefined),
                   },
                   currentConnection.connectionKey
                 );
@@ -683,10 +715,7 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
                 ws.send(
                   JSON.stringify({
                     type: 'message_sent',
-                    payload: {
-                      ...newMessage,
-                      isOwn: true,
-                    },
+                    payload: transformMessageForFrontend(newMessage, currentConnection.userId),
                   })
                 );
 
@@ -842,6 +871,10 @@ export function broadcastToConversation(
 
 // Export the WebSocket server for use in main server
 export { wss };
+
+// Initialize Notification Broadcast Service
+import { initNotificationBroadcast } from './services/notification/NotificationBroadcastService';
+initNotificationBroadcast(broadcast, connections);
 
 console.log(
   `🎯 WebSocket server setup complete - will be attached to main server`

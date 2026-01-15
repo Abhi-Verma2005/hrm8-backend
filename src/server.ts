@@ -204,11 +204,35 @@ const gracefulShutdown = (signal: string) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
+// Scheduled Jobs
+import { UniversalNotificationService } from './services/notification/UniversalNotificationService';
+
+const setupScheduledJobs = () => {
+  // Cleanup expired notifications every 24 hours
+  setInterval(async () => {
+    try {
+      console.log('🧹 Starting daily notification cleanup...');
+      const count = await UniversalNotificationService.cleanupExpiredNotifications();
+      console.log(`✅ Daily notification cleanup complete: ${count} notifications removed`);
+    } catch (error) {
+      console.error('❌ Error during daily notification cleanup:', error);
+    }
+  }, 24 * 60 * 60 * 1000); // 24 hours
+
+  // Run immediately on startup
+  UniversalNotificationService.cleanupExpiredNotifications()
+    .then((count) => console.log(`🧹 Startup cleanup: ${count} expired notifications removed`))
+    .catch(err => console.error('❌ Error during startup notification cleanup:', err));
+};
+
 // Start server
 server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   console.log(`API endpoints available at http://localhost:${PORT}/api`);
   console.log(`🌐 WebSocket endpoint: ws://localhost:${PORT}`);
   console.log(`✅ WebSocket server attached and ready`);
+
+  // Start scheduled jobs
+  setupScheduledJobs();
 });
 

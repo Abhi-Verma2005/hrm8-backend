@@ -9,6 +9,10 @@ import {
     UniversalNotificationType,
     UniversalNotification
 } from '@prisma/client';
+import {
+    broadcastNotificationToUser,
+    broadcastUnreadCount
+} from './NotificationBroadcastService';
 
 interface CreateNotificationParams {
     recipientType: NotificationRecipientType;
@@ -65,14 +69,14 @@ export class UniversalNotificationService {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + NOTIFICATION_EXPIRY_DAYS);
 
-        return await prisma.universalNotification.create({
+        const notification = await prisma.universalNotification.create({
             data: {
                 recipient_type: params.recipientType,
                 recipient_id: params.recipientId,
                 type: params.type,
                 title: params.title,
                 message: params.message,
-                data: params.data || undefined,
+                data: (params.data as any) || undefined,
                 job_id: params.jobId || null,
                 application_id: params.applicationId || null,
                 company_id: params.companyId || null,
@@ -82,6 +86,11 @@ export class UniversalNotificationService {
                 expires_at: expiresAt,
             },
         });
+
+        // Broadcast real-time notification
+        broadcastNotificationToUser(notification);
+
+        return notification;
     }
 
     /**
@@ -100,7 +109,7 @@ export class UniversalNotificationService {
                         type: params.type,
                         title: params.title,
                         message: params.message,
-                        data: params.data || undefined,
+                        data: (params.data as any) || undefined,
                         job_id: params.jobId || null,
                         application_id: params.applicationId || null,
                         company_id: params.companyId || null,
@@ -112,6 +121,11 @@ export class UniversalNotificationService {
                 })
             )
         );
+
+        // Broadcast to all recipients
+        notifications.forEach(notification => {
+            broadcastNotificationToUser(notification);
+        });
 
         return notifications;
     }
@@ -197,13 +211,19 @@ export class UniversalNotificationService {
             return null;
         }
 
-        return await prisma.universalNotification.update({
+        const updatedNotification = await prisma.universalNotification.update({
             where: { id: notificationId },
             data: {
                 read: true,
                 read_at: new Date(),
             },
         });
+
+        // Broadcast updated unread count
+        const unreadCount = await this.getUnreadCount(recipientType, recipientId);
+        broadcastUnreadCount(recipientType, recipientId, unreadCount);
+
+        return updatedNotification;
     }
 
     /**
@@ -224,6 +244,9 @@ export class UniversalNotificationService {
                 read_at: new Date(),
             },
         });
+
+        // Broadcast updated unread count (should be 0)
+        broadcastUnreadCount(recipientType, recipientId, 0);
 
         return { count: result.count };
     }

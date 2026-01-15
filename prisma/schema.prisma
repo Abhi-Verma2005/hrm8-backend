@@ -932,6 +932,7 @@ model Consultant {
   default_commission_rate    Float?                     @map("default_commission_rate")
   industry_expertise         String[]                   @default([]) @map("industry_expertise")
   languages                  Json?
+  linkedin_url               String?                    @map("linkedin_url")
   max_employers              Int                        @default(10) @map("max_employers")
   max_jobs                   Int                        @default(20) @map("max_jobs")
   payment_method             Json?                      @map("payment_method")
@@ -1096,6 +1097,8 @@ model Region {
   owner_type          RegionOwnerType         @default(HRM8) @map("owner_type")
   licensee_id         String?                 @map("licensee_id")
   is_active           Boolean                 @default(true) @map("is_active")
+  monthly_revenue_target Float?               @default(0) @map("monthly_revenue_target")
+  monthly_placement_target Int?               @default(0) @map("monthly_placement_target")
   created_at          DateTime                @default(now()) @map("created_at")
   updated_at          DateTime                @default(now()) @updatedAt @map("updated_at")
   commissions         Commission[]
