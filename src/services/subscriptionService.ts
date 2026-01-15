@@ -103,6 +103,8 @@ export class SubscriptionService {
                 virtualAccount,
                 creditTransaction: transaction,
             };
+        }, {
+            timeout: 15000, // Increase timeout to 15 seconds
         });
     }
 

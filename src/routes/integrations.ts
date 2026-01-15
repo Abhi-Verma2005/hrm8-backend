@@ -17,8 +17,10 @@ router.use(authenticate);
 router.get('/stripe/status', (req, res) => IntegrationController.getStripeStatus(req as any, res));
 router.post('/stripe/connect', (req, res) => IntegrationController.connectStripe(req as any, res));
 router.post('/stripe/sync', (req, res) => IntegrationController.syncStripe(req as any, res));
+router.post('/stripe/create-checkout-session', (req, res) => IntegrationController.createCheckoutSession(req as any, res));
 
 // Mock Stripe routes (development only)
 router.post('/stripe/mock-approve', (req, res) => MockStripeController.approveMockAccount(req as any, res));
+router.post('/stripe/mock-payment-success', (req, res) => IntegrationController.handleMockPaymentSuccess(req as any, res));
 
 export default router;

@@ -48,7 +48,9 @@ export class IntegrationStripeService {
      * Create Stripe Connect integration
      */
     static async createStripeIntegration(entityType: EntityType, entityId: string) {
+        console.log('[IntegrationStripeService] Creating Stripe integration for:', { entityType, entityId });
         const whereClause = this.buildWhereClause(entityType, entityId);
+        console.log('[IntegrationStripeService] Where clause:', whereClause);
 
         // Check if integration already exists
         const existingIntegration = await prisma.integration.findFirst({
@@ -59,11 +61,15 @@ export class IntegrationStripeService {
         });
 
         if (existingIntegration) {
+            console.log('[IntegrationStripeService] Found existing integration:', existingIntegration.id);
             return existingIntegration;
         }
 
+        console.log('[IntegrationStripeService] No existing integration, creating new one...');
+
         // Get entity email for Stripe account creation
         const email = await this.getEntityEmail(entityType, entityId);
+        console.log('[IntegrationStripeService] Entity email:', email);
 
         // Create Stripe Connect account
         const account = await stripe.accounts.create({
@@ -82,6 +88,9 @@ export class IntegrationStripeService {
         });
 
         // Create integration in database
+        // For mock Stripe (development), set status to 'active' immediately
+        // For real Stripe (production), status will be 'pending' until onboarding completes
+        const isProduction = process.env.NODE_ENV === 'production';
         const integration = await prisma.integration.create({
             data: {
                 ...whereClause,
@@ -89,10 +98,11 @@ export class IntegrationStripeService {
                 name: 'Stripe Payments',
                 status: 'ACTIVE',
                 stripe_account_id: account.id,
-                stripe_account_status: 'pending',
+                stripe_account_status: isProduction ? 'pending' : 'active',
             },
         });
 
+        console.log('[IntegrationStripeService] Created integration in DB:', integration.id);
         return integration;
     }
 
