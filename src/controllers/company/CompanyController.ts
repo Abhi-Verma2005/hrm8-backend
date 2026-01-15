@@ -7,8 +7,13 @@ import { Request, Response } from 'express';
 import { CompanyService } from '../../services/company/CompanyService';
 import { VerificationService } from '../../services/verification/VerificationService';
 import { CompanyProfileService } from '../../services/company/CompanyProfileService';
+import { CompanyStatsService } from '../../services/company/CompanyStatsService';
 import { UpdateCompanyProfileRequest, AuthenticatedRequest, JobAssignmentMode } from '../../types';
 import { CompanyModel } from '../../models/Company';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+const companyStatsService = new CompanyStatsService(prisma);
 
 export class CompanyController {
   /**
@@ -119,8 +124,8 @@ export class CompanyController {
 
       res.json({
         success: true,
-        data: { 
-          message: 'Verification request submitted. Our team will review it shortly.' 
+        data: {
+          message: 'Verification request submitted. Our team will review it shortly.'
         },
       });
     } catch (error) {
@@ -260,6 +265,37 @@ export class CompanyController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update job assignment mode',
+      });
+    }
+  }
+
+  /**
+   * Get company statistics
+   * GET /api/companies/:id/stats
+   */
+  static async getCompanyStats(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      // Verify the user belongs to this company
+      if (req.user?.companyId !== id) {
+        res.status(403).json({
+          success: false,
+          error: 'Unauthorized to access this company\'s statistics',
+        });
+        return;
+      }
+
+      const stats = await companyStatsService.getCompanyStats(id);
+
+      res.json({
+        success: true,
+        data: stats,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch company statistics',
       });
     }
   }

@@ -31,7 +31,7 @@ export class TransactionController {
                 data: { transactions },
             });
         } catch (error) {
-            console.error('Get transactions error:', error);
+            console.error('[TransactionController] getAll error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch transactions',
@@ -62,7 +62,7 @@ export class TransactionController {
                 data: stats,
             });
         } catch (error) {
-            console.error('Get transaction stats error:', error);
+            console.error('[TransactionController] getStats error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to fetch transaction statistics',

@@ -1,7 +1,6 @@
 
 import { PrismaClient } from '@prisma/client';
 import { CommissionService } from '../services/hrm8/CommissionService';
-import { UPGRADE_PRICE_MAP } from '../services/payments/StripeUpgradeService';
 
 const prisma = new PrismaClient();
 

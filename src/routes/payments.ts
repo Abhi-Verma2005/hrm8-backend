@@ -467,7 +467,8 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
     }
 
     // Handle Stripe Connect events (transfers)
-    if (event.type === 'transfer.paid' || event.type === 'transfer.failed') {
+    const eventType = event.type as string;
+    if (eventType === 'transfer.paid' || eventType === 'transfer.failed') {
       try {
         const { StripePayoutService } = await import('../services/sales/StripePayoutService');
         await StripePayoutService.handleWebhook(event);

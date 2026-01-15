@@ -101,7 +101,7 @@ async function diagnoseAndFix() {
                     const session = await stripe.checkout.sessions.retrieve(job.stripe_session_id);
                     paymentAmount = (session.amount_total || 0) / 100;
                     console.log(`   Retrieved payment amount from Stripe: $${paymentAmount}`);
-                } catch (e) {
+                } catch (e: any) {
                     console.log(`   Could not retrieve Stripe session: ${e.message}`);
                 }
             }

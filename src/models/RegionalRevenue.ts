@@ -231,7 +231,7 @@ export class RegionalRevenueModel {
           include: {
             bill: {
               where: { status: 'PAID' },
-              select: { amount: true, paid_at: true }
+              select: { amount: true, paid_at: true, status: true }
             }
           }
         }
@@ -254,6 +254,9 @@ export class RegionalRevenueModel {
           }
         });
       });
+
+      // Check for last job payment as well
+      // Note: Job model doesn't have paid_at, so we can't check last payment from jobs easily
 
       const totalRevenue = jobRevenue + subscriptionRevenue;
       const hrm8Share = totalRevenue * 0.8;

@@ -279,7 +279,7 @@ export class CommissionService {
     description: string,
     jobId?: string,
     subscriptionId?: string,
-    eventType: 'JOB_PAYMENT' | 'SUBSCRIPTION_SALE' = 'SUBSCRIPTION_SALE'
+    _eventType: 'JOB_PAYMENT' | 'SUBSCRIPTION_SALE' = 'SUBSCRIPTION_SALE'
   ): Promise<{ success: boolean; commissionId?: string; error?: string }> {
     try {
       // Lazy load to avoid circular dependencies

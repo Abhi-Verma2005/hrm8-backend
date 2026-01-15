@@ -16,7 +16,9 @@
     "db:resolve-failed": "node scripts/resolve-failed-migration.js",
     "migrate:rbac": "ts-node scripts/migrate-rbac.ts",
     "migrate:rbac:force": "ts-node scripts/force-migrate-rbac.ts",
-    "update:hrm8-roles": "ts-node scripts/update-hrm8-roles.ts"
+    "update:hrm8-roles": "ts-node scripts/update-hrm8-roles.ts",
+    "test:stripe": "ts-node scripts/testStripeIntegration.ts",
+    "test:stripe:cleanup": "ts-node scripts/cleanupStripeTest.ts"
   },
   "keywords": [],
   "author": "",

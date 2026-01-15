@@ -51,8 +51,8 @@ export class CompanyService {
       verificationStatus: options?.skipEmailVerification
         ? CompanyVerificationStatus.VERIFIED
         : CompanyVerificationStatus.PENDING,
-      region_id: options?.regionId, // Use Provided Region
-      sales_agent_id: options?.salesAgentId, // Use Provided Agent
+      regionId: options?.regionId, // Use Provided Region
+      salesAgentId: options?.salesAgentId, // Use Provided Agent
     });
 
     // Initialize onboarding profile for company

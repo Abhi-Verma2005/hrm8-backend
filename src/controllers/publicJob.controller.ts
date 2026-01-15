@@ -108,12 +108,12 @@ export const getGlobalJobs = async (req: Request, res: Response) => {
 
         // Filter by work arrangement (REMOTE, ON_SITE, HYBRID)
         if (workArrangement) {
-            where.work_arrangement = workArrangement.toUpperCase().replace('-', '_');
+            where.work_arrangement = workArrangement.toUpperCase().replace('-', '_') as any;
         }
 
         // Filter by employment type (FULL_TIME, PART_TIME, CONTRACT, etc.)
         if (employmentType) {
-            where.employment_type = employmentType.toUpperCase().replace('-', '_');
+            where.employment_type = employmentType.toUpperCase().replace('-', '_') as any;
         }
 
         // Region-wise filtering:

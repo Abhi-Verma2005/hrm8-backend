@@ -3,6 +3,7 @@
  * Handles normal admin endpoints for managing company careers page
  */
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../../lib/prisma';
 import multer from 'multer';
 import { CloudinaryService } from '../../services/storage/CloudinaryService';
@@ -13,7 +14,7 @@ const upload = multer({
     limits: {
         fileSize: 10 * 1024 * 1024, // 10MB max
     },
-    fileFilter: (req, file, cb) => {
+    fileFilter: (_req, file, cb) => {
         const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         if (allowedTypes.includes(file.mimetype)) {
             cb(null, true);
@@ -23,13 +24,13 @@ const upload = multer({
     },
 });
 
-export const uploadMiddleware = upload.single('file');
+export const uploadMiddleware: any = upload.single('file');
 
 /**
  * Get company's careers page data
  * GET /api/company/careers
  */
-export const getCareersPage = async (req: Request, res: Response) => {
+export const getCareersPage = async (req: Request, res: Response): Promise<any> => {
     try {
         const companyId = (req as any).user?.companyId || (req as any).companyId;
 
@@ -101,7 +102,7 @@ export const getCareersPage = async (req: Request, res: Response) => {
  * POST /api/company/careers/upload
  * Body: file (multipart), type ('logo' | 'banner')
  */
-export const uploadCareersImage = async (req: Request, res: Response) => {
+export const uploadCareersImage = async (req: Request, res: Response): Promise<any> => {
     try {
         const companyId = (req as any).user?.companyId || (req as any).companyId;
 
@@ -164,7 +165,7 @@ export const uploadCareersImage = async (req: Request, res: Response) => {
  * If status is PENDING or REJECTED and no section specified: submit full page
  * If status is APPROVED and section specified: submit only that section
  */
-export const updateCareersPage = async (req: Request, res: Response) => {
+export const updateCareersPage = async (req: Request, res: Response): Promise<any> => {
     try {
         const companyId = (req as any).user?.companyId || (req as any).companyId;
 
@@ -255,7 +256,7 @@ export const updateCareersPage = async (req: Request, res: Response) => {
             data: {
                 careers_page_status: 'SUBMITTED',
                 careers_pending_changes: fullUpdate,
-                careers_review_notes: null, // Clear previous review notes
+                careers_review_notes: Prisma.DbNull, // Clear previous review notes
             },
         });
 

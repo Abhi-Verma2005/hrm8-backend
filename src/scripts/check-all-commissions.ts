@@ -125,7 +125,7 @@ async function checkAllCommissions() {
                 const commissionRate = agent.default_commission_rate || 0.10;
                 const commissionAmount = Math.round(paymentAmount * commissionRate * 100) / 100;
 
-                const commission = await prisma.commission.create({
+                await prisma.commission.create({
                     data: {
                         consultant_id: agent.id,
                         region_id: company.region_id,
@@ -177,7 +177,7 @@ async function checkAllCommissions() {
         console.log(`\n${i + 1}. ${comm.job?.company?.name || 'Unknown'} - ${comm.job?.title || 'Untitled'}`);
         console.log(`   Amount: $${comm.amount}`);
         console.log(`   Status: ${comm.status}`);
-        console.log(`   Rate: ${comm.rate * 100}%`);
+        console.log(`   Rate: ${(comm.rate || 0) * 100}%`);
         console.log(`   Created: ${comm.created_at.toISOString()}`);
         totalAmount += comm.amount;
     });

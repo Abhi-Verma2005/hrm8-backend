@@ -115,7 +115,7 @@ export const getJobAnalyticsBreakdown = async (req: Request, res: Response) => {
             _count: { id: true },
         });
 
-        res.json({
+        return res.json({
             success: true,
             data: {
                 jobId,
@@ -126,7 +126,7 @@ export const getJobAnalyticsBreakdown = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Failed to get job analytics breakdown:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             error: 'Failed to fetch analytics',
         });
@@ -233,7 +233,7 @@ export const getCompanyAnalyticsOverview = async (req: Request, res: Response) =
             .sort((a, b) => b.views - a.views)
             .slice(0, 5);
 
-        res.json({
+        return res.json({
             success: true,
             data: {
                 overview,
@@ -242,7 +242,7 @@ export const getCompanyAnalyticsOverview = async (req: Request, res: Response) =
         });
     } catch (error) {
         console.error('Failed to get company analytics overview:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             error: 'Failed to fetch analytics',
         });

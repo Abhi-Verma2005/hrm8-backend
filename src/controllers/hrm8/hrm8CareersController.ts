@@ -3,13 +3,14 @@
  * Handles global admin endpoints for approving/rejecting company careers pages
  */
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../../lib/prisma';
 
 /**
  * Get all pending careers page requests
  * GET /api/hrm8/careers/requests
  */
-export const getCareersRequests = async (req: Request, res: Response) => {
+export const getCareersRequests = async (_req: Request, res: Response): Promise<any> => {
     try {
         // Get companies with submitted full pages
         const submittedCompanies = await prisma.company.findMany({
@@ -32,7 +33,7 @@ export const getCareersRequests = async (req: Request, res: Response) => {
             where: {
                 careers_page_status: 'APPROVED',
                 careers_pending_changes: {
-                    not: null,
+                    not: Prisma.DbNull,
                 },
             },
             select: {
@@ -107,7 +108,7 @@ export const getCareersRequests = async (req: Request, res: Response) => {
  * POST /api/hrm8/careers/:companyId/approve
  * Body: { section? } - if section specified, approve only that section
  */
-export const approveCareersRequest = async (req: Request, res: Response) => {
+export const approveCareersRequest = async (req: Request, res: Response): Promise<any> => {
     try {
         const { companyId } = req.params;
         const { section } = req.body;
@@ -145,8 +146,8 @@ export const approveCareersRequest = async (req: Request, res: Response) => {
                     careers_page_about: pending.about || null,
                     careers_page_social: pending.social || null,
                     careers_page_images: pending.images || null,
-                    careers_pending_changes: null, // Clear pending
-                    careers_review_notes: null,
+                    careers_pending_changes: Prisma.DbNull, // Clear pending
+                    careers_review_notes: Prisma.DbNull,
                 },
             });
 
@@ -201,13 +202,13 @@ export const approveCareersRequest = async (req: Request, res: Response) => {
 
             // Clear pending if no more changes, otherwise update
             updateData.careers_pending_changes =
-                Object.keys(remainingPending).length > 0 ? remainingPending : null;
+                Object.keys(remainingPending).length > 0 ? remainingPending : Prisma.DbNull;
 
             // Clear review note for this section
             const existingNotes = (company.careers_pending_changes as any)?.reviews || {};
             delete existingNotes[section];
             if (Object.keys(existingNotes).length === 0) {
-                updateData.careers_review_notes = null;
+                updateData.careers_review_notes = Prisma.DbNull;
             }
 
             await prisma.company.update({
@@ -223,8 +224,8 @@ export const approveCareersRequest = async (req: Request, res: Response) => {
 
         // Approve all pending sections at once
         const updateData: any = {
-            careers_pending_changes: null,
-            careers_review_notes: null,
+            careers_pending_changes: Prisma.DbNull,
+            careers_review_notes: Prisma.DbNull,
         };
 
         if (pending.logoUrl !== undefined) updateData.careers_page_logo = pending.logoUrl;
@@ -256,7 +257,7 @@ export const approveCareersRequest = async (req: Request, res: Response) => {
  * POST /api/hrm8/careers/:companyId/reject
  * Body: { reason, section? } - if section specified, reject only that section
  */
-export const rejectCareersRequest = async (req: Request, res: Response) => {
+export const rejectCareersRequest = async (req: Request, res: Response): Promise<any> => {
     try {
         const { companyId } = req.params;
         const { reason, section } = req.body;
@@ -332,7 +333,7 @@ export const rejectCareersRequest = async (req: Request, res: Response) => {
         await prisma.company.update({
             where: { id: companyId },
             data: {
-                careers_pending_changes: null,
+                careers_pending_changes: Prisma.DbNull,
                 careers_review_notes: {
                     general: reason,
                     rejectedAt: new Date().toISOString(),
