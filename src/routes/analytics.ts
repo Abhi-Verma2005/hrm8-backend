@@ -14,6 +14,9 @@ router.use(authenticate);
 // Job-specific analytics breakdown
 router.get('/jobs/:jobId/breakdown', AnalyticsController.getJobAnalyticsBreakdown);
 
+// Job-specific analytics trends (daily views/clicks)
+router.get('/jobs/:jobId/trends', AnalyticsController.getJobAnalyticsTrends);
+
 // Company-wide analytics overview
 router.get('/company/overview', AnalyticsController.getCompanyAnalyticsOverview);
 
