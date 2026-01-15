@@ -2433,6 +2433,88 @@ enum NotificationType {
   SYSTEM
 }
 
+// ============================================
+// UNIVERSAL NOTIFICATION SYSTEM
+// Supports notifications for all user types
+// ============================================
+
+enum UniversalNotificationType {
+  // Application Events
+  NEW_APPLICATION
+  APPLICATION_STATUS_CHANGED
+  APPLICATION_SHORTLISTED
+  APPLICATION_REJECTED
+
+  // Job Events
+  JOB_CREATED
+  JOB_STATUS_CHANGED
+  JOB_ASSIGNED
+  JOB_FILLED
+
+  // Pipeline Events
+  CANDIDATE_STAGE_CHANGED
+  INTERVIEW_SCHEDULED
+  OFFER_EXTENDED
+
+  // Lead/Sales Events
+  NEW_LEAD
+  LEAD_CONVERTED
+  SUBSCRIPTION_PURCHASED
+  SERVICE_PURCHASED
+
+  // Consultant Events
+  JOB_ASSIGNMENT_RECEIVED
+  SHORTLIST_SUBMITTED
+
+  // System Events
+  SYSTEM_ANNOUNCEMENT
+}
+
+enum NotificationRecipientType {
+  USER // Company HR User (User table)
+  CANDIDATE // Candidate (Candidate table)
+  CONSULTANT // Consultant/Recruiter/Sales Agent (Consultant table)
+  HRM8_USER // Global Admin/Regional Licensee (HRM8User table)
+}
+
+model UniversalNotification {
+  id String @id @default(uuid())
+
+  // Recipient targeting (polymorphic)
+  recipient_type NotificationRecipientType @map("recipient_type")
+  recipient_id   String                    @map("recipient_id")
+
+  // Notification content
+  type    UniversalNotificationType
+  title   String
+  message String
+  data    Json? // Additional structured data
+
+  // Related entities (optional, for deep linking)
+  job_id         String? @map("job_id")
+  application_id String? @map("application_id")
+  company_id     String? @map("company_id")
+  lead_id        String? @map("lead_id")
+  region_id      String? @map("region_id")
+
+  // Action URL for navigation
+  action_url String? @map("action_url")
+
+  // Read status
+  read    Boolean   @default(false)
+  read_at DateTime? @map("read_at")
+
+  // Timestamps
+  created_at DateTime @default(now()) @map("created_at")
+  expires_at DateTime @map("expires_at") // Auto-delete after 30 days
+
+  @@index([recipient_type, recipient_id])
+  @@index([recipient_id, read])
+  @@index([created_at])
+  @@index([expires_at])
+  @@map("universal_notifications")
+}
+
 enum JobAssignmentMode {
   AUTO_RULES_ONLY
   MANUAL_ONLY

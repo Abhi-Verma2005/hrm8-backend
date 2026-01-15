@@ -499,10 +499,12 @@ export interface ClientConnection {
   userEmail: string;
   userName: string;
   userId: string;
-  userType: 'USER' | 'CANDIDATE';
+  userType: 'USER' | 'CANDIDATE' | 'CONSULTANT' | 'HRM8';
   connectionKey: string;
   authenticated: boolean;
   conversationId?: string;
+  companyId?: string;
+  regionIds?: string[];
 }
 
 export interface WSMessage {
