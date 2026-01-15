@@ -98,9 +98,22 @@ export const getJobAnalyticsBreakdown = async (req: Request, res: Response) => {
             }
         });
 
-        // Calculate totals from grouped data
-        breakdown.views.total = Object.values(breakdown.views.bySource).reduce((a, b) => a + b, 0) || job.views_count || 0;
-        breakdown.clicks.total = Object.values(breakdown.clicks.bySource).reduce((a, b) => a + b, 0) || job.clicks_count || 0;
+        // Use Job table counts as authoritative source (they're always incremented)
+        breakdown.views.total = job.views_count || 0;
+        breakdown.clicks.total = job.clicks_count || 0;
+
+        // Calculate tracked totals from JobAnalytics
+        const trackedViews = Object.values(breakdown.views.bySource).reduce((a, b) => a + b, 0);
+        const trackedClicks = Object.values(breakdown.clicks.bySource).reduce((a, b) => a + b, 0);
+
+        // Add "UNKNOWN" source for any views/clicks not tracked in JobAnalytics
+        // This ensures pie chart adds up to the total
+        if (breakdown.views.total > trackedViews) {
+            breakdown.views.bySource['UNKNOWN'] = breakdown.views.total - trackedViews;
+        }
+        if (breakdown.clicks.total > trackedClicks) {
+            breakdown.clicks.bySource['UNKNOWN'] = breakdown.clicks.total - trackedClicks;
+        }
 
         // Get daily trend data for the last 30 days
         const thirtyDaysAgo = new Date();
@@ -245,6 +258,99 @@ export const getCompanyAnalyticsOverview = async (req: Request, res: Response) =
         return res.status(500).json({
             success: false,
             error: 'Failed to fetch analytics',
+        });
+    }
+};
+
+/**
+ * Get daily analytics trends for a specific job
+ * GET /api/analytics/jobs/:jobId/trends
+ */
+export const getJobAnalyticsTrends = async (req: Request, res: Response) => {
+    try {
+        const { jobId } = req.params;
+        const { days = '30' } = req.query;
+
+        // Verify job belongs to authenticated user's company
+        const user = (req as any).user;
+        const job = await prisma.job.findFirst({
+            where: {
+                id: jobId,
+                company_id: user.companyId,
+            },
+            select: { id: true },
+        });
+
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                error: 'Job not found',
+            });
+        }
+
+        // Calculate date range
+        const numDays = parseInt(days as string, 10) || 30;
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - numDays);
+
+        // Get all analytics events for the period
+        const analytics = await prisma.jobAnalytics.findMany({
+            where: {
+                job_id: jobId,
+                created_at: { gte: startDate, lte: endDate },
+            },
+            select: {
+                event_type: true,
+                created_at: true,
+            },
+        });
+
+        // Group by date
+        const dailyData: Record<string, { views: number; clicks: number }> = {};
+
+        // Initialize all dates
+        const current = new Date(startDate);
+        while (current <= endDate) {
+            const dateKey = current.toISOString().split('T')[0];
+            dailyData[dateKey] = { views: 0, clicks: 0 };
+            current.setDate(current.getDate() + 1);
+        }
+
+        // Fill with actual data
+        analytics.forEach(row => {
+            const dateKey = row.created_at.toISOString().split('T')[0];
+            if (dailyData[dateKey]) {
+                if (row.event_type === 'DETAIL_VIEW' || row.event_type === 'VIEW') {
+                    dailyData[dateKey].views++;
+                } else if (row.event_type === 'APPLY_CLICK') {
+                    dailyData[dateKey].clicks++;
+                }
+            }
+        });
+
+        // Convert to array for charting
+        const trends = Object.entries(dailyData)
+            .map(([date, data]) => ({
+                date,
+                views: data.views,
+                clicks: data.clicks,
+            }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        return res.json({
+            success: true,
+            data: {
+                jobId,
+                days: numDays,
+                trends,
+            },
+        });
+    } catch (error) {
+        console.error('Failed to get job analytics trends:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to fetch trends',
         });
     }
 };
