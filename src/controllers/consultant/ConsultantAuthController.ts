@@ -140,6 +140,8 @@ export class ConsultantAuthController {
             lastName: consultant.lastName,
             role: consultant.role,
             status: consultant.status,
+            regionId: consultant.regionId,
+            regionName: consultant.regionName,
           },
         },
       });
@@ -148,6 +150,99 @@ export class ConsultantAuthController {
       res.status(500).json({
         success: false,
         error: 'Failed to get consultant information',
+      });
+    }
+  }
+  /**
+   * Setup account (First login with invite token)
+   * POST /api/consultant/auth/setup-account
+   */
+  static async setupAccount(req: Request, res: Response): Promise<void> {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        res.status(400).json({
+          success: false,
+          error: 'Token and password are required',
+        });
+        return;
+      }
+
+      // Verify token
+      const { verifyInvitationToken } = require('../../utils/invitation');
+      const payload = verifyInvitationToken(token);
+
+      if (!payload) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid or expired invitation token',
+        });
+        return;
+      }
+
+      const { consultantId } = payload;
+
+      // Verify consultant exists
+      const consultant = await ConsultantAuthService.findById(consultantId);
+      if (!consultant) {
+        res.status(404).json({ success: false, error: 'Consultant not found' });
+        return;
+      }
+
+      // Update password and status
+      // Update password and status
+      const { hashPassword } = require('../../utils/password');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const prisma = require('../../lib/prisma').default;
+      const { ConsultantStatus } = require('@prisma/client');
+
+      const passwordHash = await hashPassword(password);
+
+      await prisma.consultant.update({
+        where: { id: consultantId },
+        data: {
+          password_hash: passwordHash,
+          status: ConsultantStatus.ACTIVE, // Ensure active
+          // If we had is_onboarded, we would set it here
+        }
+      });
+
+      // Auto-login (Create session)
+      const sessionId = generateSessionId();
+      const expiresAt = getSessionExpiration();
+
+      await ConsultantSessionModel.create(
+        sessionId,
+        consultant.id,
+        consultant.email,
+        expiresAt
+      );
+
+      res.cookie('consultantSessionId', sessionId, getSessionCookieOptions());
+
+      res.json({
+        success: true,
+        message: 'Account setup successfully. You are now logged in.',
+        data: {
+          consultant: {
+            id: consultant.id,
+            email: consultant.email,
+            firstName: consultant.firstName,
+            lastName: consultant.lastName,
+            role: consultant.role,
+            status: ConsultantStatus.ACTIVE,
+            regionId: consultant.regionId,
+            regionName: consultant.regionName
+          },
+        },
+      });
+
+    } catch (error) {
+      console.error('Setup account error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to setup account',
       });
     }
   }

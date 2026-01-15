@@ -107,6 +107,10 @@ export class ConsultantController {
    * Get assigned jobs
    * GET /api/consultant/jobs
    */
+  /**
+   * Get assigned jobs
+   * GET /api/consultant/jobs
+   */
   static async getJobs(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
     try {
       if (!req.consultant) {
@@ -117,7 +121,12 @@ export class ConsultantController {
         return;
       }
 
-      const jobs = await ConsultantService.getAssignedJobs(req.consultant.id);
+      const filters: { status?: string } = {};
+      if (req.query.status) {
+        filters.status = req.query.status as string;
+      }
+
+      const jobs = await ConsultantService.getAssignedJobs(req.consultant.id, filters);
 
       res.json({
         success: true,
@@ -129,6 +138,120 @@ export class ConsultantController {
         success: false,
         error: 'Failed to fetch jobs',
       });
+    }
+  }
+
+  /**
+   * Get job details
+   * GET /api/consultant/jobs/:id
+   */
+  static async getJobDetails(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.consultant) {
+        res.status(401).json({ success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const { id: jobId } = req.params;
+      if (!jobId) {
+        res.status(400).json({ success: false, error: 'Job ID is required' });
+        return;
+      }
+
+      const details = await ConsultantService.getJobDetails(req.consultant.id, jobId);
+      if (!details) {
+        res.status(404).json({ success: false, error: 'Job not found or access denied' });
+        return;
+      }
+
+      res.json({ success: true, data: details });
+    } catch (error: any) {
+      console.error('Get job details error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to fetch job details' });
+    }
+  }
+
+  /**
+   * Submit shortlist
+   * POST /api/consultant/jobs/:id/shortlist
+   */
+  static async submitShortlist(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.consultant) {
+        res.status(401).json({ success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const { id: jobId } = req.params;
+      const { candidateIds, notes } = req.body;
+
+      if (!candidateIds || !Array.isArray(candidateIds) || candidateIds.length === 0) {
+        res.status(400).json({ success: false, error: 'Candidate IDs are required' });
+        return;
+      }
+
+      await ConsultantService.submitShortlist(req.consultant.id, jobId, candidateIds, notes);
+
+      res.json({ success: true, message: 'Shortlist submitted successfully' });
+    } catch (error: any) {
+      console.error('Submit shortlist error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to submit shortlist' });
+    }
+  }
+
+  /**
+   * Flag job issue
+   * POST /api/consultant/jobs/:id/flag
+   */
+  static async flagJob(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.consultant) {
+        res.status(401).json({ success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const { id: jobId } = req.params;
+      const { issueType, description, severity } = req.body;
+
+      if (!issueType || !description) {
+        res.status(400).json({ success: false, error: 'Issue type and description are required' });
+        return;
+      }
+
+      await ConsultantService.flagJob(req.consultant.id, jobId, issueType, description, severity || 'MEDIUM');
+
+      res.json({ success: true, message: 'Job flagged successfully' });
+    } catch (error: any) {
+      console.error('Flag job error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to flag job' });
+    }
+  }
+
+  /**
+   * Log job activity
+   * POST /api/consultant/jobs/:id/log
+   */
+  static async logJobActivity(req: ConsultantAuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.consultant) {
+        res.status(401).json({ success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const { id: jobId } = req.params;
+      const { activityType, notes } = req.body;
+
+      if (!activityType || !notes) {
+        res.status(400).json({ success: false, error: 'Activity type and notes are required' });
+        return;
+      }
+
+      await ConsultantService.logJobActivity(req.consultant.id, jobId, activityType, notes);
+
+      res.json({ success: true, message: 'Activity logged successfully' });
+    } catch (error: any) {
+      console.error('Log activity error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to log activity' });
     }
   }
 

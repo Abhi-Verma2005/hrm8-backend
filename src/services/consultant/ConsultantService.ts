@@ -35,6 +35,7 @@ export class ConsultantService {
       languages?: Array<{ language: string; proficiency: string }>;
       industryExpertise?: string[];
       resumeUrl?: string;
+      linkedinUrl?: string;
       paymentMethod?: Record<string, unknown>;
       taxInformation?: Record<string, unknown>;
       availability?: AvailabilityStatus;
@@ -53,14 +54,22 @@ export class ConsultantService {
   /**
    * Get consultant's assigned jobs with full details
    */
-  static async getAssignedJobs(consultantId: string): Promise<Job[]> {
+  /**
+   * Get consultant's assigned jobs with full details
+   */
+  static async getAssignedJobs(consultantId: string, filters?: { status?: string }): Promise<Job[]> {
     const jobIds = await JobAllocationService.getConsultantJobs(consultantId);
     const jobs: Job[] = [];
-    
+
     for (const jobId of jobIds) {
       try {
         const job = await JobModel.findById(jobId);
         if (job) {
+          // Filter by status if provided
+          if (filters?.status && job.status !== filters.status) {
+            continue;
+          }
+
           const pipeline = await JobAllocationService.getPipelineForConsultantJob(consultantId, jobId);
           jobs.push({
             ...job,
@@ -72,8 +81,95 @@ export class ConsultantService {
         console.error(`Failed to fetch job ${jobId} for consultant ${consultantId}:`, error);
       }
     }
-    
+
     return jobs;
+  }
+
+  /**
+   * Get job details for consultant
+   */
+  static async getJobDetails(consultantId: string, jobId: string): Promise<any> {
+    const job = await JobModel.findById(jobId);
+    if (!job) {
+      return null;
+    }
+
+    // Verify assignment
+    const assignedIds = await JobAllocationService.getConsultantJobs(consultantId);
+    if (!assignedIds.includes(jobId)) {
+      throw new Error('Consultant is not assigned to this job');
+    }
+
+    const pipeline = await JobAllocationService.getPipelineForConsultantJob(consultantId, jobId);
+    const team = await JobAllocationService.getJobConsultants(jobId);
+
+    // Filter out current consultant from team
+    const otherConsultants = team.filter(c => c.id !== consultantId);
+
+    return {
+      job,
+      pipeline,
+      team: otherConsultants,
+      employer: { // Mock for now, should come from permissions
+        contactName: "Confidential",
+        email: "confidential@employer.com"
+      }
+    };
+  }
+
+  /**
+   * Submit candidate shortlist
+   */
+  static async submitShortlist(consultantId: string, jobId: string, candidateIds: string[], notes?: string): Promise<void> {
+    // Verify assignment
+    const assignedIds = await JobAllocationService.getConsultantJobs(consultantId);
+    if (!assignedIds.includes(jobId)) {
+      throw new Error('Consultant is not assigned to this job');
+    }
+
+    await JobAllocationService.updatePipelineForConsultantJob(consultantId, jobId, {
+      stage: 'SHORTLIST_SENT',
+      note: `Shortlist submitted: ${candidateIds.length} candidates. Notes: ${notes || 'None'}`,
+      updatedBy: consultantId
+    });
+  }
+
+  /**
+   * Flag job issue
+   */
+  static async flagJob(consultantId: string, jobId: string, issueType: string, description: string, severity: string): Promise<void> {
+    // Verify assignment
+    const assignedIds = await JobAllocationService.getConsultantJobs(consultantId);
+    if (!assignedIds.includes(jobId)) {
+      throw new Error('Consultant is not assigned to this job');
+    }
+
+    // In a real system, this would create a 'Flag' record. For now, we'll append to pipeline notes
+    // or log it. Let's append to notes for simplicity in this MVP.
+    await JobAllocationService.updatePipelineForConsultantJob(consultantId, jobId, {
+      stage: 'ON_HOLD', // Potentially move to hold? Or just log? Let's keep stage but log.
+      // Actually, let's just log it via updatePipeline note for now as we don't have a Flag model
+      note: `[FLAG: ${severity}] ${issueType}: ${description}`,
+      updatedBy: consultantId
+    });
+  }
+
+  /**
+   * Log job activity
+   */
+  static async logJobActivity(consultantId: string, jobId: string, activityType: string, notes: string): Promise<void> {
+    // Verify assignment
+    const assignedIds = await JobAllocationService.getConsultantJobs(consultantId);
+    if (!assignedIds.includes(jobId)) {
+      throw new Error('Consultant is not assigned to this job');
+    }
+
+    // Update pipeline updated_at and note
+    await JobAllocationService.updatePipelineForConsultantJob(consultantId, jobId, {
+      stage: (await JobAllocationService.getPipelineForConsultantJob(consultantId, jobId))?.stage || 'INTAKE',
+      note: `[Activity: ${activityType}] ${notes}`,
+      updatedBy: consultantId
+    });
   }
 
   /**

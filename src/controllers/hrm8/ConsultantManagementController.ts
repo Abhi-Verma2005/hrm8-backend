@@ -420,6 +420,50 @@ export class ConsultantManagementController {
 
 
   /**
+   * Invite consultant (Generate Invitation Link)
+   * POST /api/hrm8/consultants/:id/invite
+   */
+  static async invite(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      // Verify access if licensee
+      if (req.assignedRegionIds) {
+        const consultant = await ConsultantManagementService.getConsultantById(id);
+        if (!consultant || (consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId))) {
+          res.status(403).json({ success: false, error: 'Access denied' });
+          return;
+        }
+      }
+
+      const { generateInvitationToken } = require('../../utils/invitation');
+      const token = generateInvitationToken(id);
+
+      // In a real app, we would send an email here.
+      // For now, we return the link.
+      // Also construct the simplified link for the user.
+      const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/consultant/setup-account?token=${token}`;
+
+      console.log(`[INVITE] Link for consultant ${id}: ${inviteLink}`);
+
+      res.json({
+        success: true,
+        message: 'Invitation link generated successfully',
+        data: {
+          token,
+          inviteLink // For admin to copy-paste if needed, or development visibility
+        }
+      });
+    } catch (error) {
+      console.error('Invite consultant error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate invitation',
+      });
+    }
+  }
+
+  /**
    * Generate HRM8 email address for consultant
    * POST /api/hrm8/consultants/generate-email
    */

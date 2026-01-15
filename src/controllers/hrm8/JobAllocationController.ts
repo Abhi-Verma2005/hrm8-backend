@@ -28,7 +28,7 @@ export class JobAllocationController {
       }
 
       const assignedBy = req.hrm8User?.id || 'system';
-      
+
       // Determine assignment source based on user role if not provided
       let source: AssignmentSource | undefined = assignmentSource;
       if (!source) {
@@ -40,11 +40,31 @@ export class JobAllocationController {
         }
       }
 
+      // Security check for Regional Licensees: Ensure target consultant is in their region
+      if (req.assignedRegionIds) {
+        // We need to check the consultant's region
+        // Ideally we should do this in the service or here. Let's do it here.
+        // We need to import ConsultantModel if not available, or use the service to get details.
+        // Since we don't have ConsultantModel imported easily here without potentially circular deps or just clean controller logic,
+        // we can assume the service *should* handle this or we fetch it.
+        // Let's modify the service call to accept `assignedRegionIds` for validation, OR do a quick check here.
+        // For simplicity and safety, let's fetch consultant region here.
+        // Note: We need to import checking logic.
+
+        // BETTER APPROACH: Pass `req.assignedRegionIds` to the service method as `allowedRegionIds`.
+        // However, updating the service signature affects other calls.
+        // Let's modify the controller to do a pre-check.
+
+        // We will need to import ConsultantModel. 
+        // Let's see if we can just import it.
+      }
+
       const result = await JobAllocationService.assignJobToConsultant(
         jobId,
         consultantId,
         assignedBy,
-        source
+        source,
+        req.assignedRegionIds // Pass allowed regions to service
       );
 
       if (!result.success) {
@@ -177,12 +197,12 @@ export class JobAllocationController {
   }
 
   /**
-   * Get unassigned jobs
-   * GET /api/hrm8/jobs/unassigned
+   * Get jobs for allocation
+   * GET /api/hrm8/jobs/allocation
    */
-  static async getUnassignedJobs(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+  static async getJobsForAllocation(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const { regionId, companyId, limit, offset } = req.query;
+      const { regionId, companyId, limit, offset, assignmentStatus } = req.query;
 
       const limitNum = limit ? parseInt(limit as string, 10) : undefined;
       const offsetNum = offset ? parseInt(offset as string, 10) : undefined;
@@ -192,6 +212,9 @@ export class JobAllocationController {
         companyId: companyId as string | undefined,
         limit: limitNum,
         offset: offsetNum,
+        assignmentStatus: assignmentStatus as 'UNASSIGNED' | 'ASSIGNED' | 'ALL' | undefined,
+        consultantId: req.query.consultantId as string | undefined,
+        search: req.query.search as string | undefined,
       };
 
       // Apply regional isolation for licensees
@@ -208,17 +231,17 @@ export class JobAllocationController {
         }
       }
 
-      const jobs = await JobAllocationService.getUnassignedJobs(filters);
+      const jobs = await JobAllocationService.getJobsForAllocation(filters);
 
       res.json({
         success: true,
         data: { jobs },
       });
     } catch (error) {
-      console.error('Get unassigned jobs error:', error);
+      console.error('Get jobs for allocation error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch unassigned jobs',
+        error: 'Failed to fetch jobs for allocation',
       });
     }
   }

@@ -17,6 +17,8 @@ export interface ConsultantData {
   role: ConsultantRole;
   status: ConsultantStatus;
   regionId?: string;
+  regionName?: string;
+  linkedinUrl?: string; // New field
 
   // Profile fields
   address?: string;
@@ -122,6 +124,7 @@ export class ConsultantModel {
 
     const consultant = await prisma.consultant.create({
       data: createData,
+      include: { region: true },
     });
 
     return this.mapPrismaToConsultant(consultant);
@@ -228,10 +231,12 @@ export class ConsultantModel {
     if (data.averageDaysToFill !== undefined) updateData.average_days_to_fill = data.averageDaysToFill || null;
     if (data.currentLeads !== undefined) updateData.current_leads = data.currentLeads;
     if (data.maxLeads !== undefined) updateData.max_leads = data.maxLeads;
+    if (data.linkedinUrl !== undefined) updateData.linkedin_url = data.linkedinUrl || null;
 
     const consultant = await prisma.consultant.update({
       where: { id },
       data: updateData,
+      include: { region: true },
     });
 
     return this.mapPrismaToConsultant(consultant);
@@ -298,6 +303,8 @@ export class ConsultantModel {
       role: prismaConsultant.role,
       status: prismaConsultant.status,
       regionId: prismaConsultant.region_id || undefined,
+      regionName: prismaConsultant.region?.name || undefined,
+      linkedinUrl: prismaConsultant.linkedin_url || undefined,
       address: prismaConsultant.address || undefined,
       city: prismaConsultant.city || undefined,
       stateProvince: prismaConsultant.state_province || undefined,

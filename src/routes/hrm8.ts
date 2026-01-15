@@ -57,6 +57,7 @@ router.post('/licensees/:id/terminate', requireHrm8Role(['GLOBAL_ADMIN']), Regio
 router.get('/consultants', ConsultantManagementController.getAll);
 router.post('/consultants', ConsultantManagementController.create);
 router.post('/consultants/generate-email', ConsultantManagementController.generateEmail);
+router.post('/consultants/:id/invite', ConsultantManagementController.invite);
 router.get('/consultants/:id', ConsultantManagementController.getById);
 router.put('/consultants/:id', ConsultantManagementController.update);
 router.post('/consultants/:id/assign-region', ConsultantManagementController.assignRegion);
@@ -66,7 +67,7 @@ router.delete('/consultants/:id', ConsultantManagementController.delete);
 
 
 // Job Allocation routes
-router.get('/jobs/unassigned', JobAllocationController.getUnassignedJobs);
+router.get('/jobs/allocation', JobAllocationController.getJobsForAllocation);
 router.get('/jobs/:id/assignment-info', JobAllocationController.getAssignmentInfo);
 router.post('/jobs/:id/auto-assign', JobAllocationController.autoAssign);
 router.post('/jobs/:id/assign-consultant', JobAllocationController.assignConsultant);

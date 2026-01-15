@@ -66,7 +66,8 @@ export class JobAllocationService {
     jobId: string,
     consultantId: string,
     assignedBy: string,
-    assignmentSource?: AssignmentSource
+    assignmentSource?: AssignmentSource,
+    allowedRegionIds?: string[]
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Get job to check company package
@@ -86,6 +87,11 @@ export class JobAllocationService {
       const consultant = await ConsultantModel.findById(consultantId);
       if (!consultant || !consultant.regionId) {
         return { success: false, error: 'Consultant not found or not assigned to a region' };
+      }
+
+      // Security Check: If allowedRegionIds is provided (e.g. for Regional Licensee), ensure consultant matches
+      if (allowedRegionIds && !allowedRegionIds.includes(consultant.regionId)) {
+        return { success: false, error: 'You do not have permission to assign this consultant (Region mismatch)' };
       }
 
       // Check if consultant is at capacity
@@ -380,22 +386,35 @@ export class JobAllocationService {
   }
 
   /**
-   * Get unassigned jobs (jobs without assignedConsultantId)
+   * Get jobs for allocation (supports filtering by assignment status)
    */
-  static async getUnassignedJobs(filters?: {
+  static async getJobsForAllocation(filters?: {
     regionId?: string;
     regionIds?: string[];
     companyId?: string;
     limit?: number;
     offset?: number;
+    assignmentStatus?: 'UNASSIGNED' | 'ASSIGNED' | 'ALL';
+    consultantId?: string;
+    search?: string;
   }): Promise<any[]> {
     try {
       const where: any = {
-        assigned_consultant_id: null,
         status: {
           in: [JobStatus.OPEN, JobStatus.ON_HOLD], // Only show OPEN and ON_HOLD jobs
         },
       };
+
+      // Handle assignment status filter (default to UNASSIGNED for backward compatibility if needed, 
+      // but strictly we should move to specific intent)
+      const assignmentStatus = filters?.assignmentStatus || 'UNASSIGNED';
+
+      if (assignmentStatus === 'UNASSIGNED') {
+        where.assigned_consultant_id = null;
+      } else if (assignmentStatus === 'ASSIGNED') {
+        where.assigned_consultant_id = { not: null };
+      }
+      // If 'ALL', we don't filter by assigned_consultant_id
 
       if (filters?.regionId) {
         where.region_id = filters.regionId;
@@ -409,6 +428,31 @@ export class JobAllocationService {
         where.company_id = filters.companyId;
       }
 
+      if (filters?.consultantId) {
+        where.assigned_consultant_id = filters.consultantId;
+      }
+
+      if (filters?.search) {
+        const searchRaw = filters.search.trim();
+        // Check if search term is a valid UUID (for exact job ID match)
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchRaw);
+
+        if (isUuid) {
+          where.OR = [
+            { id: searchRaw },
+            { job_code: { contains: searchRaw, mode: 'insensitive' } },
+            { title: { contains: searchRaw, mode: 'insensitive' } },
+            { company: { name: { contains: searchRaw, mode: 'insensitive' } } }
+          ];
+        } else {
+          where.OR = [
+            { title: { contains: searchRaw, mode: 'insensitive' } },
+            { job_code: { contains: searchRaw, mode: 'insensitive' } },
+            { company: { name: { contains: searchRaw, mode: 'insensitive' } } }
+          ];
+        }
+      }
+
       // Add pagination to prevent loading all jobs into memory
       const limit = filters?.limit || 20; // Default to 20, max reasonable for UI
       const offset = filters?.offset || 0;
@@ -418,11 +462,21 @@ export class JobAllocationService {
         orderBy: { created_at: 'desc' },
         take: limit,
         skip: offset,
+        include: {
+          assigned_consultant: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              email: true
+            }
+          }
+        }
       });
 
       // Map Prisma jobs directly to Job objects (avoiding N+1 queries)
       // Using JobModel.findById would cause N+1 queries, so we map directly
-      const jobs: Job[] = prismaJobs.map((prismaJob) => {
+      const jobs = prismaJobs.map((prismaJob) => {
         // Use the same mapping logic as JobModel.findById but inline
         return {
           id: prismaJob.id,
@@ -486,15 +540,16 @@ export class JobAllocationService {
           assignmentMode: prismaJob.assignment_mode || undefined,
           assignmentSource: prismaJob.assignment_source || undefined,
           assignedConsultantId: prismaJob.assigned_consultant_id || undefined,
+          assignedConsultantName: (prismaJob as any).assigned_consultant ? `${(prismaJob as any).assigned_consultant.first_name} ${(prismaJob as any).assigned_consultant.last_name}` : undefined,
           createdAt: prismaJob.created_at,
           updatedAt: prismaJob.updated_at,
-        } as Job;
+        }; // removed 'as Job' to allow extra fields like assignedConsultantName
       });
 
       return jobs;
     } catch (error: any) {
-      console.error('Get unassigned jobs error:', error);
-      throw new Error(error.message || 'Failed to fetch unassigned jobs');
+      console.error('Get jobs for allocation error:', error);
+      throw new Error(error.message || 'Failed to fetch jobs for allocation');
     }
   }
 
