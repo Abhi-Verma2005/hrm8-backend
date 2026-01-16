@@ -4,10 +4,13 @@
  */
 
 import { Request, Response } from 'express';
-import { CandidateNotificationService } from '../../services/candidate/CandidateNotificationService';
+
 import { CandidateAuthenticatedRequest } from '../../middleware/candidateAuth';
 
 export class CandidateNotificationController {
+    /**
+     * Get notifications for authenticated candidate
+     */
     /**
      * Get notifications for authenticated candidate
      */
@@ -24,15 +27,46 @@ export class CandidateNotificationController {
 
             const { unreadOnly, limit, offset } = req.query;
 
-            const result = await CandidateNotificationService.getNotifications(candidateId, {
-                unreadOnly: unreadOnly === 'true',
-                limit: limit ? parseInt(limit as string) : undefined,
-                offset: offset ? parseInt(offset as string) : undefined
-            });
+            // Use UniversalNotificationService
+            const { UniversalNotificationService } = await import('../../services/notification/UniversalNotificationService');
+            const { NotificationRecipientType } = await import('@prisma/client');
+
+            const result = await UniversalNotificationService.getNotifications(
+                NotificationRecipientType.CANDIDATE,
+                candidateId,
+                {
+                    unreadOnly: unreadOnly === 'true',
+                    limit: limit ? parseInt(limit as string) : undefined,
+                    offset: offset ? parseInt(offset as string) : undefined
+                }
+            );
+
+            // Map standard notifications to expected legacy format if needed
+            // The frontend expects data inside 'data' property
+            const mappedNotifications = result.notifications.map((n: any) => ({
+                id: n.id,
+                type: n.type,
+                title: n.title,
+                message: n.message,
+                read: n.read,
+                createdAt: n.created_at || n.createdAt,
+                // Merge explicit columns into data object for frontend compatibility
+                data: {
+                    ...(n.data as object || {}),
+                    jobId: n.job_id || n.jobId,
+                    applicationId: n.application_id || n.applicationId,
+                    companyId: n.company_id || n.companyId,
+                    actionUrl: n.action_url || n.actionUrl
+                }
+            }));
 
             return res.json({
                 success: true,
-                data: result
+                data: {
+                    notifications: mappedNotifications,
+                    total: result.total,
+                    unreadCount: result.unreadCount
+                }
             });
         } catch (error) {
             console.error('Error getting notifications:', error);
@@ -57,7 +91,13 @@ export class CandidateNotificationController {
                 });
             }
 
-            const count = await CandidateNotificationService.getUnreadCount(candidateId);
+            const { UniversalNotificationService } = await import('../../services/notification/UniversalNotificationService');
+            const { NotificationRecipientType } = await import('@prisma/client');
+
+            const count = await UniversalNotificationService.getUnreadCount(
+                NotificationRecipientType.CANDIDATE,
+                candidateId
+            );
 
             return res.json({
                 success: true,
@@ -87,7 +127,21 @@ export class CandidateNotificationController {
                 });
             }
 
-            const notification = await CandidateNotificationService.markAsRead(id, candidateId);
+            const { UniversalNotificationService } = await import('../../services/notification/UniversalNotificationService');
+            const { NotificationRecipientType } = await import('@prisma/client');
+
+            const notification = await UniversalNotificationService.markAsRead(
+                id,
+                NotificationRecipientType.CANDIDATE,
+                candidateId
+            );
+
+            if (!notification) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Notification not found'
+                });
+            }
 
             return res.json({
                 success: true,
@@ -95,7 +149,7 @@ export class CandidateNotificationController {
             });
         } catch (error: any) {
             console.error('Error marking notification as read:', error);
-            return res.status(error.message === 'Notification not found' ? 404 : 500).json({
+            return res.status(500).json({
                 success: false,
                 error: error.message || 'Failed to mark notification as read'
             });
@@ -116,7 +170,13 @@ export class CandidateNotificationController {
                 });
             }
 
-            const result = await CandidateNotificationService.markAllAsRead(candidateId);
+            const { UniversalNotificationService } = await import('../../services/notification/UniversalNotificationService');
+            const { NotificationRecipientType } = await import('@prisma/client');
+
+            const result = await UniversalNotificationService.markAllAsRead(
+                NotificationRecipientType.CANDIDATE,
+                candidateId
+            );
 
             return res.json({
                 success: true,
@@ -146,7 +206,21 @@ export class CandidateNotificationController {
                 });
             }
 
-            await CandidateNotificationService.deleteNotification(id, candidateId);
+            const { UniversalNotificationService } = await import('../../services/notification/UniversalNotificationService');
+            const { NotificationRecipientType } = await import('@prisma/client');
+
+            const success = await UniversalNotificationService.deleteNotification(
+                id,
+                NotificationRecipientType.CANDIDATE,
+                candidateId
+            );
+
+            if (!success) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Notification not found'
+                });
+            }
 
             return res.json({
                 success: true,
@@ -154,7 +228,7 @@ export class CandidateNotificationController {
             });
         } catch (error: any) {
             console.error('Error deleting notification:', error);
-            return res.status(error.message === 'Notification not found' ? 404 : 500).json({
+            return res.status(500).json({
                 success: false,
                 error: error.message || 'Failed to delete notification'
             });

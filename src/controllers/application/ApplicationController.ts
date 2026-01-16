@@ -22,6 +22,8 @@ import { ConversationService } from '../../services/messaging/ConversationServic
 import { UserModel } from '../../models/User';
 import { generateInvitationToken } from '../../utils/token';
 import { CandidateScoringService } from '../../services/ai/CandidateScoringService';
+import { UniversalNotificationService } from '../../services/notification/UniversalNotificationService';
+import { NotificationRecipientType, UniversalNotificationType } from '@prisma/client';
 
 export class ApplicationController {
   /**
@@ -213,6 +215,28 @@ export class ApplicationController {
         stage: application.stage,
       });
 
+      // Send notification to employer
+      try {
+        const job = await JobModel.findById(application.jobId);
+        if (job && job.createdBy) {
+          const candidateName = `${candidate.firstName} ${candidate.lastName}`;
+          await UniversalNotificationService.createNotification({
+            recipientType: NotificationRecipientType.USER,
+            recipientId: job.createdBy,
+            type: UniversalNotificationType.NEW_APPLICATION,
+            title: 'New Application Received',
+            message: `${candidateName} has applied for ${job.title}`,
+            jobId: job.id,
+            applicationId: application.id,
+            actionUrl: `/jobs/${job.id}/applications/${application.id}`,
+          });
+          console.log('✅ Notification sent to employer:', job.createdBy);
+        }
+      } catch (notificationError) {
+        console.error('❌ Failed to send notification to employer:', notificationError);
+        // Don't block application submission if notification fails
+      }
+
       res.status(201).json({
         success: true,
         data: {
@@ -300,6 +324,43 @@ export class ApplicationController {
         status: result.status,
         stage: result.stage,
       });
+
+      // Send notification to employer
+      console.log('🔔 [DEBUG] About to send notification for application:', result.id);
+      try {
+        const job = await JobModel.findById(result.jobId);
+        console.log('🔔 [DEBUG] Job found:', {
+          jobId: result.jobId,
+          jobExists: !!job,
+          createdBy: job?.createdBy,
+          title: job?.title
+        });
+
+        if (job && job.createdBy) {
+          console.log('🔔 [DEBUG] Job has createdBy, creating notification...');
+          const candidateName = `${candidate.firstName} ${candidate.lastName}`;
+          await UniversalNotificationService.createNotification({
+            recipientType: NotificationRecipientType.USER,
+            recipientId: job.createdBy,
+            type: UniversalNotificationType.NEW_APPLICATION,
+            title: 'New Application Received',
+            message: `${candidateName} has applied for ${job.title}`,
+            jobId: job.id,
+            applicationId: result.id,
+            actionUrl: `/jobs/${job.id}/applications/${result.id}`,
+          });
+          console.log('✅ Notification sent to employer:', job.createdBy);
+        } else {
+          console.warn('⚠️ Cannot send notification - job or createdBy missing:', {
+            hasJob: !!job,
+            hasCreatedBy: !!job?.createdBy,
+            jobId: result.jobId
+          });
+        }
+      } catch (notificationError) {
+        console.error('❌ Failed to send notification to employer:', notificationError);
+        // Don't block application submission if notification fails
+      }
 
       // Send email notification for authenticated users
       try {

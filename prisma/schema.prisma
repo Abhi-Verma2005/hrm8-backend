@@ -1087,30 +1087,30 @@ model QuestionnaireResponse {
 }
 
 model Region {
-  id                  String                  @id @default(uuid())
-  name                String
-  code                String                  @unique
-  country             String
-  state_province      String?                 @map("state_province")
-  city                String?
-  boundaries          Json?
-  owner_type          RegionOwnerType         @default(HRM8) @map("owner_type")
-  licensee_id         String?                 @map("licensee_id")
-  is_active           Boolean                 @default(true) @map("is_active")
-  monthly_revenue_target Float?               @default(0) @map("monthly_revenue_target")
-  monthly_placement_target Int?               @default(0) @map("monthly_placement_target")
-  created_at          DateTime                @default(now()) @map("created_at")
-  updated_at          DateTime                @default(now()) @updatedAt @map("updated_at")
-  commissions         Commission[]
-  companies           Company[]
-  consultants         Consultant[]
-  jobs                Job[]
-  lead                Lead[]
-  price_books         PriceBook[]
-  licensee            RegionalLicensee?       @relation(fields: [licensee_id], references: [id])
-  revenue             RegionalRevenue[]
-  bills               Bill[]
-  conversion_requests LeadConversionRequest[]
+  id                       String                  @id @default(uuid())
+  name                     String
+  code                     String                  @unique
+  country                  String
+  state_province           String?                 @map("state_province")
+  city                     String?
+  boundaries               Json?
+  owner_type               RegionOwnerType         @default(HRM8) @map("owner_type")
+  licensee_id              String?                 @map("licensee_id")
+  is_active                Boolean                 @default(true) @map("is_active")
+  monthly_revenue_target   Float?                  @default(0) @map("monthly_revenue_target")
+  monthly_placement_target Int?                    @default(0) @map("monthly_placement_target")
+  created_at               DateTime                @default(now()) @map("created_at")
+  updated_at               DateTime                @default(now()) @updatedAt @map("updated_at")
+  commissions              Commission[]
+  companies                Company[]
+  consultants              Consultant[]
+  jobs                     Job[]
+  lead                     Lead[]
+  price_books              PriceBook[]
+  licensee                 RegionalLicensee?       @relation(fields: [licensee_id], references: [id])
+  revenue                  RegionalRevenue[]
+  bills                    Bill[]
+  conversion_requests      LeadConversionRequest[]
 
   @@index([is_active])
   @@index([licensee_id])

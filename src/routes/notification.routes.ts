@@ -5,8 +5,12 @@
 
 import { Router } from 'express';
 import { NotificationController } from '../controllers/NotificationController';
+import { authenticateUniversal } from '../middleware/universalAuth';
 
 const router: Router = Router();
+
+// Apply authentication to all routes
+router.use(authenticateUniversal);
 
 /**
  * @route GET /api/notifications
