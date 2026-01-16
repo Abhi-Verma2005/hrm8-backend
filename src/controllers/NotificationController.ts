@@ -236,4 +236,58 @@ export class NotificationController {
             return res.status(500).json({ error: 'Failed to delete notification' });
         }
     }
+    /**
+     * Push a pulse notification (Regional Admin broadcast)
+     * POST /api/notifications/pulse
+     */
+    static async pushPulse(req: Request, res: Response) {
+        try {
+            const hrm8User = (req as any).hrm8User;
+
+            if (!hrm8User) {
+                return res.status(403).json({ error: 'Only HRM8 Admins can push pulse notifications' });
+            }
+
+            const { title, message, targetRole, regionId, companyId, type, actionUrl } = req.body;
+
+            // Security: If REGIONAL_LICENSEE, enforce their regionId
+            // Note: assignedRegionIds from middleware could also be checked
+            const effectiveRegionId = hrm8User.role === 'REGIONAL_LICENSEE'
+                ? (hrm8User.region_id || (req as any).assignedRegionIds?.[0])
+                : regionId;
+
+            const recipients = await UniversalNotificationService.getRecipientsByFilters({
+                role: targetRole as NotificationRecipientType,
+                regionId: effectiveRegionId,
+                companyId
+            });
+
+            if (recipients.length === 0) {
+                return res.json({
+                    success: true,
+                    count: 0,
+                    message: 'No recipients matching filters found',
+                });
+            }
+
+            const notifications = await UniversalNotificationService.createBulkNotifications({
+                recipients,
+                type: (type as UniversalNotificationType) || UniversalNotificationType.SYSTEM_ANNOUNCEMENT,
+                title,
+                message,
+                actionUrl,
+                regionId: effectiveRegionId,
+                companyId
+            });
+
+            return res.json({
+                success: true,
+                count: notifications.length,
+                message: `Pulse notification sent to ${notifications.length} recipients`,
+            });
+        } catch (error) {
+            console.error('Error pushing pulse notification:', error);
+            return res.status(500).json({ error: 'Failed to push pulse notification' });
+        }
+    }
 }

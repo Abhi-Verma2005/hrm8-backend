@@ -52,4 +52,10 @@ router.delete('/:id', NotificationController.deleteNotification);
  */
 router.post('/test', NotificationController.createTestNotification);
 
+/**
+ * @route POST /api/notifications/pulse
+ * @desc Push a broadcast notification to multiple users (Admin only)
+ */
+router.post('/pulse', NotificationController.pushPulse);
+
 export default router;
