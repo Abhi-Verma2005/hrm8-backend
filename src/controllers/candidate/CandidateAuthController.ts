@@ -31,7 +31,7 @@ export class CandidateAuthController {
       // Validate email format
       const { isValidEmail, normalizeEmail } = await import('../../utils/email');
       const normalizedEmail = normalizeEmail(registerData.email);
-      
+
       if (!isValidEmail(normalizedEmail)) {
         res.status(400).json({
           success: false,
@@ -54,18 +54,19 @@ export class CandidateAuthController {
         return;
       }
 
-      // Send account creation email
+      // Send verification email
       try {
         const { emailService } = await import('../../services/email/EmailService');
-        
-        await emailService.sendAccountCreationEmail({
-          to: result.email,
-          name: `${result.firstName} ${result.lastName}`,
-          loginEmail: result.email,
-          loginPassword: registerData.password, // Send the plain password for first login
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+        const verificationUrl = `${frontendUrl}/verify-email?token=${result.verificationToken}`;
+
+        await emailService.sendCandidateVerificationEmail({
+          to: result.candidate.email,
+          name: `${result.candidate.firstName} ${result.candidate.lastName}`,
+          verificationUrl,
         });
       } catch (emailError) {
-        console.error('❌ Failed to send account creation email:', emailError);
+        console.error('❌ Failed to send verification email:', emailError);
         console.error('Error details:', emailError instanceof Error ? emailError.message : emailError);
         // Continue even if email fails - don't block registration
       }
@@ -73,15 +74,8 @@ export class CandidateAuthController {
       res.status(201).json({
         success: true,
         data: {
-          candidate: {
-            id: result.id,
-            email: result.email,
-            firstName: result.firstName,
-            lastName: result.lastName,
-            emailVerified: result.emailVerified,
-            status: result.status,
-          },
-          message: 'Registration successful. Check your email for account details.',
+          message: 'Registration successful! Please check your email to verify your account.',
+          email: result.candidate.email,
         },
       });
     } catch (error) {
@@ -147,6 +141,58 @@ export class CandidateAuthController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Login failed',
+      });
+    }
+  }
+
+  /**
+   * Verify candidate email using token from email
+   * GET /api/candidate/auth/verify-email?token=xxx
+   */
+  static async verifyEmail(req: Request, res: Response): Promise<void> {
+    try {
+      const { token } = req.query;
+
+      if (!token || typeof token !== 'string') {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid verification token',
+        });
+        return;
+      }
+
+      const result = await CandidateAuthService.verifyEmail(token);
+
+      if ('error' in result) {
+        res.status(400).json({
+          success: false,
+          error: result.error,
+          ...(result.code ? { code: result.code } : {}),
+        });
+        return;
+      }
+
+      // Set session cookie for auto-login
+      res.cookie('candidateSessionId', result.sessionId, getSessionCookieOptions());
+
+      res.json({
+        success: true,
+        data: {
+          candidate: {
+            id: result.candidate.id,
+            email: result.candidate.email,
+            firstName: result.candidate.firstName,
+            lastName: result.candidate.lastName,
+            emailVerified: result.candidate.emailVerified,
+            status: result.candidate.status,
+          },
+          message: 'Email verified successfully! You are now logged in.',
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Verification failed',
       });
     }
   }

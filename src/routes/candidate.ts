@@ -11,6 +11,7 @@ const router: RouterType = Router();
 
 // Public auth routes
 router.post('/auth/register', CandidateAuthController.register);
+router.get('/auth/verify-email', CandidateAuthController.verifyEmail);
 router.post('/auth/login', CandidateAuthController.login);
 
 // Protected routes (require authentication)

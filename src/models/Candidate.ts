@@ -161,6 +161,26 @@ export class CandidateModel {
   }
 
   /**
+   * Update email verified status
+   */
+  static async updateEmailVerified(id: string, emailVerified: boolean): Promise<void> {
+    await prisma.candidate.update({
+      where: { id },
+      data: { email_verified: emailVerified },
+    });
+  }
+
+  /**
+   * Update candidate status
+   */
+  static async updateStatus(id: string, status: CandidateStatus): Promise<void> {
+    await prisma.candidate.update({
+      where: { id },
+      data: { status },
+    });
+  }
+
+  /**
    * Search candidates in talent pool (for recruiters)
    */
   static async searchTalentPool(filters: {
