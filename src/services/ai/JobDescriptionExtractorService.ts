@@ -4,6 +4,7 @@
  */
 
 import { ParsedDocument } from '../document/DocumentParserService';
+import { ConfigService } from '../../services/config/ConfigService';
 
 export interface ExtractedJobData {
   title?: string;
@@ -34,7 +35,7 @@ export class JobDescriptionExtractorService {
 
     // Extract title (usually first line or line with "Position:", "Title:", etc.)
     const titleMatch = text.match(/(?:Position|Title|Job Title|Role)[:]\s*(.+)/i) ||
-                       text.match(/^(.{5,80})$/m);
+      text.match(/^(.{5,80})$/m);
     const title = titleMatch ? titleMatch[1].trim() : undefined;
 
     // Extract description (first few paragraphs before requirements/responsibilities)
@@ -84,7 +85,7 @@ export class JobDescriptionExtractorService {
 
     // Extract employment type
     const employmentTypeMatch = text.match(/(?:Employment Type|Type|Contract Type)[:]\s*(.+)/i) ||
-                                text.match(/(Full-time|Part-time|Contract|Casual|Permanent|Temporary)/i);
+      text.match(/(Full-time|Part-time|Contract|Casual|Permanent|Temporary)/i);
     const employmentType = employmentTypeMatch ? employmentTypeMatch[1].toLowerCase().replace('-', '-') : undefined;
 
     return {
@@ -144,7 +145,8 @@ export class JobDescriptionExtractorService {
    * Extract job data using OpenAI (if API key is available)
    */
   static async extractWithOpenAI(document: ParsedDocument): Promise<ExtractedJobData> {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const config = await ConfigService.getOpenAIConfig();
+    const apiKey = config.apiKey;
 
     if (!apiKey) {
       console.log('OpenAI API key not found, falling back to pattern matching');
@@ -212,33 +214,33 @@ Return ONLY valid JSON, no markdown formatting, no code blocks.`;
       description: typeof data.description === 'string' ? data.description.trim() : undefined,
       requirements: Array.isArray(data.requirements)
         ? data.requirements
-            .filter((item: any) => typeof item === 'string' && item.trim().length > 0)
-            .map((item: string) => item.trim())
-            .slice(0, 10)
+          .filter((item: any) => typeof item === 'string' && item.trim().length > 0)
+          .map((item: string) => item.trim())
+          .slice(0, 10)
         : [],
       responsibilities: Array.isArray(data.responsibilities)
         ? data.responsibilities
-            .filter((item: any) => typeof item === 'string' && item.trim().length > 0)
-            .map((item: string) => item.trim())
-            .slice(0, 10)
+          .filter((item: any) => typeof item === 'string' && item.trim().length > 0)
+          .map((item: string) => item.trim())
+          .slice(0, 10)
         : [],
       qualifications: Array.isArray(data.qualifications)
         ? data.qualifications
-            .filter((item: any) => typeof item === 'string' && item.trim().length > 0)
-            .map((item: string) => item.trim())
+          .filter((item: any) => typeof item === 'string' && item.trim().length > 0)
+          .map((item: string) => item.trim())
         : undefined,
       benefits: Array.isArray(data.benefits)
         ? data.benefits
-            .filter((item: any) => typeof item === 'string' && item.trim().length > 0)
-            .map((item: string) => item.trim())
+          .filter((item: any) => typeof item === 'string' && item.trim().length > 0)
+          .map((item: string) => item.trim())
         : undefined,
       salaryRange: data.salaryRange && typeof data.salaryRange === 'object'
         ? {
-            min: typeof data.salaryRange.min === 'number' ? data.salaryRange.min : undefined,
-            max: typeof data.salaryRange.max === 'number' ? data.salaryRange.max : undefined,
-            currency: typeof data.salaryRange.currency === 'string' ? data.salaryRange.currency : undefined,
-            period: typeof data.salaryRange.period === 'string' ? data.salaryRange.period : undefined,
-          }
+          min: typeof data.salaryRange.min === 'number' ? data.salaryRange.min : undefined,
+          max: typeof data.salaryRange.max === 'number' ? data.salaryRange.max : undefined,
+          currency: typeof data.salaryRange.currency === 'string' ? data.salaryRange.currency : undefined,
+          period: typeof data.salaryRange.period === 'string' ? data.salaryRange.period : undefined,
+        }
         : undefined,
       location: typeof data.location === 'string' ? data.location.trim() : undefined,
       employmentType: typeof data.employmentType === 'string' ? data.employmentType.toLowerCase().trim() : undefined,
@@ -247,4 +249,3 @@ Return ONLY valid JSON, no markdown formatting, no code blocks.`;
     };
   }
 }
-

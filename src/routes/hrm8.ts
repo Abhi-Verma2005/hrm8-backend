@@ -19,12 +19,16 @@ import { RefundAdminController } from '../controllers/hrm8/RefundAdminController
 import { LeadConversionAdminController } from '../controllers/hrm8/LeadConversionAdminController';
 import { RevenueController } from '../controllers/hrm8/RevenueController';
 import { LeadController } from '../controllers/sales/LeadController';
+import { SystemSettingsController } from '../controllers/SystemSettingsController';
+import { RegionalAnalyticsController } from '../controllers/hrm8/RegionalAnalyticsController';
 import { authenticateHrm8User, requireHrm8Role } from '../middleware/hrm8Auth';
 
 const router: RouterType = Router();
 
 // Public auth routes
 router.post('/auth/login', Hrm8AuthController.login);
+// Public system settings (Branding etc)
+router.get('/system-settings/public', SystemSettingsController.getPublicSettings);
 
 // Protected routes (require authentication)
 router.use(authenticateHrm8User);
@@ -57,6 +61,7 @@ router.post('/licensees/:id/terminate', requireHrm8Role(['GLOBAL_ADMIN']), Regio
 router.get('/consultants', ConsultantManagementController.getAll);
 router.post('/consultants', ConsultantManagementController.create);
 router.post('/consultants/generate-email', ConsultantManagementController.generateEmail);
+router.post('/consultants/:id/reassign-jobs', ConsultantManagementController.reassignJobs);
 router.post('/consultants/:id/invite', ConsultantManagementController.invite);
 router.get('/consultants/:id', ConsultantManagementController.getById);
 router.put('/consultants/:id', ConsultantManagementController.update);
@@ -97,6 +102,10 @@ router.get('/revenue/by-region', (req, res, next) => RevenueController.getByRegi
 router.get('/revenue/commissions/breakdown', (req, res, next) => RevenueController.getCommissionBreakdown(req, res).catch(next));
 router.get('/revenue/consultants/top', (req, res, next) => RevenueController.getTopConsultants(req, res).catch(next));
 router.get('/revenue/timeline', (req, res, next) => RevenueController.getTimeline(req, res).catch(next));
+
+// Regional Operational Analytics
+router.get('/analytics/regional/:regionId/operational', RegionalAnalyticsController.getOperationalStats);
+router.get('/analytics/regional/:regionId/companies', RegionalAnalyticsController.getRegionalCompanies);
 
 // Wildcard routes (must come last)
 router.get('/revenue/:id', RegionalRevenueController.getById);
@@ -168,5 +177,10 @@ import * as Hrm8AnalyticsController from '../controllers/hrm8/hrm8AnalyticsContr
 router.get('/analytics/overview', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8AnalyticsController.getPlatformAnalyticsOverview);
 router.get('/analytics/trends', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8AnalyticsController.getPlatformAnalyticsTrends);
 router.get('/analytics/top-companies', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8AnalyticsController.getTopPerformingCompanies);
+
+// System Settings / Master Control Center (Global Admin)
+router.get('/system-settings', requireHrm8Role(['GLOBAL_ADMIN']), SystemSettingsController.getAllSettings);
+router.post('/system-settings', requireHrm8Role(['GLOBAL_ADMIN']), SystemSettingsController.updateSetting);
+router.post('/system-settings/bulk', requireHrm8Role(['GLOBAL_ADMIN']), SystemSettingsController.bulkUpdateSettings);
 
 export default router;

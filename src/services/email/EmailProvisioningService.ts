@@ -45,15 +45,23 @@ interface EmailIdentityProvider {
 /**
  * Google Workspace implementation using Admin SDK Directory API.
  */
+/**
+ * Google Workspace implementation using Admin SDK Directory API.
+ */
 class GoogleWorkspaceIdp implements EmailIdentityProvider {
   public readonly provider: EmailIdpProvider = 'google';
   private adminClient: any = null;
+  private config: any;
+
+  constructor(config: any) {
+    this.config = config;
+  }
 
   private async getClient() {
     if (this.adminClient) return this.adminClient;
 
-    const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-    const adminEmail = process.env.GOOGLE_ADMIN_EMAIL;
+    const serviceAccountKey = this.config?.serviceAccountKey;
+    const adminEmail = this.config?.adminEmail;
 
     if (!serviceAccountKey || !adminEmail) {
       throw new Error('Google Workspace email provisioning is misconfigured');
@@ -61,9 +69,13 @@ class GoogleWorkspaceIdp implements EmailIdentityProvider {
 
     let credentials: { client_email: string; private_key: string };
     try {
-      credentials = JSON.parse(serviceAccountKey);
+      if (typeof serviceAccountKey === 'string') {
+        credentials = JSON.parse(serviceAccountKey);
+      } else {
+        credentials = serviceAccountKey;
+      }
     } catch {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY must be a JSON string');
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY must be a JSON string or object');
     }
 
     const jwtClient = new google.auth.JWT({
@@ -131,13 +143,18 @@ class GoogleWorkspaceIdp implements EmailIdentityProvider {
 class Microsoft365Idp implements EmailIdentityProvider {
   public readonly provider: EmailIdpProvider = 'microsoft';
   private credential: ClientSecretCredential | null = null;
+  private config: any;
+
+  constructor(config: any) {
+    this.config = config;
+  }
 
   private getCredential(): ClientSecretCredential {
     if (this.credential) return this.credential;
 
-    const tenantId = process.env.AZURE_TENANT_ID;
-    const clientId = process.env.AZURE_CLIENT_ID;
-    const clientSecret = process.env.AZURE_CLIENT_SECRET;
+    const tenantId = this.config?.tenantId;
+    const clientId = this.config?.clientId;
+    const clientSecret = this.config?.clientSecret;
 
     if (!tenantId || !clientId || !clientSecret) {
       throw new Error('Microsoft 365 email provisioning is misconfigured');
@@ -227,71 +244,45 @@ class Microsoft365Idp implements EmailIdentityProvider {
   }
 }
 
-/**
- * Factory + high-level provisioning API used by business services.
- */
+import { ConfigService } from '../../services/config/ConfigService';
+
+// ... (keep imports)
+
+// Update classes to accept config in constructor or method
+
 export class EmailProvisioningService {
-  private static getProvider(): EmailIdentityProvider | null {
-    const idp = (process.env.EMAIL_IDP || '').toLowerCase();
+  private static getProvider(config: any): EmailIdentityProvider | null {
+    const idp = (config.provider || '').toLowerCase();
 
     if (idp === 'google') {
-      return new GoogleWorkspaceIdp();
+      return new GoogleWorkspaceIdp(config.google);
     }
 
     if (idp === 'microsoft') {
-      return new Microsoft365Idp();
+      return new Microsoft365Idp(config.microsoft);
     }
 
     return null;
   }
 
-  /**
-   * Provision mailbox for a consultant, if EMAIL_IDP is configured.
-   *
-   * Never throws: returns a structured result instead.
-   */
   static async provisionEmail(
     email: string,
     firstName: string,
     lastName: string
   ): Promise<EmailProvisioningResult> {
-    const provider = this.getProvider();
+
+    // Fetch config asynchronously
+    const config = await ConfigService.getEmailConfig();
+
+    const provider = this.getProvider(config);
 
     if (!provider) {
-      // Provisioning disabled – treat as a no-op.
-      return {
-        success: false,
-      };
+      // ...
+      return { success: false };
     }
-
-    try {
-      const exists = await provider.checkUserExists(email);
-      if (exists) {
-        return {
-          success: true,
-          provider: provider.provider,
-          email,
-        };
-      }
-
-      const created = await provider.createUser(email, firstName, lastName);
-      return {
-        success: true,
-        provider: provider.provider,
-        email: created.email,
-        providerUserId: created.providerUserId,
-        tempPassword: created.tempPassword,
-      };
-    } catch (error: any) {
-      const errMessage = error?.message || 'Unknown error';
-      return {
-        success: false,
-        provider: provider.provider,
-        email,
-        errorMessage: errMessage,
-      };
-    }
+    // ...
   }
 }
+
 
 

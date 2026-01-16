@@ -14,12 +14,12 @@ export interface JobDescriptionGenerationRequest {
   workArrangement?: 'on-site' | 'remote' | 'hybrid';
   tags?: string[];
   serviceType?: 'self-managed' | 'shortlisting' | 'full-service' | 'executive-search' | 'rpo';
-  
+
   // From Step 2 (if partially filled, use as context)
   existingDescription?: string;
   existingRequirements?: string[];
   existingResponsibilities?: string[];
-  
+
   // From Step 3 (if available)
   salaryMin?: number;
   salaryMax?: number;
@@ -30,7 +30,7 @@ export interface JobDescriptionGenerationRequest {
   closeDate?: string;
   visibility?: 'public' | 'private';
   stealth?: boolean;
-  
+
   // Additional context user can provide
   additionalContext?: string;
 }
@@ -41,12 +41,17 @@ export interface GeneratedJobDescription {
   responsibilities: string[];
 }
 
+import { ConfigService } from '../../services/config/ConfigService';
+
+// ... interface definitions (keep imports/interfaces)
+
 export class JobDescriptionGeneratorService {
   /**
    * Generate job description using OpenAI with ALL available context
    */
   static async generateWithAI(request: JobDescriptionGenerationRequest): Promise<GeneratedJobDescription> {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const config = await ConfigService.getOpenAIConfig();
+    const apiKey = config.apiKey;
 
     if (!apiKey) {
       console.log('OpenAI API key not found, falling back to pattern generation');
@@ -96,9 +101,9 @@ export class JobDescriptionGeneratorService {
    */
   private static buildPrompt(request: JobDescriptionGenerationRequest): string {
     const parts: string[] = [];
-    
+
     parts.push(`Generate a comprehensive job description for the following position:\n\n`);
-    
+
     // Core Information (Step 1)
     parts.push(`**Job Title:** ${request.title}`);
     if (request.department) parts.push(`**Department:** ${request.department}`);
@@ -122,7 +127,7 @@ export class JobDescriptionGeneratorService {
       };
       parts.push(`**Service Type:** ${serviceTypeNames[request.serviceType] || request.serviceType}`);
     }
-    
+
     // Compensation Information (Step 3, if available)
     if (request.salaryMin || request.salaryMax) {
       parts.push(`\n**Compensation:**`);
@@ -141,7 +146,7 @@ export class JobDescriptionGeneratorService {
         parts.push(`Salary Details: ${request.salaryDescription}`);
       }
     }
-    
+
     // Existing Content (Step 2, if partially filled - use as context/guidance)
     if (request.existingDescription) {
       parts.push(`\n**Existing Description (use as reference/guidance):**\n${request.existingDescription.substring(0, 500)}`);
@@ -152,18 +157,18 @@ export class JobDescriptionGeneratorService {
     if (request.existingResponsibilities && request.existingResponsibilities.length > 0) {
       parts.push(`\n**Existing Responsibilities (build upon these):**\n${request.existingResponsibilities.map((r, i) => `${i + 1}. ${r}`).join('\n')}`);
     }
-    
+
     // Additional Context
     if (request.additionalContext) {
       parts.push(`\n**Additional Context/Notes:**\n${request.additionalContext}`);
     }
-    
+
     // Instructions
     parts.push(`\n\nPlease generate:`);
     parts.push(`1. A compelling 2-3 paragraph job description that highlights the role, team, company culture, and what makes this opportunity unique`);
     parts.push(`2. 5-8 key requirements/qualifications (as an array of strings)`);
     parts.push(`3. 5-8 key responsibilities (as an array of strings)`);
-    
+
     parts.push(`\n**Important Guidelines:**`);
     parts.push(`- If existing description/requirements/responsibilities are provided, enhance and expand upon them`);
     parts.push(`- Make the description specific to the role, department, and experience level`);
@@ -171,7 +176,7 @@ export class JobDescriptionGeneratorService {
     parts.push(`- If salary information is provided, mention it appropriately (or note if not disclosed)`);
     parts.push(`- Use professional but engaging language`);
     parts.push(`- Make it appealing to candidates at the specified experience level`);
-    
+
     parts.push(`\nReturn ONLY a JSON object with this structure:`);
     parts.push(`{`);
     parts.push(`  "description": "2-3 paragraph job description text",`);
@@ -179,7 +184,7 @@ export class JobDescriptionGeneratorService {
     parts.push(`  "responsibilities": ["responsibility 1", "responsibility 2", ...]`);
     parts.push(`}`);
     parts.push(`\nNo markdown formatting, no code blocks, just valid JSON.`);
-    
+
     return parts.join('\n');
   }
 

@@ -505,6 +505,55 @@ export class ConsultantManagementController {
       });
     }
   }
+
+  /**
+   * Reassign all jobs to another consultant
+   * POST /api/hrm8/consultants/:id/reassign-jobs
+   */
+  static async reassignJobs(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { targetConsultantId } = req.body;
+
+      if (!targetConsultantId) {
+        res.status(400).json({ success: false, error: 'Target consultant ID is required' });
+        return;
+      }
+
+      // Verify access if licensee
+      if (req.assignedRegionIds) {
+        const consultant = await ConsultantManagementService.getConsultantById(id);
+        if (!consultant || (consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId))) {
+          res.status(403).json({ success: false, error: 'Access denied' });
+          return;
+        }
+      }
+
+      // Lazy load service to avoid circular dependency
+      const { JobAllocationService } = await import('../../services/hrm8/JobAllocationService');
+
+      const result = await JobAllocationService.reassignConsultantJobs(
+        id,
+        targetConsultantId,
+        req.hrm8User?.id || 'admin'
+      );
+
+      if (!result.success) {
+        res.status(400).json({ success: false, error: result.error });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: `Successfully reassigned ${result.count} jobs`,
+        data: { count: result.count }
+      });
+
+    } catch (error) {
+      console.error('Reassign jobs error:', error);
+      res.status(500).json({ success: false, error: 'Failed to reassign jobs' });
+    }
+  }
 }
 
 

@@ -5,6 +5,7 @@
  */
 
 import { ParsedDocument } from '../document/DocumentParserService';
+import { ConfigService } from '../../services/config/ConfigService';
 
 export interface ParsedWorkExperience {
     company: string;
@@ -69,7 +70,8 @@ export class ResumeParserService {
      * Extract resume data using OpenAI with ATS-friendly parsing
      */
     static async parseResume(document: ParsedDocument): Promise<ParsedResumeData> {
-        const apiKey = process.env.OPENAI_API_KEY;
+        const config = await ConfigService.getOpenAIConfig();
+        const apiKey = config.apiKey;
 
         if (!apiKey) {
             console.warn('OpenAI API key not found, using fallback pattern matching');

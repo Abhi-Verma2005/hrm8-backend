@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 import { EmailTemplateType } from '@prisma/client';
 import { JobModel } from '../../models/Job';
 import { JobRoundModel } from '../../models/JobRound';
+import { ConfigService } from '../../services/config/ConfigService';
 
 export interface GenerateEmailTemplateRequest {
   jobRoundId?: string;
@@ -30,7 +31,8 @@ export class EmailTemplateAIService {
   static async generateTemplate(
     request: GenerateEmailTemplateRequest
   ): Promise<GeneratedEmailTemplate> {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const config = await ConfigService.getOpenAIConfig();
+    const apiKey = config.apiKey;
 
     if (!apiKey) {
       console.log('OpenAI API key not found, falling back to template generation');
@@ -69,8 +71,8 @@ export class EmailTemplateAIService {
       return {
         subject: generated.subject || '',
         body: generated.body || '',
-        suggestedVariables: Array.isArray(generated.suggestedVariables) 
-          ? generated.suggestedVariables 
+        suggestedVariables: Array.isArray(generated.suggestedVariables)
+          ? generated.suggestedVariables
           : [],
       };
     } catch (error) {
@@ -86,7 +88,8 @@ export class EmailTemplateAIService {
     existingTemplate: { subject: string; body: string },
     instructions: string
   ): Promise<GeneratedEmailTemplate> {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const config = await ConfigService.getOpenAIConfig();
+    const apiKey = config.apiKey;
 
     if (!apiKey) {
       return existingTemplate as GeneratedEmailTemplate;
@@ -250,17 +253,17 @@ Example format:
     const templateTypeDescription = this.getTemplateTypeDescription(request.templateType);
     const tone = request.tone || 'professional';
 
-    const greeting = tone === 'casual' 
-      ? 'Hi {{candidateFirstName}},' 
+    const greeting = tone === 'casual'
+      ? 'Hi {{candidateFirstName}},'
       : tone === 'friendly'
-      ? 'Hello {{candidateName}},'
-      : 'Dear {{candidateName}},';
+        ? 'Hello {{candidateName}},'
+        : 'Dear {{candidateName}},';
 
     const closing = tone === 'casual'
       ? 'Best,\n{{recruiterName}}'
       : tone === 'friendly'
-      ? 'Best regards,\n{{recruiterName}}\n{{companyName}}'
-      : 'Best regards,\n{{recruiterName}}\n{{companyName}} Recruiting Team';
+        ? 'Best regards,\n{{recruiterName}}\n{{companyName}}'
+        : 'Best regards,\n{{recruiterName}}\n{{companyName}} Recruiting Team';
 
     let subject = '';
     let body = '';
