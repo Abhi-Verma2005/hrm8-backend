@@ -10,6 +10,7 @@ import { getSessionCookieOptions } from '../utils/session';
 
 import { HRM8UserRole } from '../types';
 import { RegionService } from '../services/hrm8/RegionService';
+import prisma from '../lib/prisma';
 
 export interface Hrm8AuthenticatedRequest extends Request {
   hrm8User?: {
@@ -19,6 +20,7 @@ export interface Hrm8AuthenticatedRequest extends Request {
     lastName: string;
     role: string;
     licenseeId?: string;
+    licenseeStatus?: string;
   };
   assignedRegionIds?: string[];
 }
@@ -68,6 +70,39 @@ export async function authenticateHrm8User(
       return;
     }
 
+    // Check if licensee is suspended or terminated
+    let licenseeStatus: string | undefined;
+    if (hrm8User.role === HRM8UserRole.REGIONAL_LICENSEE && hrm8User.licenseeId) {
+      const licensee = await prisma.regionalLicensee.findUnique({
+        where: { id: hrm8User.licenseeId },
+        select: { status: true },
+      });
+
+      if (licensee) {
+        licenseeStatus = licensee.status;
+
+        if (licensee.status === 'SUSPENDED') {
+          res.clearCookie('hrm8SessionId', getSessionCookieOptions());
+          res.status(403).json({
+            success: false,
+            error: 'Your licensee account has been suspended. Please contact HRM8 support.',
+            code: 'LICENSEE_SUSPENDED',
+          });
+          return;
+        }
+
+        if (licensee.status === 'TERMINATED') {
+          res.clearCookie('hrm8SessionId', getSessionCookieOptions());
+          res.status(403).json({
+            success: false,
+            error: 'Your licensee account has been terminated. Please contact HRM8 support.',
+            code: 'LICENSEE_TERMINATED',
+          });
+          return;
+        }
+      }
+    }
+
     req.hrm8User = {
       id: hrm8User.id,
       email: hrm8User.email,
@@ -75,6 +110,7 @@ export async function authenticateHrm8User(
       lastName: hrm8User.lastName,
       role: hrm8User.role,
       licenseeId: hrm8User.licenseeId,
+      licenseeStatus,
     };
 
     // If licensee, attach assigned region IDs

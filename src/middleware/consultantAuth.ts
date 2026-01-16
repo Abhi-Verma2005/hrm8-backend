@@ -16,6 +16,7 @@ export interface ConsultantAuthenticatedRequest extends Request {
     lastName: string;
     role: string;
     regionId: string;
+    status: string;
   };
 }
 
@@ -64,6 +65,23 @@ export async function authenticateConsultant(
       return;
     }
 
+    // Check if consultant is suspended/inactive
+    if (consultant.status === 'SUSPENDED' || consultant.status === 'INACTIVE') {
+      res.clearCookie('consultantSessionId', getSessionCookieOptions());
+      res.status(403).json({
+        success: false,
+        error: 'Your consultant account has been suspended. Please contact your regional manager.',
+        code: 'CONSULTANT_SUSPENDED',
+      });
+      return;
+    }
+
+    // Check if consultant is on leave
+    if (consultant.status === 'ON_LEAVE') {
+      // Allow access but with a warning - they can still view data
+      // Just adding the status to the request for tracking
+    }
+
     req.consultant = {
       id: consultant.id,
       email: consultant.email,
@@ -71,6 +89,7 @@ export async function authenticateConsultant(
       lastName: consultant.lastName,
       role: consultant.role,
       regionId: consultant.regionId || '',
+      status: consultant.status,
     };
 
     next();
@@ -81,4 +100,5 @@ export async function authenticateConsultant(
     });
   }
 }
+
 
