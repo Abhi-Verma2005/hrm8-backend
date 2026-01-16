@@ -57,8 +57,11 @@ router.put('/messages/:conversationId/read', ConsultantMessageController.markRea
 
 // Candidate pipeline routes
 router.get('/jobs/:jobId/candidates', ConsultantCandidateController.getPipeline);
+router.get('/jobs/:jobId/rounds', ConsultantCandidateController.getJobRounds);
 router.post('/candidates/:applicationId/status', ConsultantCandidateController.updateStatus);
 router.post('/candidates/:applicationId/note', ConsultantCandidateController.addNote);
+router.post('/candidates/:applicationId/move-to-round', ConsultantCandidateController.moveToRound);
+router.post('/candidates/:applicationId/stage', ConsultantCandidateController.updateStage);
 
 // Withdrawal routes
 router.get('/commissions/balance', WithdrawalController.getBalance);
