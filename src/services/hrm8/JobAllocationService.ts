@@ -8,7 +8,7 @@ import { prisma } from '../../lib/prisma';
 import { ConsultantModel, ConsultantData } from '../../models/Consultant';
 import { ConsultantJobAssignmentModel } from '../../models/ConsultantJobAssignment';
 import { JobModel } from '../../models/Job';
-import { Job, JobStatus, HiringMode, WorkArrangement, EmploymentType } from '../../types';
+import { JobStatus, HiringMode, WorkArrangement, EmploymentType } from '../../types';
 import { AutoAssignmentService } from './AutoAssignmentService';
 import { PackageService } from './PackageService';
 import { CommissionService } from './CommissionService';
@@ -67,7 +67,8 @@ export class JobAllocationService {
     consultantId: string,
     assignedBy: string,
     assignmentSource?: AssignmentSource,
-    allowedRegionIds?: string[]
+    allowedRegionIds?: string[],
+    skipValidation: boolean = false
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Get job to check company package
@@ -77,10 +78,13 @@ export class JobAllocationService {
       }
 
       // Validate that company has paid package before allowing consultant assignment
-      try {
-        await PackageService.validateConsultantAssignment(job.companyId);
-      } catch (error: any) {
-        return { success: false, error: error.message };
+      // Skip if explicitly requested (e.g. for administrative reassignment)
+      if (!skipValidation) {
+        try {
+          await PackageService.validateConsultantAssignment(job.companyId);
+        } catch (error: any) {
+          return { success: false, error: error.message };
+        }
       }
 
       // Get consultant
@@ -95,6 +99,7 @@ export class JobAllocationService {
       }
 
       // Check if consultant is at capacity
+      // We might want to skip this for reassignment too? keeping it for now.
       if (consultant.currentJobs >= consultant.maxJobs) {
         return { success: false, error: 'Consultant is at capacity' };
       }
@@ -164,6 +169,65 @@ export class JobAllocationService {
     } catch (error: any) {
       console.error('Assign job error:', error);
       return { success: false, error: error.message || 'Failed to assign job' };
+    }
+  }
+
+  /**
+   * Reassign all active jobs from one consultant to another
+   */
+  static async reassignConsultantJobs(
+    oldConsultantId: string,
+    newConsultantId: string,
+    performedBy: string
+  ): Promise<{ success: boolean; count: number; error?: string }> {
+    try {
+      // 1. Validate Consultants
+      const oldC = await ConsultantModel.findById(oldConsultantId);
+      const newC = await ConsultantModel.findById(newConsultantId);
+
+      if (!oldC || !newC) {
+        return { success: false, count: 0, error: 'Consultant not found' };
+      }
+
+      if (oldC.regionId !== newC.regionId) {
+        return { success: false, count: 0, error: 'Consultants must be in the same region' };
+      }
+
+      // 2. Find Active Jobs assigned to old consultant
+      // Explicitly looking for OPEN jobs. DRAFT jobs might also need moving if they are assigned.
+      // ConsultantJobAssignmentModel.findByConsultantId returns assignments.
+      // We'll trust the assignment table.
+      const assignments = await ConsultantJobAssignmentModel.findByConsultantId(oldConsultantId, true); // true = active only
+
+      // Filter for OPEN jobs only? Or move everything? 
+      // Usually offboarding implies moving everything active.
+
+      let count = 0;
+      for (const assignment of assignments) {
+        // Use the assignJobToConsultant method which handles all side effects (counters, history, etc)
+        // We pass newConsultantID. assignmentSource 'MANUAL_REASSIGNMENT'
+        // Skip validation as this is an administrative moving of existing valid jobs
+        const result = await this.assignJobToConsultant(
+          assignment.jobId,
+          newConsultantId,
+          performedBy,
+          AssignmentSource.MANUAL_REASSIGNMENT,
+          undefined, // allowedRegionIds
+          true // skipValidation
+        );
+
+        if (result.success) {
+          count++;
+        } else {
+          console.error(`Failed to reassign job ${assignment.jobId}: ${result.error}`);
+        }
+      }
+
+      return { success: true, count };
+
+    } catch (error: any) {
+      console.error('Reassign consultant jobs error:', error);
+      return { success: false, count: 0, error: error.message || 'Failed to reassign jobs' };
     }
   }
 
@@ -664,5 +728,6 @@ export class JobAllocationService {
       throw new Error(error.message || 'Failed to fetch jobs');
     }
   }
-}
 
+
+}

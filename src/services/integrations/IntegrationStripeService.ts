@@ -7,7 +7,7 @@ import prisma from '../../lib/prisma';
 import { StripeFactory } from '../stripe/StripeFactory';
 
 // Get Stripe client (auto-switches between real/mock based on environment)
-const stripe = StripeFactory.getClient();
+// const stripe = StripeFactory.getClient(); // REMOVED top-level init
 
 export type EntityType = 'COMPANY' | 'HRM8_USER' | 'CONSULTANT';
 
@@ -16,6 +16,7 @@ export class IntegrationStripeService {
      * Check if entity has Stripe connected
      */
     static async hasStripeConnected(entityType: EntityType, entityId: string): Promise<boolean> {
+        // ... (no change needed here as it doesn't use stripe client directly, only DB)
         const whereClause = this.buildWhereClause(entityType, entityId);
 
         const integration = await prisma.integration.findFirst({
@@ -71,6 +72,9 @@ export class IntegrationStripeService {
         const email = await this.getEntityEmail(entityType, entityId);
         console.log('[IntegrationStripeService] Entity email:', email);
 
+        // Get Stripe Client Async
+        const stripe = await StripeFactory.getClientAsync();
+
         // Create Stripe Connect account
         const account = await stripe.accounts.create({
             type: 'express',
@@ -123,6 +127,9 @@ export class IntegrationStripeService {
         // Determine return URL based on entity type
         const returnPath = this.getReturnPath(integration);
 
+        // Get Stripe Client Async
+        const stripe = await StripeFactory.getClientAsync();
+
         const accountLink = await stripe.accountLinks.create({
             account: integration.stripe_account_id,
             refresh_url: `${origin}${returnPath}?stripe_refresh=true`,
@@ -153,6 +160,9 @@ export class IntegrationStripeService {
         if (!integration || !integration.stripe_account_id) {
             throw new Error('Stripe integration not found or account ID missing');
         }
+
+        // Get Stripe Client Async
+        const stripe = await StripeFactory.getClientAsync();
 
         const account = await stripe.accounts.retrieve(integration.stripe_account_id);
         const detailsSubmitted = account.details_submitted;
@@ -194,6 +204,9 @@ export class IntegrationStripeService {
         if (integration.stripe_account_status !== 'active') {
             throw new Error('Stripe account not fully onboarded');
         }
+
+        // Get Stripe Client Async
+        const stripe = await StripeFactory.getClientAsync();
 
         const session = await stripe.checkout.sessions.create({
             mode: 'payment',
@@ -288,3 +301,4 @@ export class IntegrationStripeService {
         return '/integrations';
     }
 }
+

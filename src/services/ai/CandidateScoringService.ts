@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 import { JobModel } from '../../models/Job';
 import { ApplicationModel } from '../../models/Application';
 import { DocumentParserService } from '../document/DocumentParserService';
+import { ConfigService } from '../../services/config/ConfigService';
 
 export interface CandidateScoringRequest {
   applicationId: string;
@@ -60,7 +61,8 @@ export class CandidateScoringService {
    * Score a single candidate comprehensively using OpenAI
    */
   static async scoreCandidate(request: CandidateScoringRequest): Promise<CandidateScoringResult> {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const config = await ConfigService.getOpenAIConfig();
+    const apiKey = config.apiKey;
 
     if (!apiKey) {
       throw new Error('OpenAI API key is not configured');
@@ -101,7 +103,7 @@ export class CandidateScoringService {
               const arrayBuffer = await response.arrayBuffer();
               const buffer = Buffer.from(arrayBuffer);
               const contentType = response.headers.get('content-type') || 'application/pdf';
-              
+
               // Determine file type
               let mimetype = contentType;
               if (application.resumeUrl.toLowerCase().endsWith('.pdf')) {
@@ -273,7 +275,7 @@ Be specific, objective, and provide actionable insights.`;
                     required: ['skillsAnalysis', 'experienceAnalysis', 'educationAnalysis', 'culturalFitAnalysis', 'overallAssessment'],
                   },
                   summary: { type: 'string' },
-                  behavioralTraits: { 
+                  behavioralTraits: {
                     type: 'array',
                     items: { type: 'string' }
                   },
@@ -300,7 +302,7 @@ Be specific, objective, and provide actionable insights.`;
                     properties: {
                       score: { type: 'number', minimum: 0, maximum: 100 },
                       analysis: { type: 'string' },
-                      valuesMatched: { 
+                      valuesMatched: {
                         type: 'array',
                         items: { type: 'string' }
                       }
@@ -338,7 +340,7 @@ Be specific, objective, and provide actionable insights.`;
           arguments: string;
         };
       };
-      
+
       if (!functionCall.function?.arguments) {
         throw new Error('Function call missing arguments');
       }
@@ -466,7 +468,7 @@ Be specific, objective, and provide actionable insights.`;
 
     for (let i = 0; i < applicationIds.length; i++) {
       const applicationId = applicationIds[i];
-      
+
       try {
         // Get application to get candidate name for progress
         const application = await ApplicationModel.findById(applicationId);
@@ -490,7 +492,7 @@ Be specific, objective, and provide actionable insights.`;
           result,
           score: result.scores.overall,
         });
-        
+
         console.log(`✅ Scored ${candidateName}: ${result.scores.overall}/100`);
       } catch (error) {
         console.error(`❌ Failed to score application ${applicationId}:`, error);
@@ -511,4 +513,3 @@ Be specific, objective, and provide actionable insights.`;
     return results;
   }
 }
-

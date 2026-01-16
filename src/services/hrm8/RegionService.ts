@@ -130,22 +130,28 @@ export class RegionService {
       }
 
       // Count entities in this region
-      // For now, return placeholder counts - in production, query actual models
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
+      // Ideally use the singleton instance if available, but for now importing dynamic to avoid circular dep issues in service if any
+      const { default: prisma } = await import('../../lib/prisma');
 
-      const [companies, jobs] = await Promise.all([
-        prisma.company.count({ where: { regionId: id } }),
-        prisma.job.count({ where: { regionId: id, status: { in: ['DRAFT', 'OPEN', 'PAUSED'] } } }),
+      const [companies, jobs, consultants, openInvoices, opportunities] = await Promise.all([
+        prisma.company.count({ where: { region_id: id } }),
+        prisma.job.count({ where: { region_id: id, status: { in: ['DRAFT', 'OPEN', 'ON_HOLD'] } } }),
+        prisma.consultant.count({ where: { region_id: id, status: 'ACTIVE' } }),
+        prisma.bill.count({ where: { region_id: id, status: { in: ['PENDING', 'OVERDUE'] } } }),
+        prisma.opportunity.count({
+          where: {
+            company: { region_id: id },
+            stage: { notIn: ['CLOSED_WON', 'CLOSED_LOST'] }
+          }
+        }),
       ]);
 
-      // Return counts (consultants, invoices, opportunities would need their own queries)
       return {
-        companies: companies || 0,
-        jobs: jobs || 0,
-        consultants: 0, // TODO: Add consultant count when model supports regionId
-        openInvoices: 0, // TODO: Add invoice count
-        opportunities: 0, // TODO: Add opportunity count
+        companies,
+        jobs,
+        consultants,
+        openInvoices,
+        opportunities,
       };
     } catch (error) {
       console.error('Get transfer impact error:', error);

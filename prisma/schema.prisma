@@ -2533,6 +2533,7 @@ enum AssignmentSource {
   MANUAL_EMPLOYER
   MANUAL_LICENSEE
   MANUAL_HRM8
+  MANUAL_REASSIGNMENT
 }
 
 enum ConversationChannelType {

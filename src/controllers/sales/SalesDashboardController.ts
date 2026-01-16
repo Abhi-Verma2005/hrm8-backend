@@ -116,6 +116,9 @@ export class SalesDashboardController {
           subscription: {
             where: { status: 'ACTIVE' },
             take: 1
+          },
+          _count: {
+            select: { jobs: { where: { status: 'OPEN' } } }
           }
         },
         orderBy: { created_at: 'desc' }
@@ -143,6 +146,7 @@ export class SalesDashboardController {
           domain: c.domain,
           createdAt: c.created_at,
           attributionStatus,
+          openJobsCount: c._count.jobs,
           subscription: sub ? {
             plan: sub.plan_type,
             startDate: sub.start_date,

@@ -4,6 +4,7 @@
  */
 
 import OpenAI from 'openai';
+import { ConfigService } from '../../services/config/ConfigService';
 
 export interface QuestionGenerationRequest {
   jobTitle: string;
@@ -28,7 +29,8 @@ export class QuestionGenerationService {
    * Generate questions using OpenAI API
    */
   static async generateWithAI(request: QuestionGenerationRequest): Promise<GeneratedQuestion[]> {
-    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const config = await ConfigService.getOpenAIConfig();
+    const openaiApiKey = config.apiKey;
 
     if (!openaiApiKey) {
       console.log('⚠️ OpenAI API key not found, falling back to pattern matching');
@@ -284,7 +286,7 @@ Important:
     // Apply user notes if provided
     if (userNotes && userNotes.trim()) {
       const notesLower = userNotes.toLowerCase();
-      
+
       // Check for specific question requests
       if (notesLower.includes('problem') || notesLower.includes('challenge')) {
         questions.push({
@@ -318,4 +320,3 @@ Important:
     return questions.slice(0, questionCount);
   }
 }
-
