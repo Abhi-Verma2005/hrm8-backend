@@ -2898,3 +2898,15 @@ enum TransactionStatus {
   FAILED
   REVERSED
 }
+
+model SystemSettings {
+  id         String   @id @default(uuid())
+  key        String   @unique
+  value      Json
+  is_public  Boolean  @default(false) @map("is_public")
+  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
+  updated_by String?  @map("updated_by")
+
+  @@map("system_settings")
+  @@index([key])
+}

@@ -1,7 +1,7 @@
-import { Request, Response } from 'express';
 import { ConsultantAuthenticatedRequest } from '../../middleware/consultantAuth';
 import prisma from '../../lib/prisma';
 import { ApplicationStatus, ApplicationStage, NotificationType } from '@prisma/client';
+import { CommissionService } from '../../services/hrm8/CommissionService';
 
 export class ConsultantCandidateController {
 
@@ -112,6 +112,16 @@ export class ConsultantCandidateController {
                     updated_at: new Date()
                 }
             });
+
+            // If candidate is hired, confirm commission for this job
+            if (status === 'HIRED') {
+                try {
+                    await CommissionService.confirmCommissionForJob(application.job_id);
+                } catch (commError) {
+                    console.error('Failed to auto-confirm commission:', commError);
+                    // Don't fail the request, just log it
+                }
+            }
 
             // Notify Candidate (Optional but good UX)
             try {
