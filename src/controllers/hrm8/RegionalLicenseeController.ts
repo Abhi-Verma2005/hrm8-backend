@@ -1,10 +1,10 @@
 /**
  * Regional Licensee Controller
- * Handles HTTP requests for regional licensee endpoints
+ * Handles HTTP requests for regional licensee endpoints with governance automation
  */
 
 import { Response } from 'express';
-import { RegionalLicenseeService } from '../../services/hrm8/RegionalLicenseeService';
+import { RegionalLicenseeService, SuspendResult, TerminateResult } from '../../services/hrm8/RegionalLicenseeService';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 import { LicenseeStatus } from '@prisma/client';
 
@@ -82,9 +82,9 @@ export class RegionalLicenseeController {
       const licenseeData = req.body;
 
       // Validate required fields
-      if (!licenseeData.name || !licenseeData.legalEntityName || !licenseeData.email || 
-          !licenseeData.agreementStartDate || !licenseeData.revenueSharePercent || 
-          !licenseeData.managerContact) {
+      if (!licenseeData.name || !licenseeData.legalEntityName || !licenseeData.email ||
+        !licenseeData.agreementStartDate || !licenseeData.revenueSharePercent ||
+        !licenseeData.managerContact) {
         res.status(400).json({
           success: false,
           error: 'Missing required fields',
@@ -92,7 +92,7 @@ export class RegionalLicenseeController {
         return;
       }
 
-      const result = await RegionalLicenseeService.create(licenseeData);
+      const result = await RegionalLicenseeService.create(licenseeData, req.hrm8User?.id);
 
       if ('error' in result) {
         res.status(result.status || 400).json({
@@ -138,7 +138,7 @@ export class RegionalLicenseeController {
         }
       }
 
-      const result = await RegionalLicenseeService.update(id, updateData);
+      const result = await RegionalLicenseeService.update(id, updateData, req.hrm8User?.id);
 
       if ('error' in result) {
         res.status(result.status || 400).json({
@@ -162,47 +162,126 @@ export class RegionalLicenseeController {
   }
 
   /**
-   * Suspend licensee
-   * POST /api/hrm8/licensees/:id/suspend
+   * Get impact preview before suspend/terminate
+   * GET /api/hrm8/licensees/:id/impact-preview
    */
-  static async suspend(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+  static async getImpactPreview(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      await RegionalLicenseeService.suspend(id);
+      const impact = await RegionalLicenseeService.getImpactPreview(id);
 
       res.json({
         success: true,
-        message: 'Licensee suspended successfully',
+        data: impact,
       });
     } catch (error) {
-      console.error('Suspend licensee error:', error);
+      console.error('Get impact preview error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to suspend licensee',
+        error: 'Failed to get impact preview',
       });
     }
   }
 
   /**
-   * Terminate licensee
+   * Suspend licensee (AUTOMATED)
+   * POST /api/hrm8/licensees/:id/suspend
+   * - Pauses all active jobs in licensee's regions
+   * - Creates audit log
+   * - Returns impact counts
+   */
+  static async suspend(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      const result: SuspendResult = await RegionalLicenseeService.suspend(id, {
+        performedBy: req.hrm8User?.id,
+        notes,
+      });
+
+      res.json({
+        success: true,
+        message: 'Licensee suspended successfully',
+        data: {
+          licenseeId: result.licenseeId,
+          jobsPaused: result.jobsPaused,
+          regionsAffected: result.regionsAffected,
+        },
+      });
+    } catch (error: any) {
+      console.error('Suspend licensee error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to suspend licensee',
+      });
+    }
+  }
+
+  /**
+   * Reactivate a suspended licensee
+   * POST /api/hrm8/licensees/:id/reactivate
+   */
+  static async reactivate(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      const result = await RegionalLicenseeService.reactivate(id, {
+        performedBy: req.hrm8User?.id,
+        notes,
+      });
+
+      res.json({
+        success: true,
+        message: 'Licensee reactivated successfully',
+        data: {
+          jobsResumed: result.jobsResumed,
+        },
+      });
+    } catch (error: any) {
+      console.error('Reactivate licensee error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to reactivate licensee',
+      });
+    }
+  }
+
+  /**
+   * Terminate licensee (AUTOMATED)
    * POST /api/hrm8/licensees/:id/terminate
+   * - Unassigns all regions (returns to HRM8)
+   * - Generates final settlement
+   * - Creates audit log
+   * - Returns impact counts
    */
   static async terminate(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      await RegionalLicenseeService.terminate(id);
+      const { notes } = req.body;
+
+      const result: TerminateResult = await RegionalLicenseeService.terminate(id, {
+        performedBy: req.hrm8User?.id,
+        notes,
+      });
 
       res.json({
         success: true,
         message: 'Licensee terminated successfully',
+        data: {
+          licenseeId: result.licenseeId,
+          regionsUnassigned: result.regionsUnassigned,
+          consultantsAffected: result.consultantsAffected,
+          finalSettlement: result.finalSettlement,
+        },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Terminate licensee error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to terminate licensee',
+        error: error.message || 'Failed to terminate licensee',
       });
     }
   }
 }
-

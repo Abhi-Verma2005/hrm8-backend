@@ -2993,3 +2993,24 @@ model SystemSettings {
   @@map("system_settings")
   @@index([key])
 }
+
+// Phase 5: Audit Log for governance tracking
+model AuditLog {
+  id            String   @id @default(uuid())
+  entity_type   String   // 'LICENSEE', 'REGION', 'CONSULTANT', 'SETTLEMENT'
+  entity_id     String
+  action        String   // 'SUSPEND', 'TERMINATE', 'TRANSFER', 'UPDATE', 'CREATE'
+  old_value     Json?
+  new_value     Json?
+  performed_by  String   @map("performed_by") // HRM8User ID
+  performed_at  DateTime @default(now()) @map("performed_at")
+  ip_address    String?  @map("ip_address")
+  notes         String?
+  
+  @@map("audit_logs")
+  @@index([entity_type, entity_id])
+  @@index([performed_by])
+  @@index([performed_at])
+  @@index([action])
+}
+

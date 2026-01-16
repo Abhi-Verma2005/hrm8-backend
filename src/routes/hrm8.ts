@@ -21,6 +21,7 @@ import { RevenueController } from '../controllers/hrm8/RevenueController';
 import { LeadController } from '../controllers/sales/LeadController';
 import { SystemSettingsController } from '../controllers/SystemSettingsController';
 import { RegionalAnalyticsController } from '../controllers/hrm8/RegionalAnalyticsController';
+import { ComplianceController } from '../controllers/hrm8/ComplianceController';
 import { authenticateHrm8User, requireHrm8Role } from '../middleware/hrm8Auth';
 
 const router: RouterType = Router();
@@ -54,14 +55,16 @@ router.get('/licensees', RegionalLicenseeController.getAll);
 router.post('/licensees', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.create);
 router.get('/licensees/:id', RegionalLicenseeController.getById);
 router.put('/licensees/:id', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.update);
+router.get('/licensees/:id/impact-preview', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.getImpactPreview);
 router.post('/licensees/:id/suspend', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.suspend);
+router.post('/licensees/:id/reactivate', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.reactivate);
 router.post('/licensees/:id/terminate', requireHrm8Role(['GLOBAL_ADMIN']), RegionalLicenseeController.terminate);
 
 // Consultant Management routes
 router.get('/consultants', ConsultantManagementController.getAll);
 router.post('/consultants', ConsultantManagementController.create);
 router.post('/consultants/generate-email', ConsultantManagementController.generateEmail);
-router.post('/consultants/:id/reassign-jobs', ConsultantManagementController.reassignJobs);
+router.post('/consultants/:id/reassign-jobs', requireHrm8Role(['GLOBAL_ADMIN', 'REGIONAL_LICENSEE']), ConsultantManagementController.reassignJobs);
 router.post('/consultants/:id/invite', ConsultantManagementController.invite);
 router.get('/consultants/:id', ConsultantManagementController.getById);
 router.put('/consultants/:id', ConsultantManagementController.update);
@@ -182,5 +185,11 @@ router.get('/analytics/top-companies', requireHrm8Role(['GLOBAL_ADMIN']), Hrm8An
 router.get('/system-settings', requireHrm8Role(['GLOBAL_ADMIN']), SystemSettingsController.getAllSettings);
 router.post('/system-settings', requireHrm8Role(['GLOBAL_ADMIN']), SystemSettingsController.updateSetting);
 router.post('/system-settings/bulk', requireHrm8Role(['GLOBAL_ADMIN']), SystemSettingsController.bulkUpdateSettings);
+
+// Compliance & Audit routes
+router.get('/compliance/alerts', requireHrm8Role(['GLOBAL_ADMIN']), ComplianceController.getAlerts);
+router.get('/compliance/summary', requireHrm8Role(['GLOBAL_ADMIN']), ComplianceController.getAlertSummary);
+router.get('/compliance/audit/recent', requireHrm8Role(['GLOBAL_ADMIN']), ComplianceController.getRecentAudit);
+router.get('/compliance/audit/:entityType/:entityId', requireHrm8Role(['GLOBAL_ADMIN']), ComplianceController.getAuditHistory);
 
 export default router;
