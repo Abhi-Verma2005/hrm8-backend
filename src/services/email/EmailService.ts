@@ -265,6 +265,79 @@ class EmailService {
   }
 
   /**
+   * Get HTML template for candidate verification email
+   */
+  private getCandidateVerificationEmailTemplate(data: {
+    name: string;
+    verificationUrl: string;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Verify Your Email Address</h1>
+            
+            <p>Hello ${data.name},</p>
+            
+            <p>Thank you for signing up with HRM8! To complete your registration and access your dashboard, please verify your email address by clicking the button below:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${data.verificationUrl}" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Verify Email
+              </a>
+            </div>
+            
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #7c3aed;">${data.verificationUrl}</p>
+            
+            <p>This verification link will expire in 24 hours.</p>
+            
+            <p>If you didn't create an account with HRM8, please ignore this email.</p>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Best regards,<br>
+              The HRM8 Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of candidate verification email
+   */
+  private getCandidateVerificationEmailText(data: {
+    name: string;
+    verificationUrl: string;
+  }): string {
+    return `
+Verify Your Email Address
+
+Hello ${data.name},
+
+Thank you for signing up with HRM8! To complete your registration and access your dashboard, please verify your email address by visiting the link below:
+
+${data.verificationUrl}
+
+This verification link will expire in 24 hours.
+
+If you didn't create an account with HRM8, please ignore this email.
+
+Best regards,
+The HRM8 Team
+    `.trim();
+  }
+
+  /**
    * Get HTML template for password reset email
    */
   private getPasswordResetTemplate(name: string, resetUrl: string, expiresAt: Date): string {
@@ -1446,6 +1519,45 @@ The HRM8 Team
     } catch (error) {
       console.error('Failed to send account creation email:', error);
       throw new Error('Failed to send account creation email');
+    }
+  }
+
+  /**
+   * Send candidate email verification link
+   */
+  async sendCandidateVerificationEmail(data: {
+    to: string;
+    name: string;
+    verificationUrl: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject: 'Verify Your Email - HRM8',
+        html: this.getCandidateVerificationEmailTemplate(data),
+        text: this.getCandidateVerificationEmailText(data),
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      // In development without SMTP, log the email
+      if (!process.env.SMTP_USER) {
+        console.log('\n📧 ===== CANDIDATE VERIFICATION EMAIL (Development Mode) =====');
+        console.log('To:', data.to);
+        console.log('Subject:', mailOptions.subject);
+        console.log('Verification URL:', data.verificationUrl);
+        console.log('================================================================\n');
+      } else {
+        console.log('✅ Candidate verification email sent successfully to:', data.to);
+      }
+    } catch (error) {
+      console.error('Failed to send candidate verification email:', error);
+      throw new Error('Failed to send candidate verification email');
     }
   }
 

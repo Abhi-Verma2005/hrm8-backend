@@ -294,6 +294,75 @@ export class UniversalNotificationService {
     }
 
     /**
+     * Get target recipients based on filters (Role, Region, etc.)
+     */
+    static async getRecipientsByFilters(filters: {
+        role?: NotificationRecipientType;
+        regionId?: string;
+        companyId?: string;
+    }): Promise<Array<{ recipientType: NotificationRecipientType; recipientId: string }>> {
+        const recipients: Array<{ recipientType: NotificationRecipientType; recipientId: string }> = [];
+
+        // 1. Target Company HR Users
+        if (!filters.role || filters.role === NotificationRecipientType.USER) {
+            const userWhere: any = {};
+            if (filters.regionId) {
+                userWhere.company = { region_id: filters.regionId };
+            }
+            if (filters.companyId) {
+                userWhere.company_id = filters.companyId;
+            }
+
+            const users = await prisma.user.findMany({
+                where: userWhere,
+                select: { id: true },
+            });
+
+            users.forEach(u => recipients.push({
+                recipientType: NotificationRecipientType.USER,
+                recipientId: u.id
+            }));
+        }
+
+        // 2. Target Consultants
+        if (!filters.role || filters.role === NotificationRecipientType.CONSULTANT) {
+            const consultantWhere: any = {};
+            if (filters.regionId) {
+                consultantWhere.region_id = filters.regionId;
+            }
+
+            const consultants = await prisma.consultant.findMany({
+                where: consultantWhere,
+                select: { id: true },
+            });
+
+            consultants.forEach(c => recipients.push({
+                recipientType: NotificationRecipientType.CONSULTANT,
+                recipientId: c.id
+            }));
+        }
+
+        // 3. Target Candidates
+        // Candidates don't have direct region ownership, usually targeted globally or by some other criteria
+        if (!filters.role || filters.role === NotificationRecipientType.CANDIDATE) {
+            // If regional filter is applied, we might skip candidates or filter by their stated location (if implemented)
+            // For now, if regionId is present and role isn't explicitly CANDIDATE, we skip them to avoid cross-region spam
+            if (!filters.regionId || filters.role === NotificationRecipientType.CANDIDATE) {
+                const candidates = await prisma.candidate.findMany({
+                    select: { id: true },
+                });
+
+                candidates.forEach(can => recipients.push({
+                    recipientType: NotificationRecipientType.CANDIDATE,
+                    recipientId: can.id
+                }));
+            }
+        }
+
+        return recipients;
+    }
+
+    /**
      * Helper to resolve user type from different auth contexts
      */
     static resolveRecipientType(userType: 'USER' | 'CANDIDATE' | 'CONSULTANT' | 'HRM8'): NotificationRecipientType {

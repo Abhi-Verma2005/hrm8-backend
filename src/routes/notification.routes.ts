@@ -5,8 +5,12 @@
 
 import { Router } from 'express';
 import { NotificationController } from '../controllers/NotificationController';
+import { authenticateUniversal } from '../middleware/universalAuth';
 
 const router: Router = Router();
+
+// Apply authentication to all routes
+router.use(authenticateUniversal);
 
 /**
  * @route GET /api/notifications
@@ -47,5 +51,11 @@ router.delete('/:id', NotificationController.deleteNotification);
  * @desc Create a test notification (Dev/Admin only)
  */
 router.post('/test', NotificationController.createTestNotification);
+
+/**
+ * @route POST /api/notifications/pulse
+ * @desc Push a broadcast notification to multiple users (Admin only)
+ */
+router.post('/pulse', NotificationController.pushPulse);
 
 export default router;

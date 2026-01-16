@@ -376,29 +376,29 @@ model JobTagAssignment {
 }
 
 model Candidate {
-  id                       String                    @id @default(uuid())
-  email                    String                    @unique
-  password_hash            String                    @map("password_hash")
-  first_name               String                    @map("first_name")
-  last_name                String                    @map("last_name")
+  id                       String                       @id @default(uuid())
+  email                    String                       @unique
+  password_hash            String                       @map("password_hash")
+  first_name               String                       @map("first_name")
+  last_name                String                       @map("last_name")
   phone                    String?
   photo                    String?
-  linked_in_url            String?                   @map("linked_in_url")
+  linked_in_url            String?                      @map("linked_in_url")
   city                     String?
   state                    String?
-  country                  String?                   @default("United States")
-  visa_status              String?                   @map("visa_status")
-  work_eligibility         String?                   @map("work_eligibility")
-  job_type_preference      String[]                  @default([]) @map("job_type_preference")
-  salary_preference        Json?                     @map("salary_preference")
-  relocation_willing       Boolean?                  @default(false) @map("relocation_willing")
-  remote_preference        String?                   @map("remote_preference")
-  email_verified           Boolean                   @default(false) @map("email_verified")
-  status                   CandidateStatus           @default(ACTIVE)
-  last_login_at            DateTime?                 @map("last_login_at")
-  created_at               DateTime                  @default(now()) @map("created_at")
-  updated_at               DateTime                  @default(now()) @updatedAt @map("updated_at")
-  resume_url               String?                   @map("resume_url")
+  country                  String?                      @default("United States")
+  visa_status              String?                      @map("visa_status")
+  work_eligibility         String?                      @map("work_eligibility")
+  job_type_preference      String[]                     @default([]) @map("job_type_preference")
+  salary_preference        Json?                        @map("salary_preference")
+  relocation_willing       Boolean?                     @default(false) @map("relocation_willing")
+  remote_preference        String?                      @map("remote_preference")
+  email_verified           Boolean                      @default(false) @map("email_verified")
+  status                   CandidateStatus              @default(ACTIVE)
+  last_login_at            DateTime?                    @map("last_login_at")
+  created_at               DateTime                     @default(now()) @map("created_at")
+  updated_at               DateTime                     @default(now()) @updatedAt @map("updated_at")
+  resume_url               String?                      @map("resume_url")
   applications             Application[]
   certifications           CandidateCertification[]
   cover_letters            CandidateCoverLetter[]
@@ -416,6 +416,7 @@ model Candidate {
   offer_letter             OfferLetter[]
   saved_jobs               SavedJob[]
   saved_searches           SavedSearch[]
+  verification_tokens      CandidateVerificationToken[]
 
   @@index([email])
   @@index([status])
@@ -434,6 +435,21 @@ model CandidateSession {
   @@index([session_id])
   @@index([candidate_id])
   @@index([expires_at])
+}
+
+model CandidateVerificationToken {
+  id           String    @id @default(uuid())
+  candidate_id String    @map("candidate_id")
+  email        String
+  token        String    @unique
+  expires_at   DateTime  @map("expires_at")
+  used_at      DateTime? @map("used_at")
+  created_at   DateTime  @default(now()) @map("created_at")
+  candidate    Candidate @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([candidate_id])
+  @@map("candidate_verification_tokens")
 }
 
 model SavedJob {
@@ -1087,30 +1103,30 @@ model QuestionnaireResponse {
 }
 
 model Region {
-  id                  String                  @id @default(uuid())
-  name                String
-  code                String                  @unique
-  country             String
-  state_province      String?                 @map("state_province")
-  city                String?
-  boundaries          Json?
-  owner_type          RegionOwnerType         @default(HRM8) @map("owner_type")
-  licensee_id         String?                 @map("licensee_id")
-  is_active           Boolean                 @default(true) @map("is_active")
-  monthly_revenue_target Float?               @default(0) @map("monthly_revenue_target")
-  monthly_placement_target Int?               @default(0) @map("monthly_placement_target")
-  created_at          DateTime                @default(now()) @map("created_at")
-  updated_at          DateTime                @default(now()) @updatedAt @map("updated_at")
-  commissions         Commission[]
-  companies           Company[]
-  consultants         Consultant[]
-  jobs                Job[]
-  lead                Lead[]
-  price_books         PriceBook[]
-  licensee            RegionalLicensee?       @relation(fields: [licensee_id], references: [id])
-  revenue             RegionalRevenue[]
-  bills               Bill[]
-  conversion_requests LeadConversionRequest[]
+  id                       String                  @id @default(uuid())
+  name                     String
+  code                     String                  @unique
+  country                  String
+  state_province           String?                 @map("state_province")
+  city                     String?
+  boundaries               Json?
+  owner_type               RegionOwnerType         @default(HRM8) @map("owner_type")
+  licensee_id              String?                 @map("licensee_id")
+  is_active                Boolean                 @default(true) @map("is_active")
+  monthly_revenue_target   Float?                  @default(0) @map("monthly_revenue_target")
+  monthly_placement_target Int?                    @default(0) @map("monthly_placement_target")
+  created_at               DateTime                @default(now()) @map("created_at")
+  updated_at               DateTime                @default(now()) @updatedAt @map("updated_at")
+  commissions              Commission[]
+  companies                Company[]
+  consultants              Consultant[]
+  jobs                     Job[]
+  lead                     Lead[]
+  price_books              PriceBook[]
+  licensee                 RegionalLicensee?       @relation(fields: [licensee_id], references: [id])
+  revenue                  RegionalRevenue[]
+  bills                    Bill[]
+  conversion_requests      LeadConversionRequest[]
 
   @@index([is_active])
   @@index([licensee_id])
@@ -2990,8 +3006,8 @@ model SystemSettings {
   updated_at DateTime @default(now()) @updatedAt @map("updated_at")
   updated_by String?  @map("updated_by")
 
-  @@map("system_settings")
   @@index([key])
+  @@map("system_settings")
 }
 
 // Phase 5: Audit Log for governance tracking
