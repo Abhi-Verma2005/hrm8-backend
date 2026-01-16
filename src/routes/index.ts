@@ -33,6 +33,7 @@ import { authenticateHrm8User } from '../middleware/hrm8Auth';
 import { JobAllocationController } from '../controllers/hrm8/JobAllocationController';
 
 import analyticsRoutes from './analytics';
+import notificationRoutes from './notification.routes';
 
 const router: RouterType = Router();
 
@@ -64,6 +65,7 @@ router.use('/api/admin/billing', billingRoutes);
 router.use('/api/wallet', walletRoutes);
 router.use('/api/integrations', integrationRoutes);
 router.use('/api/analytics', analyticsRoutes);
+router.use('/api/notifications', notificationRoutes);
 router.use('/', devRoutes); // Dev routes (only enabled in development)
 
 export default router;

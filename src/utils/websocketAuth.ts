@@ -1,6 +1,7 @@
 /**
  * WebSocket Authentication Helper
  * Verifies session cookies from WebSocket upgrade request
+ * Supports all user types: USER, CANDIDATE, CONSULTANT, HRM8
  */
 
 import { IncomingMessage } from 'http';
@@ -8,12 +9,15 @@ import { SessionModel } from '../models/Session';
 import { CandidateSessionModel } from '../models/CandidateSession';
 import { UserModel } from '../models/User';
 import { CandidateModel } from '../models/Candidate';
+import { prisma } from '../lib/prisma';
 
 export interface WebSocketAuthResult {
   email: string;
   userId: string;
-  userType: 'USER' | 'CANDIDATE';
+  userType: 'USER' | 'CANDIDATE' | 'CONSULTANT' | 'HRM8';
   name: string;
+  companyId?: string;
+  regionIds?: string[];
 }
 
 /**
@@ -26,13 +30,13 @@ function parseCookies(cookieHeader?: string): Record<string, string> {
   cookieHeader.split(';').forEach((cookie) => {
     const trimmed = cookie.trim();
     if (!trimmed) return;
-    
+
     const equalIndex = trimmed.indexOf('=');
     if (equalIndex === -1) return;
-    
+
     const name = trimmed.substring(0, equalIndex).trim();
     const value = trimmed.substring(equalIndex + 1).trim();
-    
+
     if (name && value) {
       // Decode URL-encoded values
       try {
@@ -66,24 +70,25 @@ export async function authenticateWebSocket(
       if (session) {
         // Check if session is expired
         if (session.expiresAt < new Date()) {
-          return null;
+          console.log('❌ User session expired');
+        } else {
+          // Get user details
+          const user = await UserModel.findById(session.userId);
+          if (!user) {
+            console.log('❌ User not found');
+          } else {
+            // Update last activity
+            await SessionModel.updateLastActivity(cookies.sessionId);
+
+            return {
+              email: session.email,
+              userId: session.userId,
+              userType: 'USER',
+              name: user.name,
+              companyId: session.companyId,
+            };
+          }
         }
-
-        // Get user details
-        const user = await UserModel.findById(session.userId);
-        if (!user) {
-          return null;
-        }
-
-        // Update last activity
-        await SessionModel.updateLastActivity(cookies.sessionId);
-
-        return {
-          email: session.email,
-          userId: session.userId,
-          userType: 'USER',
-          name: user.name,
-        };
       }
     }
 
@@ -97,26 +102,109 @@ export async function authenticateWebSocket(
       if (session) {
         // Check if session is expired
         if (session.expiresAt < new Date()) {
-          return null;
+          console.log('❌ Candidate session expired');
+        } else {
+          // Get candidate details
+          const candidate = await CandidateModel.findById(session.candidateId);
+          if (!candidate) {
+            console.log('❌ Candidate not found');
+          } else {
+            // Update last activity
+            await CandidateSessionModel.updateLastActivity(
+              cookies.candidateSessionId
+            );
+
+            return {
+              email: session.email,
+              userId: session.candidateId,
+              userType: 'CANDIDATE',
+              name: `${candidate.firstName} ${candidate.lastName}`,
+            };
+          }
         }
+      }
+    }
 
-        // Get candidate details
-        const candidate = await CandidateModel.findById(session.candidateId);
-        if (!candidate) {
-          return null;
+    // Try Consultant session
+    if (cookies.consultantSessionId) {
+      console.log('🔍 Attempting Consultant session authentication with consultantSessionId:', cookies.consultantSessionId);
+      const session = await prisma.consultantSession.findUnique({
+        where: { session_id: cookies.consultantSessionId },
+      });
+
+      if (session) {
+        // Check if session is expired
+        if (session.expires_at < new Date()) {
+          console.log('❌ Consultant session expired');
+        } else {
+          // Get consultant details
+          const consultant = await prisma.consultant.findUnique({
+            where: { id: session.consultant_id },
+          });
+          if (!consultant) {
+            console.log('❌ Consultant not found');
+          } else {
+            // Update last activity
+            await prisma.consultantSession.update({
+              where: { session_id: cookies.consultantSessionId },
+              data: { last_activity: new Date() },
+            });
+
+            return {
+              email: session.email,
+              userId: session.consultant_id,
+              userType: 'CONSULTANT',
+              name: `${consultant.first_name} ${consultant.last_name}`,
+            };
+          }
         }
+      }
+    }
 
-        // Update last activity
-        await CandidateSessionModel.updateLastActivity(
-          cookies.candidateSessionId
-        );
+    // Try HRM8 session
+    if (cookies.hrm8SessionId) {
+      console.log('🔍 Attempting HRM8 session authentication with hrm8SessionId:', cookies.hrm8SessionId);
+      const session = await prisma.hRM8Session.findUnique({
+        where: { session_id: cookies.hrm8SessionId },
+      });
 
-        return {
-          email: session.email,
-          userId: session.candidateId,
-          userType: 'CANDIDATE',
-          name: `${candidate.firstName} ${candidate.lastName}`,
-        };
+      if (session) {
+        // Check if session is expired
+        if (session.expires_at < new Date()) {
+          console.log('❌ HRM8 session expired');
+        } else {
+          // Get HRM8 user details with their regions
+          const hrm8User = await prisma.hRM8User.findUnique({
+            where: { id: session.hrm8_user_id },
+          });
+          if (!hrm8User) {
+            console.log('❌ HRM8 user not found');
+          } else {
+            // Update last activity
+            await prisma.hRM8Session.update({
+              where: { session_id: cookies.hrm8SessionId },
+              data: { last_activity: new Date() },
+            });
+
+            // Get region IDs if regional licensee
+            let regionIds: string[] = [];
+            if (hrm8User.role === 'REGIONAL_LICENSEE' && hrm8User.licensee_id) {
+              const regions = await prisma.region.findMany({
+                where: { licensee_id: hrm8User.licensee_id },
+                select: { id: true },
+              });
+              regionIds = regions.map(r => r.id);
+            }
+
+            return {
+              email: session.email,
+              userId: session.hrm8_user_id,
+              userType: 'HRM8',
+              name: `${hrm8User.first_name} ${hrm8User.last_name}`,
+              regionIds,
+            };
+          }
+        }
       }
     }
 
@@ -127,4 +215,3 @@ export async function authenticateWebSocket(
     return null;
   }
 }
-

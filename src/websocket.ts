@@ -16,12 +16,22 @@ console.log('🚀 Starting WebSocket server initialization...');
 const connections = new Map<string, ClientConnection>();
 const conversationRooms = new Map<string, Set<string>>();
 
-const buildConnectionKey = (userType: 'USER' | 'CANDIDATE', userId: string) =>
+const buildConnectionKey = (userType: 'USER' | 'CANDIDATE' | 'CONSULTANT' | 'HRM8', userId: string) =>
   `${userType}:${userId}`;
 
-const resolveParticipantType = (userType: 'USER' | 'CANDIDATE'): ParticipantType => {
-  if (userType === 'USER') return ParticipantType.EMPLOYER;
-  return ParticipantType.CANDIDATE;
+const resolveParticipantType = (userType: 'USER' | 'CANDIDATE' | 'CONSULTANT' | 'HRM8'): ParticipantType => {
+  switch (userType) {
+    case 'USER':
+      return ParticipantType.EMPLOYER;
+    case 'CANDIDATE':
+      return ParticipantType.CANDIDATE;
+    case 'CONSULTANT':
+      return ParticipantType.CONSULTANT;
+    case 'HRM8':
+      return ParticipantType.SYSTEM;
+    default:
+      return ParticipantType.CANDIDATE;
+  }
 };
 
 const describeConnectionKey = (connectionKey: string) => {
@@ -861,6 +871,10 @@ export function broadcastToConversation(
 
 // Export the WebSocket server for use in main server
 export { wss };
+
+// Initialize Notification Broadcast Service
+import { initNotificationBroadcast } from './services/notification/NotificationBroadcastService';
+initNotificationBroadcast(broadcast, connections);
 
 console.log(
   `🎯 WebSocket server setup complete - will be attached to main server`
