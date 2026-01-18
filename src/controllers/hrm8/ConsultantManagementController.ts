@@ -8,6 +8,7 @@ import { ConsultantManagementService } from '../../services/hrm8/ConsultantManag
 import { EmailProvisioningService } from '../../services/email/EmailProvisioningService';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 import { ConsultantRole, ConsultantStatus } from '@prisma/client';
+import { logAudit, createAuditDescription } from '../../middleware/auditHelper';
 
 export class ConsultantManagementController {
   /**
@@ -172,6 +173,12 @@ export class ConsultantManagementController {
         success: true,
         data: { consultant: result, emailProvisioning },
       });
+
+      // Log audit entry
+      await logAudit(req, 'Consultant', result.id, 'CREATE', {
+        description: createAuditDescription('CREATE', 'Consultant', `${consultantData.firstName} ${consultantData.lastName}`),
+        changes: { email: consultantData.email, role: consultantData.role, regionId: consultantData.regionId },
+      });
     } catch (error) {
       console.error('Create consultant error:', error);
       res.status(500).json({
@@ -250,6 +257,12 @@ export class ConsultantManagementController {
       res.json({
         success: true,
         data: { consultant: result },
+      });
+
+      // Log audit entry
+      await logAudit(req, 'Consultant', id, 'UPDATE', {
+        description: createAuditDescription('UPDATE', 'Consultant', `${result.firstName} ${result.lastName}`),
+        changes: updateData,
       });
     } catch (error) {
       console.error('Update consultant error:', error);
@@ -337,6 +350,11 @@ export class ConsultantManagementController {
         success: true,
         message: 'Consultant suspended successfully',
       });
+
+      // Log audit entry
+      await logAudit(req, 'Consultant', id, 'SUSPEND', {
+        description: createAuditDescription('SUSPEND', 'Consultant'),
+      });
     } catch (error) {
       console.error('Suspend consultant error:', error);
       res.status(500).json({
@@ -368,6 +386,11 @@ export class ConsultantManagementController {
       res.json({
         success: true,
         message: 'Consultant reactivated successfully',
+      });
+
+      // Log audit entry
+      await logAudit(req, 'Consultant', id, 'REACTIVATE', {
+        description: createAuditDescription('REACTIVATE', 'Consultant'),
       });
     } catch (error) {
       console.error('Reactivate consultant error:', error);
@@ -408,6 +431,11 @@ export class ConsultantManagementController {
       res.json({
         success: true,
         message: 'Consultant deleted successfully',
+      });
+
+      // Log audit entry
+      await logAudit(req, 'Consultant', id, 'DELETE', {
+        description: createAuditDescription('DELETE', 'Consultant'),
       });
     } catch (error) {
       console.error('Delete consultant error:', error);

@@ -3009,3 +3009,26 @@ model SystemSettings {
   @@index([key])
   @@map("system_settings")
 }
+
+// Audit Logging for admin actions
+model AuditLog {
+  id                  String   @id @default(uuid())
+  entity_type         String   @map("entity_type") // Region, Consultant, Licensee, Job, etc.
+  entity_id           String   @map("entity_id")
+  action              String   // CREATE, UPDATE, DELETE, SUSPEND, TRANSFER, etc.
+  performed_by        String   @map("performed_by")
+  performed_by_email  String   @map("performed_by_email")
+  performed_by_role   String   @map("performed_by_role")
+  changes             Json?    // Before/after diff or relevant data
+  ip_address          String?  @map("ip_address")
+  user_agent          String?  @map("user_agent")
+  description         String?  // Human-readable description
+  performed_at        DateTime @default(now()) @map("performed_at")
+
+  @@index([entity_type])
+  @@index([entity_id])
+  @@index([performed_by])
+  @@index([performed_at])
+  @@map("audit_logs")
+}
+

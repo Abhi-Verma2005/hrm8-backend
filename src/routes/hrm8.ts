@@ -183,4 +183,18 @@ router.get('/system-settings', requireHrm8Role(['GLOBAL_ADMIN']), SystemSettings
 router.post('/system-settings', requireHrm8Role(['GLOBAL_ADMIN']), SystemSettingsController.updateSetting);
 router.post('/system-settings/bulk', requireHrm8Role(['GLOBAL_ADMIN']), SystemSettingsController.bulkUpdateSettings);
 
+// Audit Log routes (Global Admin)
+import { AuditLogController } from '../controllers/hrm8/AuditLogController';
+router.get('/audit-logs', requireHrm8Role(['GLOBAL_ADMIN']), AuditLogController.getRecent);
+router.get('/audit-logs/stats', requireHrm8Role(['GLOBAL_ADMIN']), AuditLogController.getStats);
+router.get('/audit-logs/:entityType/:entityId', requireHrm8Role(['GLOBAL_ADMIN']), AuditLogController.getByEntity);
+
+// Capacity Warnings routes
+import { CapacityController } from '../controllers/hrm8/CapacityController';
+router.get('/consultants/capacity-warnings', CapacityController.getCapacityWarnings);
+
+// System Alerts routes
+import { AlertController } from '../controllers/hrm8/AlertController';
+router.get('/alerts', AlertController.getActiveAlerts);
+
 export default router;

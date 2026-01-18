@@ -7,6 +7,7 @@ import { Response } from 'express';
 import { RegionService } from '../../services/hrm8/RegionService';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 import { RegionOwnerType } from '@prisma/client';
+import { logAudit, createAuditDescription } from '../../middleware/auditHelper';
 
 export class RegionController {
   /**
@@ -134,6 +135,12 @@ export class RegionController {
         success: true,
         data: { region: result },
       });
+
+      // Log audit entry
+      await logAudit(req, 'Region', result.id, 'CREATE', {
+        description: createAuditDescription('CREATE', 'Region', regionData.name),
+        changes: regionData,
+      });
     } catch (error) {
       console.error('Create region error:', error);
       res.status(500).json({
@@ -179,6 +186,12 @@ export class RegionController {
         success: true,
         data: { region: result },
       });
+
+      // Log audit entry
+      await logAudit(req, 'Region', id, 'UPDATE', {
+        description: createAuditDescription('UPDATE', 'Region', result.name),
+        changes: updateData,
+      });
     } catch (error) {
       console.error('Update region error:', error);
       res.status(500).json({
@@ -209,6 +222,11 @@ export class RegionController {
       res.json({
         success: true,
         message: 'Region deleted successfully',
+      });
+
+      // Log audit entry
+      await logAudit(req, 'Region', id, 'DELETE', {
+        description: createAuditDescription('DELETE', 'Region'),
       });
     } catch (error) {
       console.error('Delete region error:', error);
@@ -241,6 +259,12 @@ export class RegionController {
       res.json({
         success: true,
         data: { region },
+      });
+
+      // Log audit entry
+      await logAudit(req, 'Region', id, 'ASSIGN', {
+        description: `Assigned licensee ${licenseeId} to region ${region.name}`,
+        changes: { licenseeId },
       });
     } catch (error) {
       console.error('Assign licensee error:', error);
@@ -340,6 +364,12 @@ export class RegionController {
       res.json({
         success: true,
         data: result,
+      });
+
+      // Log audit entry
+      await logAudit(req, 'Region', id, 'TRANSFER', {
+        description: `Transferred region to licensee ${targetLicenseeId}`,
+        changes: { targetLicenseeId, auditNote, transferredCounts: result.transferredCounts },
       });
     } catch (error) {
       console.error('Transfer ownership error:', error);
