@@ -13,6 +13,9 @@ import {
     broadcastNotificationToUser,
     broadcastUnreadCount
 } from './NotificationBroadcastService';
+import { emailService } from '../email/EmailService';
+import { UserNotificationPreferencesService } from '../user/UserNotificationPreferencesService';
+import { NotificationEventType } from '../../types/notificationPreferences';
 
 interface CreateNotificationParams {
     recipientType: NotificationRecipientType;
@@ -63,9 +66,74 @@ const NOTIFICATION_EXPIRY_DAYS = 30;
 
 export class UniversalNotificationService {
     /**
+     * Map UniversalNotificationType to NotificationEventType
+     */
+    private static mapToEventType(type: UniversalNotificationType): NotificationEventType {
+        switch (type) {
+            case 'NEW_APPLICATION':
+                return 'new_application';
+            case 'APPLICATION_STATUS_CHANGED':
+                return 'application_status_change';
+            case 'INTERVIEW_SCHEDULED':
+                return 'interview_scheduled';
+            case 'JOB_ASSIGNED':
+                return 'job_posted'; // Closest match
+            case 'SUBSCRIPTION_PURCHASED':
+                return 'subscription_change';
+            case 'SYSTEM_ANNOUNCEMENT':
+                return 'system_announcement';
+            case 'JOB_CREATED':
+                return 'job_posted';
+            default:
+                return 'system_announcement'; // Default fallback
+        }
+    }
+
+    /**
      * Create a single notification
      */
-    static async createNotification(params: CreateNotificationParams): Promise<UniversalNotification> {
+    static async createNotification(params: CreateNotificationParams): Promise<UniversalNotification | null> {
+        // Preference Check for Users
+        if (params.recipientType === 'USER') {
+            const eventType = this.mapToEventType(params.type);
+
+            // Check if In-App notifications are enabled for this event
+            const shouldSendInApp = await UserNotificationPreferencesService.shouldSendNotification(
+                params.recipientId,
+                eventType,
+                'in-app'
+            );
+
+            // Check if Email notifications are enabled for this event
+            const shouldSendEmail = await UserNotificationPreferencesService.shouldSendNotification(
+                params.recipientId,
+                eventType,
+                'email'
+            );
+
+            if (shouldSendEmail) {
+                // Fetch user email to send notification
+                const user = await prisma.user.findUnique({
+                    where: { id: params.recipientId },
+                    select: { email: true }
+                });
+
+                if (user?.email) {
+                    await emailService.sendNotificationEmail(
+                        user.email,
+                        params.title,
+                        params.message,
+                        params.actionUrl
+                    );
+                }
+            }
+
+            if (!shouldSendInApp) {
+                // If in-app is disabled, we don't create the DB record
+                return null;
+            }
+        }
+
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + NOTIFICATION_EXPIRY_DAYS);
 
@@ -100,8 +168,30 @@ export class UniversalNotificationService {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + NOTIFICATION_EXPIRY_DAYS);
 
+        // Filter recipients based on preferences
+        const recipientsToNotify = await Promise.all(
+            params.recipients.map(async (recipient) => {
+                if (recipient.recipientType === 'USER') {
+                    const eventType = this.mapToEventType(params.type);
+                    const shouldSend = await UserNotificationPreferencesService.shouldSendNotification(
+                        recipient.recipientId,
+                        eventType,
+                        'in-app'
+                    );
+                    return shouldSend ? recipient : null;
+                }
+                return recipient; // Always notify non-USER types (Candidates/Consultants) for now
+            })
+        );
+
+        const validRecipients = recipientsToNotify.filter((r): r is NonNullable<typeof r> => r !== null);
+
+        if (validRecipients.length === 0) {
+            return [];
+        }
+
         const notifications = await Promise.all(
-            params.recipients.map(recipient =>
+            validRecipients.map(recipient =>
                 prisma.universalNotification.create({
                     data: {
                         recipient_type: recipient.recipientType,

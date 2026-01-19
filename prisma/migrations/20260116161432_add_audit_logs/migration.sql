@@ -1,27 +1,23 @@
--- CreateTable
-CREATE TABLE "audit_logs" (
+-- CreateTable for AuditLog
+CREATE TABLE IF NOT EXISTS "audit_logs" (
     "id" TEXT NOT NULL,
     "entity_type" TEXT NOT NULL,
     "entity_id" TEXT NOT NULL,
     "action" TEXT NOT NULL,
-    "old_value" JSONB,
-    "new_value" JSONB,
     "performed_by" TEXT NOT NULL,
-    "performed_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "performed_by_email" TEXT DEFAULT 'unknown',
+    "performed_by_role" TEXT DEFAULT 'SYSTEM',
+    "changes" JSONB,
     "ip_address" TEXT,
-    "notes" TEXT,
+    "user_agent" TEXT,
+    "description" TEXT,
+    "performed_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE INDEX "audit_logs_entity_type_entity_id_idx" ON "audit_logs"("entity_type", "entity_id");
-
--- CreateIndex
-CREATE INDEX "audit_logs_performed_by_idx" ON "audit_logs"("performed_by");
-
--- CreateIndex
-CREATE INDEX "audit_logs_performed_at_idx" ON "audit_logs"("performed_at");
-
--- CreateIndex
-CREATE INDEX "audit_logs_action_idx" ON "audit_logs"("action");
+CREATE INDEX IF NOT EXISTS "audit_logs_entity_type_idx" ON "audit_logs"("entity_type");
+CREATE INDEX IF NOT EXISTS "audit_logs_entity_id_idx" ON "audit_logs"("entity_id");
+CREATE INDEX IF NOT EXISTS "audit_logs_performed_by_idx" ON "audit_logs"("performed_by");
+CREATE INDEX IF NOT EXISTS "audit_logs_performed_at_idx" ON "audit_logs"("performed_at");

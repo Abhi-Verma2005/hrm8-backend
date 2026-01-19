@@ -7,6 +7,7 @@ import { Response } from 'express';
 import { RegionalLicenseeService, SuspendResult, TerminateResult } from '../../services/hrm8/RegionalLicenseeService';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 import { LicenseeStatus } from '@prisma/client';
+import { logAudit, createAuditDescription } from '../../middleware/auditHelper';
 
 export class RegionalLicenseeController {
   /**
@@ -106,6 +107,12 @@ export class RegionalLicenseeController {
         success: true,
         data: { licensee: result },
       });
+
+      // Log audit entry
+      await logAudit(req, 'Licensee', result.id, 'CREATE', {
+        description: createAuditDescription('CREATE', 'Licensee', licenseeData.name),
+        changes: { name: licenseeData.name, email: licenseeData.email },
+      });
     } catch (error) {
       console.error('Create licensee error:', error);
       res.status(500).json({
@@ -152,6 +159,12 @@ export class RegionalLicenseeController {
         success: true,
         data: { licensee: result },
       });
+
+      // Log audit entry
+      await logAudit(req, 'Licensee', id, 'UPDATE', {
+        description: createAuditDescription('UPDATE', 'Licensee', result.name),
+        changes: updateData,
+      });
     } catch (error) {
       console.error('Update licensee error:', error);
       res.status(500).json({
@@ -173,6 +186,11 @@ export class RegionalLicenseeController {
       res.json({
         success: true,
         data: impact,
+      });
+
+      // Log audit entry
+      await logAudit(req, 'Licensee', id, 'SUSPEND', {
+        description: createAuditDescription('SUSPEND', 'Licensee'),
       });
     } catch (error) {
       console.error('Get impact preview error:', error);
@@ -276,7 +294,12 @@ export class RegionalLicenseeController {
           finalSettlement: result.finalSettlement,
         },
       });
-    } catch (error: any) {
+
+      // Log audit entry
+      await logAudit(req, 'Licensee', id, 'TERMINATE', {
+        description: createAuditDescription('TERMINATE', 'Licensee'),
+      });
+    } catch (error) {
       console.error('Terminate licensee error:', error);
       res.status(500).json({
         success: false,

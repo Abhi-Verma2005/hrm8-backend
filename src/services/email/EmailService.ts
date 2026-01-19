@@ -18,6 +18,14 @@ interface EmailConfig {
 
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
+  private static instance: EmailService;
+
+  public static getInstance(): EmailService {
+    if (!EmailService.instance) {
+      EmailService.instance = new EmailService();
+    }
+    return EmailService.instance;
+  }
 
   /**
    * Initialize email transporter

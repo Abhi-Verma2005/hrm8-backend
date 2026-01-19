@@ -30,26 +30,25 @@ model Company {
   licensee_id             String?
   region_owner_type       RegionOwnerType            @default(HRM8)
   commission_status       CommissionStatus           @default(PENDING)
-  attribution_locked      Boolean                    @default(false) @map("attribution_locked")
-  attribution_locked_at   DateTime?                  @map("attribution_locked_at")
   price_book_id           String?                    @map("price_book_id")
   referred_by             String?
+  attribution_locked      Boolean                    @default(false) @map("attribution_locked")
+  attribution_locked_at   DateTime?                  @map("attribution_locked_at")
   sales_agent_id          String?                    @map("sales_agent_id")
-  // Careers page fields (public company profile)
-  careers_page_status     CareersPageStatus          @default(PENDING) @map("careers_page_status")
-  careers_page_logo       String?                    @map("careers_page_logo")
-  careers_page_banner     String?                    @map("careers_page_banner")
   careers_page_about      String?                    @map("careers_page_about")
+  careers_page_banner     String?                    @map("careers_page_banner")
+  careers_page_logo       String?                    @map("careers_page_logo")
   careers_page_social     Json?                      @map("careers_page_social")
-  careers_page_images     Json?                      @map("careers_page_images")
+  careers_page_status     CareersPageStatus          @default(PENDING) @map("careers_page_status")
   careers_pending_changes Json?                      @map("careers_pending_changes")
   careers_review_notes    Json?                      @map("careers_review_notes")
+  careers_page_images     Json?                      @map("careers_page_images")
   account_team            AccountTeam[]
   activity                Activity[]
   bill                    Bill[]
   price_book              PriceBook?                 @relation(fields: [price_book_id], references: [id])
-  sales_agent             Consultant?                @relation("CompanySalesAgent", fields: [sales_agent_id], references: [id])
   region                  Region?                    @relation(fields: [region_id], references: [id])
+  sales_agent             Consultant?                @relation("CompanySalesAgent", fields: [sales_agent_id], references: [id])
   profile                 CompanyProfile?
   company_settings        CompanySettings?
   contact                 Contact[]
@@ -64,9 +63,8 @@ model Company {
   subscription            Subscription[]
   users                   User[]
   verification_tokens     VerificationToken[]
+  conversion_requests     LeadConversionRequest[]
   refund_requests         TransactionRefundRequest[]
-
-  conversion_requests LeadConversionRequest[]
 
   @@index([domain])
   @@index([verification_status])
@@ -239,7 +237,6 @@ model Job {
   salary_max                          Float?                      @map("salary_max")
   salary_currency                     String                      @default("USD") @map("salary_currency")
   salary_description                  String?                     @map("salary_description")
-  benefits                            String?                     @db.Text
   description                         String
   status                              JobStatus                   @default(DRAFT)
   stealth                             Boolean                     @default(false)
@@ -290,6 +287,12 @@ model Job {
   payment_failed_at                   DateTime?
   stripe_payment_intent_id            String?
   stripe_session_id                   String?
+  clicks_count                        Int                         @default(0)
+  views_count                         Int                         @default(0)
+  auto_archive_on_expiry              Boolean                     @default(true) @map("auto_archive_on_expiry")
+  posted_at                           DateTime                    @default(now()) @map("posted_at")
+  benefits                            String?
+  category_id                         String?                     @map("category_id")
   applications                        Application[]
   commissions                         Commission[]
   consultant_assignments              ConsultantJobAssignment[]
@@ -297,6 +300,7 @@ model Job {
   email_message                       EmailMessage[]
   email_template                      EmailTemplate[]
   assigned_consultant                 Consultant?                 @relation(fields: [assigned_consultant_id], references: [id])
+  job_category                        JobCategory?                @relation(fields: [category_id], references: [id])
   company                             Company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
   creator                             User                        @relation("JobCreator", fields: [created_by], references: [id], onDelete: Cascade)
   region                              Region?                     @relation(fields: [region_id], references: [id])
@@ -307,16 +311,8 @@ model Job {
   pre_interview_questionnaire         PreInterviewQuestionnaire[]
   saved_job                           SavedJob[]
   screening_criteria_rel              ScreeningCriteria[]
-
-  auto_archive_on_expiry Boolean  @default(true) @map("auto_archive_on_expiry")
-  posted_at              DateTime @default(now()) @map("posted_at")
-  views_count            Int      @default(0)
-  clicks_count           Int      @default(0)
-
-  category_id   String?            @map("category_id")
-  job_category  JobCategory?       @relation(fields: [category_id], references: [id])
-  tags          JobTagAssignment[]
-  job_analytics JobAnalytics[]
+  job_analytics                       JobAnalytics[]
+  tags                                JobTagAssignment[]
 
   @@index([status, posting_date])
   @@index([category_id])
@@ -342,23 +338,21 @@ model JobCategory {
   is_active   Boolean  @default(true) @map("is_active")
   created_at  DateTime @default(now()) @map("created_at")
   updated_at  DateTime @default(now()) @updatedAt @map("updated_at")
-
-  jobs Job[]
+  jobs        Job[]
 
   @@map("job_category")
 }
 
 model JobTag {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  slug        String   @unique
-  color       String?  @default("#3B82F6")
+  id          String             @id @default(uuid())
+  name        String             @unique
+  slug        String             @unique
+  color       String?            @default("#3B82F6")
   description String?
-  is_active   Boolean  @default(true) @map("is_active")
-  created_at  DateTime @default(now()) @map("created_at")
-  updated_at  DateTime @default(now()) @updatedAt @map("updated_at")
-
-  jobs JobTagAssignment[]
+  is_active   Boolean            @default(true) @map("is_active")
+  created_at  DateTime           @default(now()) @map("created_at")
+  updated_at  DateTime           @default(now()) @updatedAt @map("updated_at")
+  jobs        JobTagAssignment[]
 
   @@map("job_tag")
 }
@@ -367,9 +361,8 @@ model JobTagAssignment {
   job_id      String
   tag_id      String
   assigned_at DateTime @default(now()) @map("assigned_at")
-
-  job Job    @relation(fields: [job_id], references: [id], onDelete: Cascade)
-  tag JobTag @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+  job         Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  tag         JobTag   @relation(fields: [tag_id], references: [id], onDelete: Cascade)
 
   @@id([job_id, tag_id])
   @@index([job_id])
@@ -674,7 +667,6 @@ model Application {
   portfolio_url              String?                    @map("portfolio_url")
   linked_in_url              String?                    @map("linked_in_url")
   website_url                String?                    @map("website_url")
-  source                     String?                    @map("source")
   custom_answers             Json?                      @map("custom_answers")
   questionnaire_data         Json?                      @map("questionnaire_data")
   is_read                    Boolean                    @default(false) @map("is_read")
@@ -701,6 +693,7 @@ model Application {
   manual_screening_date      DateTime?                  @map("manual_screening_date")
   manual_screening_score     Float?                     @map("manual_screening_score")
   ai_analysis                Json?                      @map("ai_analysis")
+  source                     String?                    @map("source")
   candidate                  Candidate                  @relation(fields: [candidate_id], references: [id], onDelete: Cascade)
   job                        Job                        @relation(fields: [job_id], references: [id], onDelete: Cascade)
   application_round_progress ApplicationRoundProgress[]
@@ -851,7 +844,6 @@ model Commission {
   consultant_id          String           @map("consultant_id")
   region_id              String           @map("region_id")
   job_id                 String?          @map("job_id")
-  subscription_id        String?          @map("subscription_id")
   type                   CommissionType
   amount                 Float
   rate                   Float?
@@ -859,15 +851,16 @@ model Commission {
   status                 CommissionStatus @default(PENDING)
   confirmed_at           DateTime?        @map("confirmed_at")
   paid_at                DateTime?        @map("paid_at")
-  commission_expiry_date DateTime?        @map("commission_expiry_date")
   payment_reference      String?          @map("payment_reference")
   notes                  String?
   created_at             DateTime         @default(now()) @map("created_at")
   updated_at             DateTime         @default(now()) @updatedAt @map("updated_at")
+  commission_expiry_date DateTime?        @map("commission_expiry_date")
+  subscription_id        String?          @map("subscription_id")
   consultant             Consultant       @relation(fields: [consultant_id], references: [id])
   job                    Job?             @relation(fields: [job_id], references: [id])
-  subscription           Subscription?    @relation("SubscriptionCommissions", fields: [subscription_id], references: [id])
   region                 Region           @relation(fields: [region_id], references: [id])
+  subscription           Subscription?    @relation("SubscriptionCommissions", fields: [subscription_id], references: [id])
 
   @@index([consultant_id])
   @@index([job_id])
@@ -878,47 +871,32 @@ model Commission {
 }
 
 model CommissionWithdrawal {
-  id              String           @id @default(uuid())
-  consultant_id   String           @map("consultant_id")
-  amount          Float
-  status          WithdrawalStatus @default(PENDING)
-  payment_method  String           @map("payment_method") // 'BANK_TRANSFER', 'PAYPAL', 'STRIPE', etc.
-  payment_details Json?            @map("payment_details") // Bank account, PayPal email, etc.
-  commission_ids  String[]         @map("commission_ids") // Array of commission IDs included
-
-  // Admin fields
-  processed_by      String?   @map("processed_by") // Admin consultant ID
-  processed_at      DateTime? @map("processed_at")
-  payment_reference String?   @map("payment_reference") // Transaction ID
-  admin_notes       String?   @map("admin_notes")
-
-  // Rejection
-  rejection_reason String?   @map("rejection_reason")
-  rejected_at      DateTime? @map("rejected_at")
-  rejected_by      String?   @map("rejected_by")
-
-  // Stripe Connect payout fields
-  stripe_transfer_id     String?   @map("stripe_transfer_id")
-  stripe_payout_id       String?   @map("stripe_payout_id")
-  transfer_initiated_at  DateTime? @map("transfer_initiated_at")
-  transfer_completed_at  DateTime? @map("transfer_completed_at")
-  transfer_failed_reason String?   @map("transfer_failed_reason")
-
-  // Agent notes
-  notes String?
-
-  // Virtual wallet integration
-  virtual_transaction_id String?   @map("virtual_transaction_id") // Debit from consultant's wallet
-  debited_from_wallet    Boolean   @default(false) @map("debited_from_wallet")
-  wallet_debit_at        DateTime? @map("wallet_debit_at")
-
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
-
-  consultant Consultant @relation("ConsultantWithdrawals", fields: [consultant_id], references: [id])
-  // Removed relation constraints for admin fields to allow HRM8User IDs
-  // processor             Consultant?         @relation("WithdrawalProcessor", fields: [processed_by], references: [id])
-  // rejecter              Consultant?         @relation("WithdrawalRejecter", fields: [rejected_by], references: [id])
+  id                     String           @id @default(uuid())
+  consultant_id          String           @map("consultant_id")
+  amount                 Float
+  status                 WithdrawalStatus @default(PENDING)
+  payment_method         String           @map("payment_method")
+  payment_details        Json?            @map("payment_details")
+  commission_ids         String[]         @map("commission_ids")
+  processed_by           String?          @map("processed_by")
+  processed_at           DateTime?        @map("processed_at")
+  payment_reference      String?          @map("payment_reference")
+  admin_notes            String?          @map("admin_notes")
+  rejection_reason       String?          @map("rejection_reason")
+  rejected_at            DateTime?        @map("rejected_at")
+  rejected_by            String?          @map("rejected_by")
+  notes                  String?
+  created_at             DateTime         @default(now()) @map("created_at")
+  updated_at             DateTime         @default(now()) @updatedAt @map("updated_at")
+  stripe_payout_id       String?          @map("stripe_payout_id")
+  stripe_transfer_id     String?          @map("stripe_transfer_id")
+  transfer_completed_at  DateTime?        @map("transfer_completed_at")
+  transfer_failed_reason String?          @map("transfer_failed_reason")
+  transfer_initiated_at  DateTime?        @map("transfer_initiated_at")
+  debited_from_wallet    Boolean          @default(false) @map("debited_from_wallet")
+  virtual_transaction_id String?          @map("virtual_transaction_id")
+  wallet_debit_at        DateTime?        @map("wallet_debit_at")
+  consultant             Consultant       @relation("ConsultantWithdrawals", fields: [consultant_id], references: [id])
 
   @@index([consultant_id])
   @@index([status])
@@ -950,7 +928,6 @@ model Consultant {
   default_commission_rate    Float?                     @map("default_commission_rate")
   industry_expertise         String[]                   @default([]) @map("industry_expertise")
   languages                  Json?
-  linkedin_url               String?                    @map("linkedin_url")
   max_employers              Int                        @default(10) @map("max_employers")
   max_jobs                   Int                        @default(20) @map("max_jobs")
   payment_method             Json?                      @map("payment_method")
@@ -965,28 +942,27 @@ model Consultant {
   total_revenue              Float                      @default(0) @map("total_revenue")
   current_leads              Int                        @default(0)
   max_leads                  Int                        @default(20)
+  payout_enabled             Boolean                    @default(false) @map("payout_enabled")
   stripe_account_id          String?                    @map("stripe_account_id")
   stripe_account_status      String?                    @map("stripe_account_status")
   stripe_onboarded_at        DateTime?                  @map("stripe_onboarded_at")
-  payout_enabled             Boolean                    @default(false) @map("payout_enabled")
+  linkedin_url               String?                    @map("linkedin_url")
   account_team               AccountTeam[]
   commissions                Commission[]
+  withdrawals                CommissionWithdrawal[]     @relation("ConsultantWithdrawals")
+  sales_companies            Company[]                  @relation("CompanySalesAgent")
   region                     Region                     @relation(fields: [region_id], references: [id])
   job_assignments            ConsultantJobAssignment[]
   consultant_lead_assignment ConsultantLeadAssignment[]
   sessions                   ConsultantSession[]
+  integrations               Integration[]
   assigned_jobs              Job[]
   lead                       Lead[]                     @relation("AssignedLeads")
   created_leads              Lead[]                     @relation("CreatedLeads")
   referred_leads             Lead[]                     @relation("ReferredLeads")
   opportunity                Opportunity[]
   subscription               Subscription[]
-  sales_companies            Company[]                  @relation("CompanySalesAgent")
-  withdrawals                CommissionWithdrawal[]     @relation("ConsultantWithdrawals")
-  // processed_withdrawals      CommissionWithdrawal[]     @relation("WithdrawalProcessor")
   conversion_requests        LeadConversionRequest[]    @relation("ConversionRequests")
-  // rejected_withdrawals       CommissionWithdrawal[]     @relation("WithdrawalRejecter")
-  integrations               Integration[]
 
   @@index([email])
   @@index([region_id])
@@ -1064,8 +1040,8 @@ model HRM8User {
   updated_at                   DateTime                @default(now()) @updatedAt @map("updated_at")
   last_login_at                DateTime?               @map("last_login_at")
   sessions                     HRM8Session[]
-  reviewed_conversion_requests LeadConversionRequest[] @relation("ReviewedRequests")
   integrations                 Integration[]
+  reviewed_conversion_requests LeadConversionRequest[] @relation("ReviewedRequests")
 
   @@index([email])
   @@index([licensee_id])
@@ -1115,10 +1091,11 @@ model Region {
   owner_type               RegionOwnerType         @default(HRM8) @map("owner_type")
   licensee_id              String?                 @map("licensee_id")
   is_active                Boolean                 @default(true) @map("is_active")
-  monthly_revenue_target   Float?                  @default(0) @map("monthly_revenue_target")
-  monthly_placement_target Int?                    @default(0) @map("monthly_placement_target")
   created_at               DateTime                @default(now()) @map("created_at")
   updated_at               DateTime                @default(now()) @updatedAt @map("updated_at")
+  monthly_placement_target Int?                    @default(0) @map("monthly_placement_target")
+  monthly_revenue_target   Float?                  @default(0) @map("monthly_revenue_target")
+  bills                    Bill[]
   commissions              Commission[]
   companies                Company[]
   consultants              Consultant[]
@@ -1127,7 +1104,6 @@ model Region {
   price_books              PriceBook[]
   licensee                 RegionalLicensee?       @relation(fields: [licensee_id], references: [id])
   revenue                  RegionalRevenue[]
-  bills                    Bill[]
   conversion_requests      LeadConversionRequest[]
 
   @@index([is_active])
@@ -1559,13 +1535,13 @@ model Bill {
   line_items        Json?
   accounting_ref    String?
   synced_at         DateTime?
-  region_id         String?       @map("region_id")
   notes             String?
   created_at        DateTime      @default(now()) @map("created_at")
   updated_at        DateTime      @default(now()) @updatedAt @map("updated_at")
+  region_id         String?       @map("region_id")
   company           Company       @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  subscription      Subscription? @relation(fields: [subscription_id], references: [id])
   region            Region?       @relation(fields: [region_id], references: [id])
+  subscription      Subscription? @relation(fields: [subscription_id], references: [id])
 
   @@index([company_id])
   @@index([due_date])
@@ -1613,38 +1589,32 @@ model Contact {
 }
 
 model Integration {
-  id            String            @id @default(uuid())
-  company_id    String?
-  hrm8_user_id  String? // For HRM8 dashboard integrations
-  consultant_id String? // For consultant dashboard integrations
-  type          IntegrationType
-  name          String
-  status        IntegrationStatus @default(ACTIVE)
-
-  // Stripe-specific fields
-  stripe_account_id     String? // Stripe Connect account ID
-  stripe_account_status String? // active, pending, restricted
+  id                    String            @id @default(uuid())
+  company_id            String?
+  type                  IntegrationType
+  name                  String
+  status                IntegrationStatus @default(ACTIVE)
+  api_key               String?
+  api_secret            String?
+  login_url             String?
+  username              String?
+  password              String?
+  config                Json?
+  last_sync_at          DateTime?
+  sync_status           String?
+  error_message         String?
+  created_at            DateTime          @default(now())
+  updated_at            DateTime          @default(now()) @updatedAt
+  consultant_id         String?
+  hrm8_user_id          String?
+  stripe_account_id     String?
+  stripe_account_status String?
   stripe_onboarded_at   DateTime?
   stripe_refresh_url    String?
   stripe_return_url     String?
-
-  // Generic integration fields
-  api_key       String?
-  api_secret    String?
-  login_url     String?
-  username      String?
-  password      String?
-  config        Json?
-  last_sync_at  DateTime?
-  sync_status   String?
-  error_message String?
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @default(now()) @updatedAt
-
-  // Relations
-  company    Company?    @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  hrm8_user  HRM8User?   @relation(fields: [hrm8_user_id], references: [id], onDelete: Cascade)
-  consultant Consultant? @relation(fields: [consultant_id], references: [id], onDelete: Cascade)
+  company               Company?          @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  consultant            Consultant?       @relation(fields: [consultant_id], references: [id], onDelete: Cascade)
+  hrm8_user             HRM8User?         @relation(fields: [hrm8_user_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
   @@index([hrm8_user_id])
@@ -1683,12 +1653,12 @@ model Lead {
   updated_at                 DateTime                   @default(now()) @updatedAt
   activity                   Activity[]
   consultant_lead_assignment ConsultantLeadAssignment[]
-  conversion_requests        LeadConversionRequest[]
   consultant                 Consultant?                @relation("AssignedLeads", fields: [assigned_consultant_id], references: [id])
+  company                    Company?                   @relation(fields: [converted_to_company_id], references: [id])
   creator                    Consultant?                @relation("CreatedLeads", fields: [created_by], references: [id])
   referrer                   Consultant?                @relation("ReferredLeads", fields: [referred_by], references: [id])
-  company                    Company?                   @relation(fields: [converted_to_company_id], references: [id])
   region                     Region?                    @relation(fields: [region_id], references: [id])
+  conversion_requests        LeadConversionRequest[]
 
   @@index([assigned_consultant_id])
   @@index([assignment_source])
@@ -1699,40 +1669,32 @@ model Lead {
 }
 
 model LeadConversionRequest {
-  id            String                  @id @default(uuid())
-  lead_id       String                  @map("lead_id")
-  consultant_id String                  @map("consultant_id")
-  region_id     String                  @map("region_id")
-  status        ConversionRequestStatus @default(PENDING)
-
-  // Company details from lead
-  company_name   String  @map("company_name")
+  id             String                  @id @default(uuid())
+  lead_id        String                  @map("lead_id")
+  consultant_id  String                  @map("consultant_id")
+  region_id      String                  @map("region_id")
+  status         ConversionRequestStatus @default(PENDING)
+  company_name   String                  @map("company_name")
   email          String
   phone          String?
   website        String?
   country        String
   city           String?
-  state_province String? @map("state_province")
-  agent_notes    String? @map("agent_notes")
-
-  // Admin review
-  reviewed_by    String?   @map("reviewed_by")
-  reviewed_at    DateTime? @map("reviewed_at")
-  admin_notes    String?   @map("admin_notes")
-  decline_reason String?   @map("decline_reason")
-
-  // Conversion tracking
-  converted_at DateTime? @map("converted_at")
-  company_id   String?   @map("company_id")
-
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @updatedAt @map("updated_at")
-
-  lead       Lead       @relation(fields: [lead_id], references: [id], onDelete: Cascade)
-  consultant Consultant @relation("ConversionRequests", fields: [consultant_id], references: [id])
-  reviewer   HRM8User?  @relation("ReviewedRequests", fields: [reviewed_by], references: [id])
-  region     Region     @relation(fields: [region_id], references: [id])
-  company    Company?   @relation(fields: [company_id], references: [id])
+  state_province String?                 @map("state_province")
+  agent_notes    String?                 @map("agent_notes")
+  reviewed_by    String?                 @map("reviewed_by")
+  reviewed_at    DateTime?               @map("reviewed_at")
+  admin_notes    String?                 @map("admin_notes")
+  decline_reason String?                 @map("decline_reason")
+  converted_at   DateTime?               @map("converted_at")
+  company_id     String?                 @map("company_id")
+  created_at     DateTime                @default(now()) @map("created_at")
+  updated_at     DateTime                @updatedAt @map("updated_at")
+  company        Company?                @relation(fields: [company_id], references: [id])
+  consultant     Consultant              @relation("ConversionRequests", fields: [consultant_id], references: [id])
+  lead           Lead                    @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  region         Region                  @relation(fields: [region_id], references: [id])
+  reviewer       HRM8User?               @relation("ReviewedRequests", fields: [reviewed_by], references: [id])
 
   @@index([lead_id])
   @@index([consultant_id])
@@ -1871,43 +1833,36 @@ model Opportunity {
 }
 
 model Subscription {
-  id               String               @id @default(uuid())
-  company_id       String
-  name             String
-  plan_type        SubscriptionPlanType @map("planType")
-  status           SubscriptionStatus   @default(ACTIVE)
-  base_price       Float
-  currency         String               @default("USD")
-  billing_cycle    BillingCycle         @default(MONTHLY)
-  discount_percent Float?               @default(0)
-  custom_pricing   Json?
-  start_date       DateTime
-  end_date         DateTime?
-  renewal_date     DateTime?
-  cancelled_at     DateTime?
-  sales_agent_id   String?
-  referred_by      String?
-  usage_data       Json?
-  notes            String?
-
-  // Usage tracking for job-based plans
-  job_quota Int? @map("job_quota") // e.g., 5 for SMALL plan, null for unlimited
-  jobs_used Int  @default(0) @map("jobs_used")
-
-  // Virtual wallet integration
-  prepaid_balance Float? @default(0) @map("prepaid_balance") // Remaining balance from subscription
-
-  // Renewal tracking
-  auto_renew             Boolean   @default(true) @map("auto_renew")
-  renewal_failed_at      DateTime? @map("renewal_failed_at")
-  renewal_failure_reason String?   @map("renewal_failure_reason")
-
-  created_at  DateTime     @default(now())
-  updated_at  DateTime     @default(now()) @updatedAt
-  bill        Bill[]
-  commissions Commission[] @relation("SubscriptionCommissions")
-  company     Company      @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  consultant  Consultant?  @relation(fields: [sales_agent_id], references: [id])
+  id                     String               @id @default(uuid())
+  company_id             String
+  name                   String
+  plan_type              SubscriptionPlanType @map("planType")
+  status                 SubscriptionStatus   @default(ACTIVE)
+  base_price             Float
+  currency               String               @default("USD")
+  billing_cycle          BillingCycle         @default(MONTHLY)
+  discount_percent       Float?               @default(0)
+  custom_pricing         Json?
+  start_date             DateTime
+  end_date               DateTime?
+  renewal_date           DateTime?
+  cancelled_at           DateTime?
+  sales_agent_id         String?
+  referred_by            String?
+  usage_data             Json?
+  notes                  String?
+  created_at             DateTime             @default(now())
+  updated_at             DateTime             @default(now()) @updatedAt
+  auto_renew             Boolean              @default(true) @map("auto_renew")
+  job_quota              Int?                 @map("job_quota")
+  jobs_used              Int                  @default(0) @map("jobs_used")
+  prepaid_balance        Float?               @default(0) @map("prepaid_balance")
+  renewal_failed_at      DateTime?            @map("renewal_failed_at")
+  renewal_failure_reason String?              @map("renewal_failure_reason")
+  bill                   Bill[]
+  commissions            Commission[]         @relation("SubscriptionCommissions")
+  company                Company              @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  consultant             Consultant?          @relation(fields: [sales_agent_id], references: [id])
 
   @@index([company_id])
   @@index([plan_type])
@@ -2158,6 +2113,167 @@ model DunningPolicy {
   updated_at     DateTime @default(now()) @updatedAt @map("updated_at")
 }
 
+model UniversalNotification {
+  id             String                    @id @default(uuid())
+  recipient_type NotificationRecipientType @map("recipient_type")
+  recipient_id   String                    @map("recipient_id")
+  type           UniversalNotificationType
+  title          String
+  message        String
+  data           Json?
+  job_id         String?                   @map("job_id")
+  application_id String?                   @map("application_id")
+  company_id     String?                   @map("company_id")
+  lead_id        String?                   @map("lead_id")
+  region_id      String?                   @map("region_id")
+  action_url     String?                   @map("action_url")
+  read           Boolean                   @default(false)
+  read_at        DateTime?                 @map("read_at")
+  created_at     DateTime                  @default(now()) @map("created_at")
+  expires_at     DateTime                  @map("expires_at")
+
+  @@index([recipient_type, recipient_id])
+  @@index([recipient_id, read])
+  @@index([created_at])
+  @@index([expires_at])
+  @@map("universal_notifications")
+}
+
+model JobAnalytics {
+  id         String   @id @default(uuid())
+  job_id     String
+  event_type String
+  source     String
+  session_id String?
+  ip_address String?
+  user_agent String?
+  referrer   String?
+  created_at DateTime @default(now())
+  job        Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+
+  @@index([job_id, event_type, created_at])
+  @@index([created_at])
+  @@index([session_id])
+  @@map("job_analytics")
+}
+
+model TransactionRefundRequest {
+  id                   String       @id @default(uuid())
+  company_id           String       @map("company_id")
+  transaction_id       String       @map("transaction_id")
+  transaction_type     String       @map("transaction_type")
+  amount               Float
+  status               RefundStatus @default(PENDING)
+  reason               String
+  processed_by         String?      @map("processed_by")
+  processed_at         DateTime?    @map("processed_at")
+  payment_reference    String?      @map("payment_reference")
+  admin_notes          String?      @map("admin_notes")
+  rejection_reason     String?      @map("rejection_reason")
+  rejected_at          DateTime?    @map("rejected_at")
+  rejected_by          String?      @map("rejected_by")
+  stripe_refund_id     String?      @map("stripe_refund_id")
+  refund_initiated_at  DateTime?    @map("refund_initiated_at")
+  refund_completed_at  DateTime?    @map("refund_completed_at")
+  refund_failed_reason String?      @map("refund_failed_reason")
+  created_at           DateTime     @default(now()) @map("created_at")
+  updated_at           DateTime     @default(now()) @updatedAt @map("updated_at")
+  company              Company      @relation(fields: [company_id], references: [id])
+
+  @@index([company_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([processed_by])
+  @@map("transaction_refund_requests")
+}
+
+model VirtualAccount {
+  id            String               @id @default(uuid())
+  owner_type    VirtualAccountOwner  @map("owner_type")
+  owner_id      String               @map("owner_id")
+  balance       Float                @default(0)
+  total_credits Float                @default(0) @map("total_credits")
+  total_debits  Float                @default(0) @map("total_debits")
+  status        VirtualAccountStatus @default(ACTIVE)
+  frozen_at     DateTime?            @map("frozen_at")
+  frozen_reason String?              @map("frozen_reason")
+  created_at    DateTime             @default(now()) @map("created_at")
+  updated_at    DateTime             @default(now()) @updatedAt @map("updated_at")
+  transactions  VirtualTransaction[]
+
+  @@unique([owner_type, owner_id])
+  @@index([owner_type, owner_id])
+  @@index([status])
+  @@map("virtual_accounts")
+}
+
+model VirtualTransaction {
+  id                    String                 @id @default(uuid())
+  virtual_account_id    String                 @map("virtual_account_id")
+  type                  VirtualTransactionType
+  amount                Float
+  balance_after         Float                  @map("balance_after")
+  direction             TransactionDirection
+  description           String?
+  metadata              Json?
+  reference_type        String?                @map("reference_type")
+  reference_id          String?                @map("reference_id")
+  subscription_id       String?                @map("subscription_id")
+  job_id                String?                @map("job_id")
+  bill_id               String?                @map("bill_id")
+  commission_id         String?                @map("commission_id")
+  refund_request_id     String?                @map("refund_request_id")
+  withdrawal_request_id String?                @map("withdrawal_request_id")
+  counterparty_type     VirtualAccountOwner?   @map("counterparty_type")
+  counterparty_id       String?                @map("counterparty_id")
+  status                TransactionStatus      @default(COMPLETED)
+  failed_reason         String?                @map("failed_reason")
+  created_by            String?                @map("created_by")
+  created_at            DateTime               @default(now()) @map("created_at")
+  virtual_account       VirtualAccount         @relation(fields: [virtual_account_id], references: [id])
+
+  @@index([virtual_account_id])
+  @@index([type])
+  @@index([reference_type, reference_id])
+  @@index([created_at])
+  @@index([status])
+  @@index([direction])
+  @@map("virtual_transactions")
+}
+
+model SystemSettings {
+  id         String   @id @default(uuid())
+  key        String   @unique
+  value      Json
+  is_public  Boolean  @default(false) @map("is_public")
+  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
+  updated_by String?  @map("updated_by")
+
+  @@index([key])
+  @@map("system_settings")
+}
+
+model AuditLog {
+  id                 String   @id @default(uuid())
+  entity_type        String   @map("entity_type")
+  entity_id          String   @map("entity_id")
+  action             String
+  performed_by       String   @map("performed_by")
+  performed_at       DateTime @default(now()) @map("performed_at")
+  ip_address         String?  @map("ip_address")
+  performed_by_email String?  @default("unknown") @map("performed_by_email")
+  performed_by_role  String?  @default("SYSTEM") @map("performed_by_role")
+  changes            Json?
+  user_agent         String?  @map("user_agent")
+  description        String?
+
+  @@index([entity_type])
+  @@index([entity_id])
+  @@index([performed_by])
+  @@index([performed_at])
+  @@map("audit_logs")
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
@@ -2194,10 +2310,10 @@ enum CompanyProfileSection {
 }
 
 enum CareersPageStatus {
-  PENDING // Never submitted
-  SUBMITTED // Full page awaiting initial review
-  APPROVED // Page is live
-  REJECTED // Initial submission rejected
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
 }
 
 enum VerificationMethod {
@@ -2334,20 +2450,20 @@ enum CommissionType {
 }
 
 enum WithdrawalStatus {
-  PENDING // Awaiting admin review
-  APPROVED // Approved, ready for payment
-  PROCESSING // Payment in progress
-  COMPLETED // Payment completed
-  REJECTED // Request rejected
-  CANCELLED // Cancelled by agent
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+  CANCELLED
 }
 
 enum RefundStatus {
-  PENDING // Awaiting admin review
-  APPROVED // Approved, ready for refund
-  REJECTED // Request rejected
-  COMPLETED // Refund processed
-  CANCELLED // Cancelled by company
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
 }
 
 enum ConsultantRole {
@@ -2454,86 +2570,32 @@ enum NotificationType {
   SYSTEM
 }
 
-// ============================================
-// UNIVERSAL NOTIFICATION SYSTEM
-// Supports notifications for all user types
-// ============================================
-
 enum UniversalNotificationType {
-  // Application Events
   NEW_APPLICATION
   APPLICATION_STATUS_CHANGED
   APPLICATION_SHORTLISTED
   APPLICATION_REJECTED
-
-  // Job Events
   JOB_CREATED
   JOB_STATUS_CHANGED
   JOB_ASSIGNED
   JOB_FILLED
-
-  // Pipeline Events
   CANDIDATE_STAGE_CHANGED
   INTERVIEW_SCHEDULED
   OFFER_EXTENDED
-
-  // Lead/Sales Events
   NEW_LEAD
   LEAD_CONVERTED
   SUBSCRIPTION_PURCHASED
   SERVICE_PURCHASED
-
-  // Consultant Events
   JOB_ASSIGNMENT_RECEIVED
   SHORTLIST_SUBMITTED
-
-  // System Events
   SYSTEM_ANNOUNCEMENT
 }
 
 enum NotificationRecipientType {
-  USER // Company HR User (User table)
-  CANDIDATE // Candidate (Candidate table)
-  CONSULTANT // Consultant/Recruiter/Sales Agent (Consultant table)
-  HRM8_USER // Global Admin/Regional Licensee (HRM8User table)
-}
-
-model UniversalNotification {
-  id String @id @default(uuid())
-
-  // Recipient targeting (polymorphic)
-  recipient_type NotificationRecipientType @map("recipient_type")
-  recipient_id   String                    @map("recipient_id")
-
-  // Notification content
-  type    UniversalNotificationType
-  title   String
-  message String
-  data    Json? // Additional structured data
-
-  // Related entities (optional, for deep linking)
-  job_id         String? @map("job_id")
-  application_id String? @map("application_id")
-  company_id     String? @map("company_id")
-  lead_id        String? @map("lead_id")
-  region_id      String? @map("region_id")
-
-  // Action URL for navigation
-  action_url String? @map("action_url")
-
-  // Read status
-  read    Boolean   @default(false)
-  read_at DateTime? @map("read_at")
-
-  // Timestamps
-  created_at DateTime @default(now()) @map("created_at")
-  expires_at DateTime @map("expires_at") // Auto-delete after 30 days
-
-  @@index([recipient_type, recipient_id])
-  @@index([recipient_id, read])
-  @@index([created_at])
-  @@index([expires_at])
-  @@map("universal_notifications")
+  USER
+  CANDIDATE
+  CONSULTANT
+  HRM8_USER
 }
 
 enum JobAssignmentMode {
@@ -2696,8 +2758,8 @@ enum IntegrationType {
   ACCOUNTING_SYSTEM
   EMAIL_PROVIDER
   CALENDAR
-  STRIPE_PAYMENTS
   OTHER
+  STRIPE_PAYMENTS
 }
 
 enum LeadSource {
@@ -2811,25 +2873,44 @@ enum TriggerType {
   CONDITIONAL
 }
 
-model JobAnalytics {
-  id     String @id @default(uuid())
-  job_id String
-  job    Job    @relation(fields: [job_id], references: [id], onDelete: Cascade)
+enum VirtualAccountOwner {
+  COMPANY
+  CONSULTANT
+  SALES_AGENT
+  HRM8_GLOBAL
+}
 
-  event_type String // "VIEW" | "DETAIL_VIEW" | "APPLY_CLICK" | "SHARE"
-  source     String // "HRM8_BOARD" | "CANDIDATE_PORTAL" | "CAREER_PAGE" | "EXTERNAL"
+enum VirtualAccountStatus {
+  ACTIVE
+  FROZEN
+  CLOSED
+}
 
-  session_id String?
-  ip_address String?
-  user_agent String?
-  referrer   String?
+enum VirtualTransactionType {
+  SUBSCRIPTION_PURCHASE
+  SUBSCRIPTION_REFUND
+  JOB_POSTING_DEDUCTION
+  JOB_REFUND
+  COMMISSION_EARNED
+  COMMISSION_WITHDRAWAL
+  ADDON_SERVICE_CHARGE
+  ADDON_SERVICE_REFUND
+  ADMIN_ADJUSTMENT
+  PLATFORM_FEE
+  TRANSFER_IN
+  TRANSFER_OUT
+}
 
-  created_at DateTime @default(now())
+enum TransactionDirection {
+  CREDIT
+  DEBIT
+}
 
-  @@index([job_id, event_type, created_at])
-  @@index([created_at])
-  @@index([session_id])
-  @@map("job_analytics")
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
 }
 
 // User Notification Preferences (HR Admin only)
@@ -2867,204 +2948,4 @@ model UserAlertRule {
   @@index([enabled])
   @@index([event_type])
   @@map("user_alert_rules")
-}
-
-model TransactionRefundRequest {
-  id               String       @id @default(uuid())
-  company_id       String       @map("company_id")
-  transaction_id   String       @map("transaction_id") // Job or Bill ID
-  transaction_type String       @map("transaction_type") // 'JOB_PAYMENT' | 'SUBSCRIPTION_BILL'
-  amount           Float // Refund amount (can be partial)
-  status           RefundStatus @default(PENDING)
-  reason           String // Required: why refund is requested
-
-  // Admin fields
-  processed_by      String?   @map("processed_by") // HRM8User ID or Admin
-  processed_at      DateTime? @map("processed_at")
-  payment_reference String?   @map("payment_reference")
-  admin_notes       String?   @map("admin_notes")
-
-  // Rejection
-  rejection_reason String?   @map("rejection_reason")
-  rejected_at      DateTime? @map("rejected_at")
-  rejected_by      String?   @map("rejected_by")
-
-  // Stripe refund fields (for auto-processing)
-  stripe_refund_id     String?   @map("stripe_refund_id")
-  refund_initiated_at  DateTime? @map("refund_initiated_at")
-  refund_completed_at  DateTime? @map("refund_completed_at")
-  refund_failed_reason String?   @map("refund_failed_reason")
-
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
-
-  company Company @relation(fields: [company_id], references: [id])
-
-  @@index([company_id])
-  @@index([status])
-  @@index([created_at])
-  @@index([processed_by])
-  @@map("transaction_refund_requests")
-}
-
-// ============================================
-// VIRTUAL WALLET SYSTEM
-// ============================================
-
-model VirtualAccount {
-  id String @id @default(uuid())
-
-  // Account owner (polymorphic relationship)
-  owner_type VirtualAccountOwner @map("owner_type") // COMPANY, CONSULTANT, SALES_AGENT, HRM8_GLOBAL
-  owner_id   String              @map("owner_id") // company_id, consultant_id, etc.
-
-  // Balance tracking (always in USD)
-  balance Float @default(0) // Current available balance
-
-  // Ledger totals (for reconciliation)
-  total_credits Float @default(0) @map("total_credits")
-  total_debits  Float @default(0) @map("total_debits")
-
-  // Account status
-  status        VirtualAccountStatus @default(ACTIVE)
-  frozen_at     DateTime?            @map("frozen_at")
-  frozen_reason String?              @map("frozen_reason")
-
-  // Metadata
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
-
-  transactions VirtualTransaction[]
-
-  @@unique([owner_type, owner_id])
-  @@index([owner_type, owner_id])
-  @@index([status])
-  @@map("virtual_accounts")
-}
-
-model VirtualTransaction {
-  id                 String @id @default(uuid())
-  virtual_account_id String @map("virtual_account_id")
-
-  // Transaction details (always in USD)
-  type          VirtualTransactionType
-  amount        Float
-  balance_after Float                  @map("balance_after") // Snapshot of balance after this txn
-
-  // Direction
-  direction TransactionDirection // CREDIT or DEBIT
-
-  // Description
-  description String?
-  metadata    Json? // Flexible field for extra data
-
-  // Related entities (polymorphic)
-  reference_type String? @map("reference_type") // 'SUBSCRIPTION', 'JOB', 'BILL', 'COMMISSION', 'REFUND', 'WITHDRAWAL'
-  reference_id   String? @map("reference_id") // ID of related entity
-
-  // Specific reference IDs for direct relationships
-  subscription_id       String? @map("subscription_id")
-  job_id                String? @map("job_id")
-  bill_id               String? @map("bill_id")
-  commission_id         String? @map("commission_id")
-  refund_request_id     String? @map("refund_request_id")
-  withdrawal_request_id String? @map("withdrawal_request_id")
-
-  // Counterparty (who sent/received)
-  counterparty_type VirtualAccountOwner? @map("counterparty_type")
-  counterparty_id   String?              @map("counterparty_id")
-
-  // Status
-  status        TransactionStatus @default(COMPLETED)
-  failed_reason String?           @map("failed_reason")
-
-  // Audit
-  created_by String?  @map("created_by") // User/Admin who initiated
-  created_at DateTime @default(now()) @map("created_at")
-
-  virtual_account VirtualAccount @relation(fields: [virtual_account_id], references: [id])
-
-  @@index([virtual_account_id])
-  @@index([type])
-  @@index([reference_type, reference_id])
-  @@index([created_at])
-  @@index([status])
-  @@index([direction])
-  @@map("virtual_transactions")
-}
-
-// ============================================
-// VIRTUAL WALLET ENUMS
-// ============================================
-
-enum VirtualAccountOwner {
-  COMPANY
-  CONSULTANT
-  SALES_AGENT
-  HRM8_GLOBAL
-}
-
-enum VirtualAccountStatus {
-  ACTIVE
-  FROZEN
-  CLOSED
-}
-
-enum VirtualTransactionType {
-  SUBSCRIPTION_PURCHASE // Company pays for subscription
-  SUBSCRIPTION_REFUND // Refund back to company
-  JOB_POSTING_DEDUCTION // Deduct per job posted
-  JOB_REFUND // Refund for unsatisfactory job
-  COMMISSION_EARNED // Consultant earns commission
-  COMMISSION_WITHDRAWAL // Consultant withdraws earnings
-  ADDON_SERVICE_CHARGE // Charges for AI interview, background check, etc.
-  ADDON_SERVICE_REFUND
-  ADMIN_ADJUSTMENT // Manual adjustment by admin
-  PLATFORM_FEE // Platform fees
-  TRANSFER_IN // Money transferred in
-  TRANSFER_OUT // Money transferred out
-}
-
-enum TransactionDirection {
-  CREDIT // Money added to account
-  DEBIT // Money deducted from account
-}
-
-enum TransactionStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REVERSED
-}
-
-model SystemSettings {
-  id         String   @id @default(uuid())
-  key        String   @unique
-  value      Json
-  is_public  Boolean  @default(false) @map("is_public")
-  updated_at DateTime @default(now()) @updatedAt @map("updated_at")
-  updated_by String?  @map("updated_by")
-
-  @@index([key])
-  @@map("system_settings")
-}
-
-// Phase 5: Audit Log for governance tracking
-model AuditLog {
-  id           String   @id @default(uuid())
-  entity_type  String // 'LICENSEE', 'REGION', 'CONSULTANT', 'SETTLEMENT'
-  entity_id    String
-  action       String // 'SUSPEND', 'TERMINATE', 'TRANSFER', 'UPDATE', 'CREATE'
-  old_value    Json?
-  new_value    Json?
-  performed_by String   @map("performed_by") // HRM8User ID
-  performed_at DateTime @default(now()) @map("performed_at")
-  ip_address   String?  @map("ip_address")
-  notes        String?
-
-  @@index([entity_type, entity_id])
-  @@index([performed_by])
-  @@index([performed_at])
-  @@index([action])
-  @@map("audit_logs")
 }

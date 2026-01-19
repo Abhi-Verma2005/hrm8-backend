@@ -1,142 +1,175 @@
 /**
  * Audit Log Service
  * Tracks all governance actions on licensees, regions, consultants, and settlements
+ * Handles logging of admin actions for compliance and tracking
  */
 
-import prisma from '../../lib/prisma';
+import { prisma } from '../../lib/prisma';
 
 export interface AuditLogEntry {
     id: string;
     entityType: string;
     entityId: string;
     action: string;
-    oldValue: Record<string, unknown> | null;
-    newValue: Record<string, unknown> | null;
     performedBy: string;
+    performedByEmail: string;
+    performedByRole: string;
+    changes?: Record<string, unknown>;
+    ipAddress?: string;
+    userAgent?: string;
+    description?: string;
     performedAt: Date;
-    ipAddress: string | null;
-    notes: string | null;
 }
 
-export type AuditEntityType = 'LICENSEE' | 'REGION' | 'CONSULTANT' | 'SETTLEMENT' | 'JOB';
-export type AuditAction = 'CREATE' | 'UPDATE' | 'SUSPEND' | 'TERMINATE' | 'REACTIVATE' | 'TRANSFER' | 'PAUSE' | 'DELETE';
+export interface CreateAuditLogInput {
+    entityType: string;
+    entityId: string;
+    action: string;
+    performedBy: string;
+    performedByEmail: string;
+    performedByRole: string;
+    changes?: Record<string, unknown>;
+    ipAddress?: string;
+    userAgent?: string;
+    description?: string;
+}
 
 export class AuditLogService {
     /**
-     * Log an audit entry
+     * Log an action
      */
-    static async log(params: {
-        entityType: AuditEntityType;
-        entityId: string;
-        action: AuditAction;
-        oldValue?: Record<string, unknown> | null;
-        newValue?: Record<string, unknown> | null;
-        performedBy: string;
-        ipAddress?: string;
-        notes?: string;
-    }): Promise<AuditLogEntry> {
+    static async log(input: CreateAuditLogInput): Promise<AuditLogEntry> {
         const entry = await prisma.auditLog.create({
             data: {
-                entity_type: params.entityType,
-                entity_id: params.entityId,
-                action: params.action,
-                old_value: (params.oldValue as any) || null,
-                new_value: (params.newValue as any) || null,
-                performed_by: params.performedBy,
-                ip_address: params.ipAddress || null,
-                notes: params.notes || null,
+                entity_type: input.entityType,
+                entity_id: input.entityId,
+                action: input.action,
+                performed_by: input.performedBy,
+                performed_by_email: input.performedByEmail,
+                performed_by_role: input.performedByRole,
+                changes: (input.changes as any) || null,
+                ip_address: input.ipAddress || null,
+                user_agent: input.userAgent || null,
+                description: input.description || null,
             },
         });
 
-        return this.mapToAuditEntry(entry);
+        return this.mapToEntry(entry);
     }
 
     /**
-     * Get audit history for a specific entity
+     * Get logs for a specific entity
      */
-    static async getHistory(
-        entityType: AuditEntityType,
+    static async getByEntity(
+        entityType: string,
         entityId: string,
-        options?: { limit?: number }
+        limit = 50
     ): Promise<AuditLogEntry[]> {
-        const entries = await prisma.auditLog.findMany({
+        const logs = await prisma.auditLog.findMany({
             where: {
                 entity_type: entityType,
                 entity_id: entityId,
             },
             orderBy: { performed_at: 'desc' },
-            take: options?.limit || 50,
+            take: limit,
         });
 
-        return entries.map(this.mapToAuditEntry);
+        return logs.map(this.mapToEntry);
     }
 
     /**
-     * Get recent audit entries by performer
+     * Get logs by actor
      */
-    static async getByPerformer(
-        performedBy: string,
-        options?: { limit?: number; days?: number }
-    ): Promise<AuditLogEntry[]> {
-        const daysAgo = options?.days || 30;
-        const since = new Date();
-        since.setDate(since.getDate() - daysAgo);
-
-        const entries = await prisma.auditLog.findMany({
-            where: {
-                performed_by: performedBy,
-                performed_at: { gte: since },
-            },
-            orderBy: { performed_at: 'desc' },
-            take: options?.limit || 100,
-        });
-
-        return entries.map(this.mapToAuditEntry);
-    }
-
-    /**
-     * Get recent entries by action type
-     */
-    static async getByAction(
-        action: AuditAction,
-        options?: { limit?: number; entityType?: AuditEntityType }
-    ): Promise<AuditLogEntry[]> {
-        const entries = await prisma.auditLog.findMany({
-            where: {
-                action,
-                ...(options?.entityType && { entity_type: options.entityType }),
-            },
-            orderBy: { performed_at: 'desc' },
-            take: options?.limit || 50,
-        });
-
-        return entries.map(this.mapToAuditEntry);
-    }
-
-    /**
-     * Get all recent audit entries
-     */
-    static async getRecent(limit: number = 100): Promise<AuditLogEntry[]> {
-        const entries = await prisma.auditLog.findMany({
+    static async getByActor(actorId: string, limit = 50): Promise<AuditLogEntry[]> {
+        const logs = await prisma.auditLog.findMany({
+            where: { performed_by: actorId },
             orderBy: { performed_at: 'desc' },
             take: limit,
         });
 
-        return entries.map(this.mapToAuditEntry);
+        return logs.map(this.mapToEntry);
     }
 
-    private static mapToAuditEntry(prismaEntry: any): AuditLogEntry {
+    /**
+     * Get recent logs with optional filters
+     */
+    static async getRecent(filters?: {
+        entityType?: string;
+        action?: string;
+        actorId?: string;
+        limit?: number;
+        offset?: number;
+    }): Promise<{ logs: AuditLogEntry[]; total: number }> {
+        const where: Record<string, unknown> = {};
+
+        if (filters?.entityType) where.entity_type = filters.entityType;
+        if (filters?.action) where.action = filters.action;
+        if (filters?.actorId) where.performed_by = filters.actorId;
+
+        const [logs, total] = await Promise.all([
+            prisma.auditLog.findMany({
+                where,
+                orderBy: { performed_at: 'desc' },
+                take: filters?.limit || 50,
+                skip: filters?.offset || 0,
+            }),
+            prisma.auditLog.count({ where }),
+        ]);
+
         return {
-            id: prismaEntry.id,
-            entityType: prismaEntry.entity_type,
-            entityId: prismaEntry.entity_id,
-            action: prismaEntry.action,
-            oldValue: prismaEntry.old_value as Record<string, unknown> | null,
-            newValue: prismaEntry.new_value as Record<string, unknown> | null,
-            performedBy: prismaEntry.performed_by,
-            performedAt: prismaEntry.performed_at,
-            ipAddress: prismaEntry.ip_address,
-            notes: prismaEntry.notes,
+            logs: logs.map(this.mapToEntry),
+            total,
+        };
+    }
+
+    /**
+     * Get audit summary stats
+     */
+    static async getStats(): Promise<{
+        totalLogs: number;
+        todayLogs: number;
+        topActions: { action: string; count: number }[];
+    }> {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const [totalLogs, todayLogs, actionCounts] = await Promise.all([
+            prisma.auditLog.count(),
+            prisma.auditLog.count({
+                where: { performed_at: { gte: today } },
+            }),
+            prisma.auditLog.groupBy({
+                by: ['action'],
+                _count: { action: true },
+                orderBy: { _count: { action: 'desc' } },
+                take: 5,
+            }),
+        ]);
+
+        return {
+            totalLogs,
+            todayLogs,
+            topActions: actionCounts.map((a) => ({
+                action: a.action,
+                count: a._count.action,
+            })),
+        };
+    }
+
+    private static mapToEntry(log: any): AuditLogEntry {
+        return {
+            id: log.id,
+            entityType: log.entity_type,
+            entityId: log.entity_id,
+            action: log.action,
+            performedBy: log.performed_by,
+            performedByEmail: log.performed_by_email,
+            performedByRole: log.performed_by_role,
+            changes: log.changes as Record<string, unknown> | undefined,
+            ipAddress: log.ip_address || undefined,
+            userAgent: log.user_agent || undefined,
+            description: log.description || undefined,
+            performedAt: log.performed_at,
         };
     }
 }

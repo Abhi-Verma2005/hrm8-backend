@@ -34,6 +34,7 @@ import { JobAllocationController } from '../controllers/hrm8/JobAllocationContro
 
 import analyticsRoutes from './analytics';
 import notificationRoutes from './notification.routes';
+import userNotificationPreferencesRoutes from './user-notification-preferences.routes';
 
 const router: RouterType = Router();
 
@@ -66,6 +67,7 @@ router.use('/api/wallet', walletRoutes);
 router.use('/api/integrations', integrationRoutes);
 router.use('/api/analytics', analyticsRoutes);
 router.use('/api/notifications', notificationRoutes);
+router.use('/api/user/notifications', userNotificationPreferencesRoutes);
 router.use('/', devRoutes); // Dev routes (only enabled in development)
 
 export default router;
