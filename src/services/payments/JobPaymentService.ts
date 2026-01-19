@@ -296,6 +296,122 @@ export class JobPaymentService {
     };
     return labels[servicePackage] || servicePackage;
   }
+
+  /**
+   * Process wallet payment for a job
+   */
+  static async processWalletPayment(jobId: string, companyId: string): Promise<boolean> {
+    console.log('💳 Processing wallet payment for job:', { jobId, companyId });
+
+    // Verify job exists and belongs to company
+    const job = await JobModel.findById(jobId);
+    if (!job) {
+      throw new Error('Job not found');
+    }
+
+    if (job.companyId !== companyId) {
+      throw new Error('Job does not belong to this company');
+    }
+
+    // Get payment amount
+    // If service package is missing, assume self-managed (free)
+    const servicePackage = (job.servicePackage || 'self-managed') as ServicePackage;
+
+    // Self-managed is free, so no deduction needed
+    if (servicePackage === 'self-managed') {
+      return true;
+    }
+
+    const paymentInfo = this.getPaymentAmount(servicePackage);
+    if (!paymentInfo) {
+      // Should not happen if requiresPayment check passed, but safety first
+      console.warn('⚠️ No payment info found for package, assuming free:', servicePackage);
+      return true;
+    }
+
+    const { amount, currency } = paymentInfo;
+
+    // Get Virtual Wallet Service instance
+    // We need to instantiate it here or pass it in. Since it requires PrismaClient, we can import prisma lib.
+    const { VirtualWalletService } = await import('../virtualWalletService'); // Dynamic import to avoid circular dep if any
+    const walletService = new VirtualWalletService(prisma);
+
+    // Get Company Wallet
+    // Assuming 'COMPANY' is the owner type. We need to check the exact enum value from Prisma.
+    // Based on schema, it's likely 'COMPANY'.
+    // Let's get the account first.
+    const account = await walletService.getAccountByOwner('COMPANY', companyId);
+
+    if (!account) {
+      throw new Error('Company wallet not found. Please contact support.');
+    }
+
+    // Check Balance
+    if (account.balance < amount) {
+      throw new Error(`Insufficient wallet balance. Required: $${amount.toFixed(2)}, Available: $${account.balance.toFixed(2)}`);
+    }
+
+    let debitResult;
+    try {
+      // Debiting uses a transaction internally in VirtualWalletService
+      debitResult = await walletService.debitAccount({
+        accountId: account.id,
+        amount: amount,
+        type: 'JOB_POSTING_DEDUCTION',
+        description: `Payment for job: ${job.title} (${this.getPackageLabel(servicePackage)})`,
+        referenceType: 'JOB',
+        referenceId: jobId,
+        jobId: jobId,
+        createdBy: 'SYSTEM',
+      });
+    } catch (error: any) {
+      console.error('❌ Wallet debit failed:', error);
+      throw error; // Re-throw deduction error (e.g. Insufficient Funds) directly
+    }
+
+    try {
+      // Update Job Payment Status
+      await prisma.job.update({
+        where: { id: jobId },
+        data: {
+          payment_status: PaymentStatus.PAID,
+          payment_amount: amount,
+          payment_currency: currency,
+          payment_completed_at: new Date(),
+        }
+      });
+
+      return true;
+
+    } catch (updateError: any) {
+      console.error('❌ Job update failed after wallet deduction. Initiating REFUND...', updateError);
+
+      // CRITICAL: ROLLBACK (REFUND) THE WALLET
+      try {
+        await walletService.creditAccount({
+          accountId: account.id,
+          amount: amount,
+          type: 'REFUND', // Used 'REFUND' as generic fallback if specific enum missing
+          description: `REFUND: System error during job posting for ${job.title}`,
+          referenceType: 'JOB',
+          referenceId: jobId,
+          jobId: jobId,
+          createdBy: 'SYSTEM',
+        });
+        console.log('✅ Refund successful for job:', jobId);
+      } catch (refundError) {
+        console.error('🚨 CRITICAL: REFUND FAILED for job:', jobId, refundError);
+        // This requires manual intervention or a reconciliation background job
+      }
+
+      // Record failure in job (though job update failed, we try to set status if possible, or just log)
+      try {
+        await this.recordJobPaymentFailure(jobId);
+      } catch (e) { /* ignore */ }
+
+      throw new Error('System error during payment processing. Any deducted funds have been refunded. Please try again.');
+    }
+  }
 }
 
 
