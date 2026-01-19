@@ -92,33 +92,35 @@ model CompanyProfile {
 }
 
 model User {
-  id                       String               @id @default(uuid())
-  email                    String               @unique
+  id                       String                       @id @default(uuid())
+  email                    String                       @unique
   name                     String
-  password_hash            String               @map("password_hash")
-  company_id               String               @map("company_id")
+  password_hash            String                       @map("password_hash")
+  company_id               String                       @map("company_id")
   role                     UserRole
-  status                   UserStatus           @default(PENDING_VERIFICATION)
-  last_login_at            DateTime?            @map("last_login_at")
-  created_at               DateTime             @default(now()) @map("created_at")
-  updated_at               DateTime             @default(now()) @updatedAt @map("updated_at")
-  assigned_by              String?              @map("assigned_by")
+  status                   UserStatus                   @default(PENDING_VERIFICATION)
+  last_login_at            DateTime?                    @map("last_login_at")
+  created_at               DateTime                     @default(now()) @map("created_at")
+  updated_at               DateTime                     @default(now()) @updatedAt @map("updated_at")
+  assigned_by              String?                      @map("assigned_by")
   assessment               Assessment[]
   assessment_comment       AssessmentComment[]
   assessment_grade         AssessmentGrade[]
   email_template           EmailTemplate[]
-  sent_invitations         Invitation[]         @relation("InvitedBy")
-  created_jobs             Job[]                @relation("JobCreator")
-  sent_job_invitations     JobInvitation[]      @relation("JobInviter")
+  sent_invitations         Invitation[]                 @relation("InvitedBy")
+  created_jobs             Job[]                        @relation("JobCreator")
+  sent_job_invitations     JobInvitation[]              @relation("JobInviter")
   job_template             JobTemplate[]
   offer_letter             OfferLetter[]
   password_reset_tokens    PasswordResetToken[]
   screening_result         ScreeningResult[]
   sessions                 Session[]
-  reviewed_signup_requests SignupRequest[]      @relation("ReviewedBy")
-  role_assigner            User?                @relation("RoleAssigner", fields: [assigned_by], references: [id])
-  assigned_users           User[]               @relation("RoleAssigner")
-  company                  Company              @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  reviewed_signup_requests SignupRequest[]              @relation("ReviewedBy")
+  role_assigner            User?                        @relation("RoleAssigner", fields: [assigned_by], references: [id])
+  assigned_users           User[]                       @relation("RoleAssigner")
+  company                  Company                      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  notification_preferences UserNotificationPreferences? @relation("UserNotificationPreferences")
+  alert_rules              UserAlertRule[]              @relation("UserAlertRules")
 
   @@index([email])
   @@index([company_id])
@@ -2830,6 +2832,43 @@ model JobAnalytics {
   @@map("job_analytics")
 }
 
+// User Notification Preferences (HR Admin only)
+model UserNotificationPreferences {
+  id                String   @id @default(uuid())
+  user_id           String   @unique @map("user_id")
+  event_preferences Json     @map("event_preferences") // Event-specific channel settings
+  quiet_hours       Json?    @map("quiet_hours") // { enabled: boolean, start: string, end: string }
+  created_at        DateTime @default(now()) @map("created_at")
+  updated_at        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation("UserNotificationPreferences", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("user_notification_preferences")
+}
+
+// Alert Rules for HR Admins
+model UserAlertRule {
+  id          String   @id @default(uuid())
+  user_id     String   @map("user_id")
+  name        String
+  description String?
+  enabled     Boolean  @default(true)
+  event_type  String   @map("event_type")
+  conditions  Json // Array of condition objects
+  actions     Json // { channels: string[], recipients: string[], priority: string }
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @default(now()) @updatedAt @map("updated_at")
+  created_by  String   @map("created_by")
+
+  user User @relation("UserAlertRules", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([enabled])
+  @@index([event_type])
+  @@map("user_alert_rules")
+}
+
 model TransactionRefundRequest {
   id               String       @id @default(uuid())
   company_id       String       @map("company_id")
@@ -3012,21 +3051,20 @@ model SystemSettings {
 
 // Phase 5: Audit Log for governance tracking
 model AuditLog {
-  id            String   @id @default(uuid())
-  entity_type   String   // 'LICENSEE', 'REGION', 'CONSULTANT', 'SETTLEMENT'
-  entity_id     String
-  action        String   // 'SUSPEND', 'TERMINATE', 'TRANSFER', 'UPDATE', 'CREATE'
-  old_value     Json?
-  new_value     Json?
-  performed_by  String   @map("performed_by") // HRM8User ID
-  performed_at  DateTime @default(now()) @map("performed_at")
-  ip_address    String?  @map("ip_address")
-  notes         String?
-  
-  @@map("audit_logs")
+  id           String   @id @default(uuid())
+  entity_type  String // 'LICENSEE', 'REGION', 'CONSULTANT', 'SETTLEMENT'
+  entity_id    String
+  action       String // 'SUSPEND', 'TERMINATE', 'TRANSFER', 'UPDATE', 'CREATE'
+  old_value    Json?
+  new_value    Json?
+  performed_by String   @map("performed_by") // HRM8User ID
+  performed_at DateTime @default(now()) @map("performed_at")
+  ip_address   String?  @map("ip_address")
+  notes        String?
+
   @@index([entity_type, entity_id])
   @@index([performed_by])
   @@index([performed_at])
   @@index([action])
+  @@map("audit_logs")
 }
-
