@@ -27,15 +27,12 @@ export class DocumentParserService {
    */
   static async parsePDF(buffer: Buffer): Promise<ParsedDocument> {
     try {
-      console.log(`[DocumentParserService] Starting PDF parse. Buffer size: ${buffer.length}`);
-      
       // pdf-parse v2.x uses PDFParse class
       const parser = new PDFParse({ data: buffer });
       const textResult = await parser.getText();
       const infoResult = await parser.getInfo();
-      
+
       const text = textResult.text || '';
-      console.log(`[DocumentParserService] PDF parsed. Text length: ${text.length}`);
 
       return {
         text,

@@ -24,7 +24,7 @@ const upload = multer({
       'text/plain',
       'application/zip', // For portfolio files
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -109,7 +109,7 @@ export class ApplicationUploadController {
             req.file.mimetype,
             content
           );
-          console.log('[ApplicationUploadController] Resume saved to CandidateResume table');
+
         } catch (dbError) {
           console.error('[ApplicationUploadController] Failed to save resume to database:', dbError);
           // Don't fail the upload response, just log the error

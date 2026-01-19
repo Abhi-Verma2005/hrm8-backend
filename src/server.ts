@@ -1,9 +1,9 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load .env from project root (parent directory) or from current directory
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-dotenv.config(); // Also try current directory as fallback
+// Load .env from backend root or from current directory
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config(); // Fallback to current directory
 
 import express, { Request, Response } from 'express';
 import { createServer } from 'http';
@@ -169,9 +169,7 @@ const server = createServer(app);
 
 // Attach WebSocket server to HTTP server
 server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
-  console.log('🔄 WebSocket upgrade request received');
   wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
-    console.log('✅ WebSocket connection upgraded');
     wss.emit('connection', ws, request);
   });
 });
@@ -211,28 +209,18 @@ const setupScheduledJobs = () => {
   // Cleanup expired notifications every 24 hours
   setInterval(async () => {
     try {
-      console.log('🧹 Starting daily notification cleanup...');
       const count = await UniversalNotificationService.cleanupExpiredNotifications();
-      console.log(`✅ Daily notification cleanup complete: ${count} notifications removed`);
     } catch (error) {
       console.error('❌ Error during daily notification cleanup:', error);
     }
   }, 24 * 60 * 60 * 1000); // 24 hours
 
-  // Run immediately on startup
-  UniversalNotificationService.cleanupExpiredNotifications()
-    .then((count) => console.log(`🧹 Startup cleanup: ${count} expired notifications removed`))
-    .catch(err => console.error('❌ Error during startup notification cleanup:', err));
+  UniversalNotificationService.cleanupExpiredNotifications().catch(err => console.error('❌ Error during startup notification cleanup:', err));
 };
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`API endpoints available at http://localhost:${PORT}/api`);
-  console.log(`🌐 WebSocket endpoint: ws://localhost:${PORT}`);
-  console.log(`✅ WebSocket server attached and ready`);
-
-  // Start scheduled jobs
+  // Silent startup
   setupScheduledJobs();
 });
 

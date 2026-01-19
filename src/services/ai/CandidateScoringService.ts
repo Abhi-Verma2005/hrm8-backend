@@ -127,7 +127,7 @@ export class CandidateScoringService {
                 parsed = await DocumentParserService.parsePDF(buffer);
               }
               resumeText = parsed.text;
-              console.log(`✅ Extracted ${resumeText.length} characters from resume`);
+              // console.log(`✅ Extracted ${resumeText.length} characters from resume`);
             }
           } catch (error) {
             console.warn('⚠️ Failed to extract resume text:', error);
@@ -464,8 +464,6 @@ Be specific, objective, and provide actionable insights.`;
     const results = new Map<string, { result: CandidateScoringResult; score: number }>();
     const total = applicationIds.length;
 
-    console.log(`🚀 Starting bulk scoring for ${total} candidates, jobId: ${jobId}`);
-
     for (let i = 0; i < applicationIds.length; i++) {
       const applicationId = applicationIds[i];
 
@@ -481,8 +479,6 @@ Be specific, objective, and provide actionable insights.`;
           ? `${application.candidate.firstName} ${application.candidate.lastName}`
           : application.candidate?.email?.split('@')[0] || 'Unknown';
 
-        console.log(`📋 Scoring candidate ${i + 1}/${total}: ${candidateName}`);
-
         if (onProgress) {
           onProgress(i, total, candidateName);
         }
@@ -493,7 +489,6 @@ Be specific, objective, and provide actionable insights.`;
           score: result.scores.overall,
         });
 
-        console.log(`✅ Scored ${candidateName}: ${result.scores.overall}/100`);
       } catch (error) {
         console.error(`❌ Failed to score application ${applicationId}:`, error);
         console.error('Error details:', {
@@ -507,8 +502,6 @@ Be specific, objective, and provide actionable insights.`;
     if (onProgress) {
       onProgress(total, total, 'Complete');
     }
-
-    console.log(`✅ Bulk scoring complete: ${results.size}/${total} successful`);
 
     return results;
   }

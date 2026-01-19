@@ -90,25 +90,13 @@ export class ApplicationController {
       // Prepare file buffers from multer if files were uploaded
       // Multer with fields() returns req.files as an object with field names as keys
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
-      console.log('[ApplicationController.submitAnonymousApplication] Files received:', {
-        filesKeys: files ? Object.keys(files) : [],
-        hasResume: !!files?.resume?.[0],
-        hasCoverLetter: !!files?.coverLetter?.[0],
-        hasPortfolio: !!files?.portfolio?.[0],
-      });
+
 
       const resumeFile = files?.resume?.[0];
       const coverLetterFile = files?.coverLetter?.[0];
       const portfolioFile = files?.portfolio?.[0];
 
-      if (resumeFile) {
-        console.log('[ApplicationController.submitAnonymousApplication] Resume file details:', {
-          originalname: resumeFile.originalname,
-          mimetype: resumeFile.mimetype,
-          size: resumeFile.size,
-          bufferLength: resumeFile.buffer?.length || 0,
-        });
-      }
+
 
       const anonymousData: any = {
         email,
@@ -155,13 +143,7 @@ export class ApplicationController {
         };
       }
 
-      console.log('[ApplicationController.submitAnonymousApplication] Submitting anonymous application', {
-        email,
-        jobId,
-        hasResumeFile: !!resumeFile,
-        hasCoverLetterFile: !!coverLetterFile,
-        hasPortfolioFile: !!portfolioFile,
-      });
+
 
       const result = await ApplicationService.submitAnonymousApplication(anonymousData);
 
@@ -207,13 +189,7 @@ export class ApplicationController {
         // Continue even if email fails - don't block application submission
       }
 
-      console.log('[ApplicationController.submitAnonymousApplication] Application submitted successfully', {
-        applicationId: application.id,
-        jobId: application.jobId,
-        candidateId: application.candidateId,
-        status: application.status,
-        stage: application.stage,
-      });
+
 
       // Send notification to employer
       try {
@@ -230,11 +206,28 @@ export class ApplicationController {
             applicationId: application.id,
             actionUrl: `/jobs/${job.id}/applications/${application.id}`,
           });
-          console.log('✅ Notification sent to employer:', job.createdBy);
         }
       } catch (notificationError) {
         console.error('❌ Failed to send notification to employer:', notificationError);
         // Don't block application submission if notification fails
+      }
+
+      // Notify candidate in-app (for anonymous application - they get auto logged in)
+      if (candidate && candidate.id) {
+        try {
+          await UniversalNotificationService.createNotification({
+            recipientType: NotificationRecipientType.CANDIDATE,
+            recipientId: candidate.id,
+            type: UniversalNotificationType.APPLICATION_STATUS_CHANGED,
+            title: 'Application Submitted',
+            message: `Your application for ${job?.title || 'the position'} has been successfully submitted.`,
+            jobId: application.jobId,
+            applicationId: application.id,
+            actionUrl: `/candidate/applications/${application.id}`,
+          });
+        } catch (notifyError) {
+          console.error('❌ Failed to send in-app notification to candidate:', notifyError);
+        }
       }
 
       res.status(201).json({
@@ -297,12 +290,7 @@ export class ApplicationController {
         return;
       }
 
-      console.log('[ApplicationController.submitApplication] Submitting application', {
-        candidateId: applicationData.candidateId,
-        jobId: applicationData.jobId,
-        requestBody: req.body,
-        applicationData: applicationData,
-      });
+
 
       const result = await ApplicationService.submitApplication(applicationData);
 
@@ -317,27 +305,15 @@ export class ApplicationController {
         return;
       }
 
-      console.log('[ApplicationController.submitApplication] Application submitted successfully', {
-        applicationId: result.id,
-        jobId: result.jobId,
-        candidateId: result.candidateId,
-        status: result.status,
-        stage: result.stage,
-      });
 
-      // Send notification to employer
-      console.log('🔔 [DEBUG] About to send notification for application:', result.id);
+
+
       try {
         const job = await JobModel.findById(result.jobId);
-        console.log('🔔 [DEBUG] Job found:', {
-          jobId: result.jobId,
-          jobExists: !!job,
-          createdBy: job?.createdBy,
-          title: job?.title
-        });
+
 
         if (job && job.createdBy) {
-          console.log('🔔 [DEBUG] Job has createdBy, creating notification...');
+
           const candidateName = `${candidate.firstName} ${candidate.lastName}`;
           await UniversalNotificationService.createNotification({
             recipientType: NotificationRecipientType.USER,
@@ -349,7 +325,6 @@ export class ApplicationController {
             applicationId: result.id,
             actionUrl: `/jobs/${job.id}/applications/${result.id}`,
           });
-          console.log('✅ Notification sent to employer:', job.createdBy);
         } else {
           console.warn('⚠️ Cannot send notification - job or createdBy missing:', {
             hasJob: !!job,
@@ -384,6 +359,23 @@ export class ApplicationController {
         // Continue even if email fails - don't block application submission
       }
 
+      // Notify candidate in-app
+      try {
+        const jobForCandidateNotify = await JobModel.findById(result.jobId);
+        await UniversalNotificationService.createNotification({
+          recipientType: NotificationRecipientType.CANDIDATE,
+          recipientId: candidate.id,
+          type: UniversalNotificationType.APPLICATION_STATUS_CHANGED,
+          title: 'Application Submitted',
+          message: `Your application for ${jobForCandidateNotify?.title || 'the position'} has been successfully submitted.`,
+          jobId: result.jobId,
+          applicationId: result.id,
+          actionUrl: `/candidate/applications/${result.id}`,
+        });
+      } catch (notifyError) {
+        console.error('❌ Failed to send in-app notification to candidate:', notifyError);
+      }
+
       res.status(201).json({
         success: true,
         data: {
@@ -416,10 +408,7 @@ export class ApplicationController {
       const candidate = req.candidate;
       const { id } = req.params;
 
-      console.log('[ApplicationController.getApplication] candidate view', {
-        candidateId: candidate?.id,
-        applicationId: id,
-      });
+
 
       if (!candidate) {
         res.status(401).json({
@@ -431,9 +420,7 @@ export class ApplicationController {
 
       const application = await ApplicationService.getApplication(id);
 
-      console.log('[ApplicationController.getApplication] loaded application', {
-        found: !!application,
-      });
+
 
       if (!application) {
         res.status(404).json({
@@ -473,14 +460,11 @@ export class ApplicationController {
     try {
       const { id } = req.params;
 
-      console.log('[ApplicationController.getApplicationForAdmin] recruiter view', {
-        applicationId: id,
-      });
+
 
       const application = await ApplicationService.getApplication(id);
 
       if (!application) {
-        console.log('[ApplicationController.getApplicationForAdmin] not found', { applicationId: id });
         res.status(404).json({
           success: false,
           error: 'Application not found',
@@ -488,11 +472,7 @@ export class ApplicationController {
         return;
       }
 
-      console.log('[ApplicationController.getApplicationForAdmin] loaded application', {
-        id: application.id,
-        jobId: application.jobId,
-        candidateId: application.candidateId,
-      });
+
 
       res.json({
         success: true,
@@ -524,18 +504,6 @@ export class ApplicationController {
       }
 
       const applications = await ApplicationService.getCandidateApplications(candidate.id);
-
-      // Log applications for debugging
-      console.log('[ApplicationController.getCandidateApplications]', {
-        count: applications.length,
-        applications: applications.map(app => ({
-          id: app.id,
-          jobId: app.jobId,
-          resumeUrl: app.resumeUrl,
-          coverLetterUrl: app.coverLetterUrl,
-          portfolioUrl: app.portfolioUrl,
-        })),
-      });
 
       res.json({
         success: true,
@@ -584,33 +552,7 @@ export class ApplicationController {
         filters.shortlisted = req.query.shortlisted === 'true';
       }
 
-      console.log('[ApplicationController.getJobApplications] recruiter view', {
-        jobId,
-        filters,
-        requestedJobId: jobId,
-      });
-
       const applications = await ApplicationService.getJobApplications(jobId, filters);
-
-      console.log('[ApplicationController.getJobApplications] loaded applications', {
-        jobId,
-        requestedJobId: jobId,
-        count: applications.length,
-        applications: applications.map(app => ({
-          id: app.id,
-          jobId: app.jobId,
-          candidateId: app.candidateId,
-          candidateName: app.candidate ? `${app.candidate.firstName} ${app.candidate.lastName}` : 'No candidate data',
-          status: app.status,
-          stage: app.stage,
-        })),
-        // Verify all applications belong to the requested job
-        jobIdMismatches: applications.filter(app => app.jobId !== jobId).map(app => ({
-          applicationId: app.id,
-          applicationJobId: app.jobId,
-          requestedJobId: jobId,
-        })),
-      });
 
       // Also load ApplicationRoundProgress to map applications to rounds
       const roundProgress = await prisma.applicationRoundProgress.findMany({
@@ -724,7 +666,7 @@ export class ApplicationController {
             conversation.id,
             `This conversation has been closed because your application for "${jobTitle}" was deleted. You can no longer send messages in this conversation.`
           );
-          console.log(`✅ Closed conversation ${conversation.id} for deleted application ${id}`);
+
         }
       } catch (error) {
         console.error('Failed to close conversation on application deletion:', error);
@@ -1634,7 +1576,7 @@ export class ApplicationController {
         return;
       }
 
-      console.log(`🚀 Starting bulk scoring for ${applicationIds.length} candidates, jobId: ${jobId}`);
+
 
       // Set up progress tracking
       const progressUpdates: Array<{ completed: number; total: number; current: string }> = [];
@@ -1644,11 +1586,11 @@ export class ApplicationController {
         jobId,
         (completed, total, current) => {
           progressUpdates.push({ completed, total, current });
-          console.log(`📊 Progress: ${completed}/${total} - ${current}`);
+
         }
       );
 
-      console.log(`✅ Bulk scoring completed: ${results.size}/${applicationIds.length} successful`);
+
 
       // Update scores in database
       const updatePromises: Promise<any>[] = [];
@@ -1685,7 +1627,7 @@ export class ApplicationController {
       const successCount = scoringResults.filter(r => r.success).length;
       const failedCount = applicationIds.length - results.size;
 
-      console.log(`📊 Final results: ${successCount} successful, ${failedCount} failed`);
+
 
       res.json({
         success: true,

@@ -165,13 +165,6 @@ Return ONLY valid JSON, no markdown formatting, no code blocks.`;
             }
 
             const extracted = JSON.parse(content);
-            console.log('OpenAI extracted data:', JSON.stringify({
-                workExperience: extracted.workExperience?.length || 0,
-                skills: extracted.skills?.length || 0,
-                education: extracted.education?.length || 0,
-                certifications: extracted.certifications?.length || 0,
-                training: extracted.training?.length || 0,
-            }));
             return this.normalizeParsedData(extracted);
         } catch (error) {
             console.error('OpenAI resume parsing failed:', error);

@@ -58,13 +58,11 @@ export async function authenticateWebSocket(
 ): Promise<WebSocketAuthResult | null> {
   try {
     const cookieHeader = req.headers.cookie;
-    console.log('🍪 WebSocket cookie header:', cookieHeader);
     const cookies = parseCookies(cookieHeader);
-    console.log('🍪 Parsed cookies:', Object.keys(cookies));
 
     // Try User session first
     if (cookies.sessionId) {
-      console.log('🔍 Attempting User session authentication with sessionId:', cookies.sessionId);
+
       const session = await SessionModel.findBySessionId(cookies.sessionId);
 
       if (session) {
@@ -94,7 +92,7 @@ export async function authenticateWebSocket(
 
     // Try Candidate session
     if (cookies.candidateSessionId) {
-      console.log('🔍 Attempting Candidate session authentication with candidateSessionId:', cookies.candidateSessionId);
+
       const session = await CandidateSessionModel.findBySessionId(
         cookies.candidateSessionId
       );
@@ -127,7 +125,7 @@ export async function authenticateWebSocket(
 
     // Try Consultant session
     if (cookies.consultantSessionId) {
-      console.log('🔍 Attempting Consultant session authentication with consultantSessionId:', cookies.consultantSessionId);
+
       const session = await prisma.consultantSession.findUnique({
         where: { session_id: cookies.consultantSessionId },
       });
@@ -163,7 +161,7 @@ export async function authenticateWebSocket(
 
     // Try HRM8 session
     if (cookies.hrm8SessionId) {
-      console.log('🔍 Attempting HRM8 session authentication with hrm8SessionId:', cookies.hrm8SessionId);
+
       const session = await prisma.hRM8Session.findUnique({
         where: { session_id: cookies.hrm8SessionId },
       });
@@ -208,7 +206,7 @@ export async function authenticateWebSocket(
       }
     }
 
-    console.log('❌ No valid session cookies found. Available cookies:', Object.keys(cookies));
+
     return null;
   } catch (error) {
     console.error('❌ WebSocket authentication error:', error);

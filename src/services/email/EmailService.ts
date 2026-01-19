@@ -222,6 +222,63 @@ class EmailService {
   }
 
   /**
+   * Send a generic notification email
+   */
+  async sendNotificationEmail(
+    to: string,
+    title: string,
+    message: string,
+    actionUrl?: string
+  ): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+              <h2 style="color: #4a5568; margin-top: 0;">${title}</h2>
+              <p>${message}</p>
+              ${actionUrl ? `
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${process.env.FRONTEND_URL || 'http://localhost:8080'}${actionUrl}" 
+                     style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                    View Details
+                  </a>
+                </div>
+              ` : ''}
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+              <p style="color: #718096; font-size: 14px;">Best regards,<br>The HRM8 Team</p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to,
+        subject: title,
+        html,
+        text: `${title}\n\n${message}${actionUrl ? `\n\nView details: ${process.env.FRONTEND_URL || 'http://localhost:8080'}${actionUrl}` : ''}`,
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Notification Email (Development Mode):');
+        console.log('To:', to);
+        console.log('Subject:', title);
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send notification email:', error);
+    }
+  }
+
+  /**
    * Get HTML template for verification email
    */
   private getVerificationEmailTemplate(

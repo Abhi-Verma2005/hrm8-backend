@@ -22,7 +22,7 @@ const upload = multer({
       'application/msword',
       'text/plain',
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -63,15 +63,13 @@ export class JobDocumentController {
         return;
       }
 
-      console.log(`📄 Parsing document: ${req.file.originalname}, type: ${req.file.mimetype}, size: ${req.file.size} bytes`);
-
       // Step 1: Parse document
       const parsed = await DocumentParserService.parseDocument(req.file);
-      console.log(`✅ Document parsed: ${parsed.metadata?.wordCount || 0} words, ${parsed.metadata?.pages || 'N/A'} pages`);
+
 
       // Step 2: Extract job details with AI (falls back to pattern matching if AI unavailable)
       const extracted = await JobDescriptionExtractorService.extractWithOpenAI(parsed);
-      console.log(`✅ Job data extracted: title="${extracted.title}", ${extracted.requirements.length} requirements, ${extracted.responsibilities.length} responsibilities`);
+
 
       res.json({
         success: true,

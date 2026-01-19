@@ -120,8 +120,40 @@ export class NotificationController {
     }
 
     /**
+     * Get a specific notification
+     * GET /api/notifications/:id
+     */
+    static async getNotification(req: Request, res: Response) {
+        try {
+            const userInfo = extractUserInfo(req);
+            if (!userInfo) {
+                return res.status(401).json({ error: 'Not authenticated' });
+            }
+
+            const { id } = req.params;
+
+            const notification = await UniversalNotificationService.getNotification(
+                id,
+                userInfo.recipientType,
+                userInfo.recipientId
+            );
+
+            if (!notification) {
+                return res.status(404).json({ error: 'Notification not found' });
+            }
+
+            return res.json({
+                success: true,
+                data: notification,
+            });
+        } catch (error) {
+            console.error('Error fetching notification:', error);
+            return res.status(500).json({ error: 'Failed to fetch notification' });
+        }
+    }
+
+    /**
      * Get unread notification count
-     * GET /api/notifications/count
      */
     static async getUnreadCount(req: Request, res: Response) {
         try {

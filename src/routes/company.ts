@@ -130,7 +130,7 @@ router.put(
   CompanyController.updateJobAssignmentMode
 );
 
-console.log('[Company Router] All routes registered successfully');
+
 export default router;
 
 

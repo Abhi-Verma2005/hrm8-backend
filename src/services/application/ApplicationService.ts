@@ -158,14 +158,12 @@ export class ApplicationService {
         // Run in background to avoid delaying response
         (async () => {
           try {
-            console.log(`📄 Attempting to auto-populate profile from resume for candidate ${candidate.id}`);
 
             // Find resume document
             const resume = await CandidateDocumentService.findByUrl(applicationData.resumeUrl!);
 
             if (resume && resume.content) {
               // Parse resume text
-              console.log('🤖 Parsing resume content for auto-population...');
               const parsedResumeData = await ResumeParserService.parseResume({
                 text: resume.content,
               });
@@ -173,20 +171,16 @@ export class ApplicationService {
               // 1. Populate Skills (only if empty)
               const existingSkillsCount = await prisma.candidateSkill.count({ where: { candidate_id: candidate.id } });
               if (existingSkillsCount === 0 && parsedResumeData.skills && parsedResumeData.skills.length > 0) {
-                console.log(`🎯 Auto-populating ${parsedResumeData.skills.length} skills...`);
                 const skillsToSave = parsedResumeData.skills.map((skill: any) => ({
                   name: typeof skill === 'string' ? skill : (skill.name || 'Unknown Skill'),
                   level: skill.level || 'intermediate',
                 }));
                 await CandidateService.updateSkills(candidate.id, skillsToSave);
-              } else {
-                console.log(`ℹ️ Skills already exist or none found in resume (${existingSkillsCount} existing)`);
               }
 
               // 2. Populate Work Experience (only if empty)
               const existingExpCount = await prisma.candidateWorkExperience.count({ where: { candidate_id: candidate.id } });
               if (existingExpCount === 0 && parsedResumeData.workExperience && parsedResumeData.workExperience.length > 0) {
-                console.log(`💼 Auto-populating ${parsedResumeData.workExperience.length} work experience entries...`);
                 for (const exp of parsedResumeData.workExperience) {
                   try {
                     let startDate: Date;
@@ -216,14 +210,11 @@ export class ApplicationService {
                     console.error('Error saving work experience:', e);
                   }
                 }
-              } else {
-                console.log(`ℹ️ Work experience already exists or none found in resume (${existingExpCount} existing)`);
               }
 
               // 3. Populate Education (only if empty)
               const existingEduCount = await prisma.candidateEducation.count({ where: { candidate_id: candidate.id } });
               if (existingEduCount === 0 && parsedResumeData.education && parsedResumeData.education.length > 0) {
-                console.log(`🎓 Auto-populating ${parsedResumeData.education.length} education entries...`);
                 for (const edu of parsedResumeData.education) {
                   try {
                     let startDate: string | undefined;
@@ -252,8 +243,6 @@ export class ApplicationService {
                     console.error('Error saving education:', e);
                   }
                 }
-              } else {
-                console.log(`ℹ️ Education already exists or none found in resume (${existingEduCount} existing)`);
               }
             }
           } catch (error) {
@@ -312,8 +301,6 @@ export class ApplicationService {
 
           // Only create conversation if we have at least one other participant (owner or consultant)
           if (owner || consultant) {
-            console.log(`💬 Creating conversation for application - Job: ${job.id}, Candidate: ${candidate.id}, Owner: ${owner?.id || 'none'}, Consultant: ${consultant?.id || 'none'}`);
-
             const newConversation = await prisma.conversation.create({
               data: {
                 job_id: job.id,
@@ -795,16 +782,9 @@ export class ApplicationService {
       let resumeUrl = applicationData.resumeUrl;
 
       if (applicationData.resumeFile) {
-        console.log('📄 Resume file provided for parsing:', {
-          fileName: applicationData.resumeFile.originalname,
-          mimeType: applicationData.resumeFile.mimetype,
-          size: applicationData.resumeFile.size,
-        });
-
         try {
           // Use the same parseDocument method that logged-in users use
           // This ensures consistency and handles all file types correctly
-          console.log('📖 Parsing document with mime type:', applicationData.resumeFile.mimetype);
 
           // Create a file-like object for parseDocument
           const { Readable } = await import('stream');

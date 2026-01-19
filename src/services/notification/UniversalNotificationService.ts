@@ -14,8 +14,10 @@ import {
     broadcastUnreadCount
 } from './NotificationBroadcastService';
 import { emailService } from '../email/EmailService';
-import { UserNotificationPreferencesService } from '../user/UserNotificationPreferencesService';
-import { NotificationEventType } from '../../types/notificationPreferences';
+import {
+    UserNotificationPreferencesService,
+    NotificationEventType
+} from '../user/UserNotificationPreferencesService';
 
 interface CreateNotificationParams {
     recipientType: NotificationRecipientType;
@@ -73,17 +75,38 @@ export class UniversalNotificationService {
             case 'NEW_APPLICATION':
                 return 'new_application';
             case 'APPLICATION_STATUS_CHANGED':
+            case 'APPLICATION_SHORTLISTED':
+            case 'APPLICATION_REJECTED':
+            case 'CANDIDATE_STAGE_CHANGED':
+            case 'OFFER_EXTENDED':
+            case 'SHORTLIST_SUBMITTED':
                 return 'application_status_change';
             case 'INTERVIEW_SCHEDULED':
                 return 'interview_scheduled';
             case 'JOB_ASSIGNED':
-                return 'job_posted'; // Closest match
+            case 'JOB_CREATED':
+            case 'JOB_STATUS_CHANGED':
+            case 'JOB_FILLED':
+            case 'JOB_ASSIGNMENT_RECEIVED':
+                return 'job_posted';
             case 'SUBSCRIPTION_PURCHASED':
                 return 'subscription_change';
+            case 'SERVICE_PURCHASED':
+                return 'payment_received';
             case 'SYSTEM_ANNOUNCEMENT':
                 return 'system_announcement';
-            case 'JOB_CREATED':
-                return 'job_posted';
+            case 'NEW_LEAD':
+            case 'LEAD_CONVERTED':
+                // Creating a simplified mapping for leads as they don't have a specific event type yet
+                // reusing 'new_application' (as "New Business" generally) or sticking to default if critical
+                // But for now, let's map to system_announcement to be safe OR add a new type?
+                // Given the constraints, let's map to 'system_announcement' BUT realistically these are business events.
+                // However, falling back to default 'system_announcement' makes them critical. 
+                // Let's assume leads are important enough to be 'new_application' equivalent or similar.
+                // Actually, let's look at the available types again. 
+                // 'support_ticket', 'user_signup', 'payment_failed'. 
+                // none fit perfectly. Let's map to 'job_posted' concept of "New Work Item" for now or keep as default.
+                return 'system_announcement';
             default:
                 return 'system_announcement'; // Default fallback
         }
@@ -260,7 +283,42 @@ export class UniversalNotificationService {
             }),
         ]);
 
-        return { notifications, total, unreadCount };
+        // Map database snake_case to frontend camelCase
+        const mappedNotifications = notifications.map(n => ({
+            ...n,
+            createdAt: n.created_at,
+            readAt: n.read_at,
+        }));
+
+        return { notifications: mappedNotifications as any, total, unreadCount };
+    }
+
+    /**
+     * Get a specific notification by ID and verify ownership
+     */
+    static async getNotification(
+        notificationId: string,
+        recipientType: NotificationRecipientType,
+        recipientId: string
+    ): Promise<UniversalNotification | null> {
+        const notification = await prisma.universalNotification.findFirst({
+            where: {
+                id: notificationId,
+                recipient_type: recipientType,
+                recipient_id: recipientId,
+            },
+        });
+
+        if (!notification) {
+            return null;
+        }
+
+        // Map database snake_case to frontend camelCase
+        return {
+            ...notification,
+            createdAt: notification.created_at,
+            readAt: notification.read_at,
+        } as any;
     }
 
     /**
@@ -378,8 +436,6 @@ export class UniversalNotificationService {
                 expires_at: { lt: new Date() },
             },
         });
-
-        console.log(`🧹 Cleaned up ${result.count} expired notifications`);
         return result.count;
     }
 

@@ -23,6 +23,12 @@ router.use(authenticateUniversal);
 router.get('/', NotificationController.getNotifications);
 
 /**
+ * @route GET /api/notifications/:id
+ * @desc Get a specific notification
+ */
+router.get('/:id', NotificationController.getNotification);
+
+/**
  * @route GET /api/notifications/count
  * @desc Get unread notification count
  */

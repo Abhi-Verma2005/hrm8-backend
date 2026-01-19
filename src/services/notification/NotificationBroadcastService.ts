@@ -39,7 +39,7 @@ export function initNotificationBroadcast(
 ): void {
     broadcastFn = broadcast;
     connectionsMap = connections;
-    console.log('📢 NotificationBroadcastService initialized');
+
 }
 
 /**
@@ -76,7 +76,7 @@ export function broadcastNotificationToUser(
 
     // Check if user is connected
     if (!connectionsMap.has(connectionKey)) {
-        console.log(`📭 User ${connectionKey} not connected, skipping real-time broadcast`);
+
         return false;
     }
 
@@ -99,7 +99,7 @@ export function broadcastNotificationToUser(
         targetConnectionKeys: [connectionKey],
     });
 
-    console.log(`📤 Notification broadcast to ${connectionKey}`);
+
     return true;
 }
 
