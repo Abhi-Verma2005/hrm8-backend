@@ -323,14 +323,16 @@ export class JobService {
 
     // Check if payment is required and completed
     const canPublish = await JobPaymentService.canPublishJob(jobId);
-    if (!canPublish) {
-      const prismaJob = await prisma.job.findUnique({
-        where: { id: jobId },
-        select: { service_package: true, payment_status: true },
-      });
 
-      if (prismaJob?.service_package && prismaJob.service_package !== 'self-managed') {
-        throw new Error('Payment is required before publishing this job. Please complete the payment first.');
+    // If not already paid/publishable, try to deduct from wallet
+    if (!canPublish) {
+      console.log('💰 Job requires payment. Attempting wallet deduction...', { jobId, companyId });
+      try {
+        await JobPaymentService.processWalletPayment(jobId, companyId);
+        console.log('✅ Wallet deduction successful for job:', jobId);
+      } catch (error: any) {
+        console.error('❌ Failed to process wallet payment:', error);
+        throw new Error(`Payment failed: ${error.message || 'Insufficient funds or wallet error'}`);
       }
     }
 
