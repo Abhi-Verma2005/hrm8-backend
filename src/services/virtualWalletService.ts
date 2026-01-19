@@ -61,6 +61,18 @@ export interface TransactionFilter {
 export class VirtualWalletService {
     constructor(private prisma: PrismaClient) { }
 
+    private async runInTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+        // If this.prisma is a transaction client, it won't have $transaction method
+        // In that case, we execute the function directly using the current transaction client
+        if (!('$transaction' in this.prisma)) {
+            return fn(this.prisma);
+        }
+        // Otherwise start a new transaction
+        return (this.prisma as PrismaClient).$transaction(fn);
+    }
+
+
+
     /**
      * Get or create a virtual account for an owner
      */
@@ -173,7 +185,7 @@ export class VirtualWalletService {
         }
 
         // Use transaction to ensure atomicity
-        return await this.prisma.$transaction(async (tx) => {
+        return await this.runInTransaction(async (tx) => {
             // Get current account state
             const account = await tx.virtualAccount.findUnique({
                 where: { id: accountId },
@@ -246,7 +258,7 @@ export class VirtualWalletService {
         }
 
         // Use transaction to ensure atomicity
-        return await this.prisma.$transaction(async (tx) => {
+        return await this.runInTransaction(async (tx) => {
             // Get current account state
             const account = await tx.virtualAccount.findUnique({
                 where: { id: accountId },
@@ -317,7 +329,7 @@ export class VirtualWalletService {
             throw new Error('Cannot transfer to the same account');
         }
 
-        return await this.prisma.$transaction(async (tx) => {
+        return await this.runInTransaction(async (tx) => {
             // Get both accounts
             const [fromAccount, toAccount] = await Promise.all([
                 tx.virtualAccount.findUnique({ where: { id: fromAccountId } }),
