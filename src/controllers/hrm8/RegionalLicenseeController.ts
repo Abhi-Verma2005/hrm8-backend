@@ -7,6 +7,7 @@ import { Response } from 'express';
 import { RegionalLicenseeService } from '../../services/hrm8/RegionalLicenseeService';
 import { Hrm8AuthenticatedRequest } from '../../middleware/hrm8Auth';
 import { LicenseeStatus } from '@prisma/client';
+import { logAudit, createAuditDescription } from '../../middleware/auditHelper';
 
 export class RegionalLicenseeController {
   /**
@@ -82,9 +83,9 @@ export class RegionalLicenseeController {
       const licenseeData = req.body;
 
       // Validate required fields
-      if (!licenseeData.name || !licenseeData.legalEntityName || !licenseeData.email || 
-          !licenseeData.agreementStartDate || !licenseeData.revenueSharePercent || 
-          !licenseeData.managerContact) {
+      if (!licenseeData.name || !licenseeData.legalEntityName || !licenseeData.email ||
+        !licenseeData.agreementStartDate || !licenseeData.revenueSharePercent ||
+        !licenseeData.managerContact) {
         res.status(400).json({
           success: false,
           error: 'Missing required fields',
@@ -105,6 +106,12 @@ export class RegionalLicenseeController {
       res.status(201).json({
         success: true,
         data: { licensee: result },
+      });
+
+      // Log audit entry
+      await logAudit(req, 'Licensee', result.id, 'CREATE', {
+        description: createAuditDescription('CREATE', 'Licensee', licenseeData.name),
+        changes: { name: licenseeData.name, email: licenseeData.email },
       });
     } catch (error) {
       console.error('Create licensee error:', error);
@@ -152,6 +159,12 @@ export class RegionalLicenseeController {
         success: true,
         data: { licensee: result },
       });
+
+      // Log audit entry
+      await logAudit(req, 'Licensee', id, 'UPDATE', {
+        description: createAuditDescription('UPDATE', 'Licensee', result.name),
+        changes: updateData,
+      });
     } catch (error) {
       console.error('Update licensee error:', error);
       res.status(500).json({
@@ -174,6 +187,11 @@ export class RegionalLicenseeController {
         success: true,
         message: 'Licensee suspended successfully',
       });
+
+      // Log audit entry
+      await logAudit(req, 'Licensee', id, 'SUSPEND', {
+        description: createAuditDescription('SUSPEND', 'Licensee'),
+      });
     } catch (error) {
       console.error('Suspend licensee error:', error);
       res.status(500).json({
@@ -195,6 +213,11 @@ export class RegionalLicenseeController {
       res.json({
         success: true,
         message: 'Licensee terminated successfully',
+      });
+
+      // Log audit entry
+      await logAudit(req, 'Licensee', id, 'TERMINATE', {
+        description: createAuditDescription('TERMINATE', 'Licensee'),
       });
     } catch (error) {
       console.error('Terminate licensee error:', error);
