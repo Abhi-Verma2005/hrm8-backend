@@ -10,7 +10,8 @@ if (!stripeSecretKey) {
   throw new Error('STRIPE_SECRET_KEY is required to initialize Stripe.');
 }
 
-const stripe = new Stripe(stripeSecretKey);
+import { StripeFactory } from '../services/stripe/StripeFactory';
+// const stripe = new Stripe(stripeSecretKey); // Removed global instance to favor Factory inside handlers
 
 const paymentsRouter: RouterType = Router();
 
@@ -121,8 +122,9 @@ paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) =
       return res.status(400).json({ success: false, error: 'No payment session found for this job' });
     }
 
-    // Retrieve session from Stripe
-    const session = await stripe.checkout.sessions.retrieve(job.stripe_session_id);
+    // Retrieve session from Stripe (using Factory to support Mock)
+    const stripeClient = await StripeFactory.getClientAsync();
+    const session = await stripeClient.checkout.sessions.retrieve(job.stripe_session_id);
 
 
 
@@ -250,7 +252,8 @@ paymentsRouter.post('/upgrade-checkout', async (req: Request, res: Response) => 
     const frontendUrl = getFrontendUrl();
     const backendUrl = getBackendUrl();
 
-    const session = await stripe.checkout.sessions.create({
+    const stripeClient = await StripeFactory.getClientAsync();
+    const session = await stripeClient.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
       customer_email: customerEmail,
@@ -312,7 +315,19 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, signature as string, webhookSecret);
+    // For webhooks we always need real stripe client for signature verification
+    // But constructEvent is a static method on the Stripe class usually, or instance method.
+    // The instance method is `stripe.webhooks.constructEvent`.
+    // Since we removed the global `stripe`, we need to get a real client here.
+    // However, constructEvent is synchronous and we need the secret.
+    // Ideally we should import Stripe class to use static/constructor but we used instance before.
+
+    // We can just instantiate a local Stripe instance for webhook verification 
+    // because webhooks ONLY come from real Stripe.
+    const Stripe = (await import('stripe')).default;
+    const localStripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2023-10-16' } as any);
+
+    event = localStripe.webhooks.constructEvent(req.body, signature as string, webhookSecret);
   } catch (err: any) {
     console.error('Stripe webhook signature verification failed', err?.message);
     res.status(400).send(`Webhook Error: ${err?.message}`);

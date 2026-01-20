@@ -87,14 +87,9 @@ export class JobPaymentService {
 
 
 
-    // Import Stripe dynamically
-    const Stripe = (await import('stripe')).default;
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeSecretKey) {
-      throw new Error('STRIPE_SECRET_KEY is not configured');
-    }
-
-    const stripe = new Stripe(stripeSecretKey);
+    // Use StripeFactory to get the correct client (Mock or Real)
+    const { StripeFactory } = await import('../stripe/StripeFactory');
+    const stripe = await StripeFactory.getClientAsync();
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
     const packageLabel = this.getPackageLabel(servicePackage);
