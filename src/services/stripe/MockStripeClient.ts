@@ -7,6 +7,7 @@ import { IStripeClient, StripeAccount, StripeAccountLink, StripeCheckoutSession 
 
 // In-memory storage for mock accounts
 const mockAccounts = new Map<string, StripeAccount>();
+const mockSessions = new Map<string, StripeCheckoutSession>();
 
 export class MockStripeClient implements IStripeClient {
     accounts = {
@@ -143,9 +144,24 @@ export class MockStripeClient implements IStripeClient {
                     metadata: params.metadata,
                 };
 
+                // Store session
+                mockSessions.set(sessionId, session);
 
                 return session;
             },
+
+            /**
+             * Retrieve a mock checkout session
+             */
+            retrieve: async (sessionId: string): Promise<StripeCheckoutSession> => {
+                const session = mockSessions.get(sessionId);
+                if (!session) {
+                    throw new Error(`[MockStripe] Session not found: ${sessionId}`);
+                }
+                return session;
+            },
+
+
         },
     };
 }
