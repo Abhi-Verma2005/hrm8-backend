@@ -197,21 +197,21 @@ export class JobAllocationService {
       // Method A: Jobs in assignment table with active status
       const assignments = await ConsultantJobAssignmentModel.findByConsultantId(oldConsultantId, true);
       const assignmentJobIds = new Set(assignments.map(a => a.jobId));
-      console.log(`[Reassign Debug] Found ${assignments.length} jobs in assignment table`);
+
 
       // Method B: Jobs directly assigned via Job.assigned_consultant_id
-      console.log(`[Reassign Debug] Looking for jobs with assigned_consultant_id = ${oldConsultantId}`);
+
       const directJobs = await prisma.job.findMany({
         where: {
           assigned_consultant_id: oldConsultantId,
         },
         select: { id: true, title: true, status: true },
       });
-      console.log(`[Reassign Debug] Found ${directJobs.length} jobs directly assigned:`, directJobs.map((j: any) => ({ id: j.id, status: j.status })));
+
 
       // Filter to only active jobs
       const activeDirectJobs = directJobs.filter((j: any) => ['OPEN', 'ON_HOLD', 'DRAFT'].includes(j.status));
-      console.log(`[Reassign Debug] ${activeDirectJobs.length} of those are active (OPEN/ON_HOLD/DRAFT)`);
+
 
       // Combine both sources, dedupe
       const allJobIds = new Set([
@@ -219,7 +219,7 @@ export class JobAllocationService {
         ...activeDirectJobs.map((j: any) => j.id),
       ]);
 
-      console.log(`[Reassign] Total ${allJobIds.size} jobs to reassign from ${oldC.email} to ${newC.email}`);
+
 
       let count = 0;
       for (const jobId of allJobIds) {
@@ -240,7 +240,7 @@ export class JobAllocationService {
         }
       }
 
-      console.log(`Successfully reassigned ${count} jobs`);
+
       return { success: true, count };
 
     } catch (error: any) {

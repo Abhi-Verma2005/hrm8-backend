@@ -230,7 +230,6 @@ export const processJobPosting = async (req: AuthenticatedRequest, res: Response
                 : 'Job posted successfully.',
         });
     } catch (error: any) {
-        console.error('Error processing job posting:', error);
 
         // Check for specific error types
         if (error.message.includes('quota exceeded')) {

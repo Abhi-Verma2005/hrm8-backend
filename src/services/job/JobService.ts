@@ -147,7 +147,7 @@ export class JobService {
       // Initialize fixed rounds for the new job
       try {
         await JobRoundService.initializeFixedRounds(job.id);
-        console.log('✅ Fixed rounds initialized for job:', job.id);
+
       } catch (roundError) {
         console.error('⚠️ Failed to initialize fixed rounds (non-critical):', roundError);
         // Don't fail job creation if round initialization fails
@@ -326,13 +326,22 @@ export class JobService {
 
     // If not already paid/publishable, try to deduct from wallet
     if (!canPublish) {
-      console.log('💰 Job requires payment. Attempting wallet deduction...', { jobId, companyId });
+
       try {
         await JobPaymentService.processWalletPayment(jobId, companyId);
-        console.log('✅ Wallet deduction successful for job:', jobId);
+
       } catch (error: any) {
-        console.error('❌ Failed to process wallet payment:', error);
-        throw new Error(`Payment failed: ${error.message || 'Insufficient funds or wallet error'}`);
+        console.error('❌ Failed to process wallet payment:', {
+          jobId,
+          error: error.message,
+          stack: error.stack,
+        });
+
+        // Return clear error message to guide user
+        if (error.message.includes('Insufficient')) {
+          throw new Error(`Insufficient wallet balance. ${error.message}. Please recharge your wallet to continue.`);
+        }
+        throw new Error(`Payment failed: ${error.message || 'Insufficient funds or wallet error'}. Please recharge your wallet.`);
       }
     }
 
@@ -371,10 +380,35 @@ export class JobService {
     companyId: string,
     _paymentId?: string // TODO: Verify payment for PAYG users before activating
   ): Promise<Job> {
+
     const job = await this.getJobById(jobId, companyId);
 
     if (job.status !== JobStatus.DRAFT) {
       throw new Error('Only draft jobs can be submitted');
+    }
+
+    // Check if payment is required and completed
+    const canPublish = await JobPaymentService.canPublishJob(jobId);
+
+    // If not already paid/publishable, try to deduct from wallet
+    if (!canPublish) {
+
+      try {
+        await JobPaymentService.processWalletPayment(jobId, companyId);
+
+      } catch (error: any) {
+        console.error('❌ [submitAndActivate] Failed to process wallet payment:', {
+          jobId,
+          error: error.message,
+          stack: error.stack,
+        });
+
+        // Return clear error message to guide user
+        if (error.message.includes('Insufficient')) {
+          throw new Error(`Insufficient wallet balance. ${error.message}. Please recharge your wallet to continue.`);
+        }
+        throw new Error(`Payment failed: ${error.message || 'Insufficient funds or wallet error'}. Please recharge your wallet.`);
+      }
     }
 
     // Generate share link and referral link
@@ -408,6 +442,7 @@ export class JobService {
 
     return updatedJob;
   }
+
 
   /**
    * Update job alerts configuration

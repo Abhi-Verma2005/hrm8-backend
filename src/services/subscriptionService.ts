@@ -157,11 +157,13 @@ export class SubscriptionService {
             // Check balance if there's a cost
             if (jobCost > 0) {
                 const hasBalance = await this.walletService.checkBalance(virtualAccount.id, jobCost);
+
                 if (!hasBalance) {
+                    const shortfall = jobCost - virtualAccount.balance;
                     throw new Error(
                         `Insufficient balance. Available: $${virtualAccount.balance.toFixed(2)}, Required: $${jobCost.toFixed(
                             2
-                        )}`
+                        )}. Please recharge your wallet with at least $${shortfall.toFixed(2)} to continue.`
                     );
                 }
 
@@ -194,6 +196,7 @@ export class SubscriptionService {
             };
         });
     }
+
 
     /**
      * Renew subscription

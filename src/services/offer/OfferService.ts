@@ -98,9 +98,9 @@ export class OfferService {
 
       // Send email notification
       try {
-        console.log(`[OfferService.sendOffer] Attempting to send email for offer: ${offerId}`);
+
         await this.sendOfferEmail(offerId);
-        console.log(`[OfferService.sendOffer] Email sent successfully for offer: ${offerId}`);
+
       } catch (emailError: any) {
         console.error('[OfferService.sendOffer] Failed to send offer email:', emailError);
         console.error('[OfferService.sendOffer] Error details:', {
@@ -307,7 +307,7 @@ export class OfferService {
     // TODO: Implement PDF generation using a library like pdfkit or puppeteer
     // For now, return a placeholder URL
     const pdfUrl = `/api/offers/${offerId}/pdf`;
-    
+
     try {
       await OfferModel.update(offerId, {
         generatedPdfUrl: pdfUrl,
@@ -323,9 +323,9 @@ export class OfferService {
    * Send offer email to candidate
    */
   private static async sendOfferEmail(offerId: string): Promise<void> {
-    console.log(`[OfferService.sendOfferEmail] Fetching offer: ${offerId}`);
+
     const offer = await OfferModel.findById(offerId);
-    
+
     if (!offer) {
       console.error(`[OfferService.sendOfferEmail] Offer not found: ${offerId}`);
       throw new Error(`Offer not found: ${offerId}`);
@@ -345,10 +345,10 @@ export class OfferService {
     const offerUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/candidate/offers/${offerId}`;
     const jobTitle = offer.job?.title || 'the position';
 
-    console.log(`[OfferService.sendOfferEmail] Sending email to: ${offer.candidate.email}`);
-    console.log(`[OfferService.sendOfferEmail] Candidate: ${candidateName}`);
-    console.log(`[OfferService.sendOfferEmail] Job: ${jobTitle}`);
-    console.log(`[OfferService.sendOfferEmail] Offer URL: ${offerUrl}`);
+
+
+
+
 
     try {
       // Get company name if available
@@ -383,7 +383,7 @@ export class OfferService {
         offerType: offer.offerType,
         companyName,
       });
-      console.log(`[OfferService.sendOfferEmail] Email service call completed successfully`);
+
     } catch (error: any) {
       console.error(`[OfferService.sendOfferEmail] Email service error:`, error);
       console.error(`[OfferService.sendOfferEmail] Error details:`, {

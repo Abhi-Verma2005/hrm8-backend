@@ -38,9 +38,7 @@ export class StripeFactory {
             //Ideally we migrate all to getClientAsync
             if (this.realClient) return this.realClient;
 
-            if (!process.env.STRIPE_SECRET_KEY) {
-                console.warn('[StripeFactory] Sync getClient called but no env key. Calls might fail if not using async.');
-            }
+
             return this.getRealClientSyncFallback();
         }
     }
@@ -51,23 +49,17 @@ export class StripeFactory {
     private static shouldUseMock(): boolean {
         // Explicit override via env variable
         if (process.env.USE_MOCK_STRIPE === 'true') {
-            console.log('[StripeFactory] Using MOCK Stripe (USE_MOCK_STRIPE=true)');
             return true;
         }
 
         if (process.env.USE_MOCK_STRIPE === 'false') {
-            console.log('[StripeFactory] Using REAL Stripe (USE_MOCK_STRIPE=false)');
             return false;
         }
 
         // Default: use mock in development, real in production
         const isDevelopment = process.env.NODE_ENV === 'development';
 
-        if (isDevelopment) {
-            console.log('[StripeFactory] Using MOCK Stripe (NODE_ENV=development)');
-        } else {
-            console.log('[StripeFactory] Using REAL Stripe (NODE_ENV=production)');
-        }
+
 
         return isDevelopment;
     }
@@ -78,7 +70,6 @@ export class StripeFactory {
     private static getMockClient(): MockStripeClient {
         if (!this.mockClient) {
             this.mockClient = new MockStripeClient();
-            console.log('[StripeFactory] Mock Stripe client initialized');
         }
         return this.mockClient;
     }
@@ -98,7 +89,7 @@ export class StripeFactory {
             this.realClient = new Stripe(apiKey, {
                 // apiVersion: '2023-10-16', // Removing explicit version to avoid TS mismatch
             } as any);
-            console.log('[StripeFactory] Real Stripe client initialized (Async via ConfigService)');
+
         }
 
         return this.realClient;
@@ -118,7 +109,7 @@ export class StripeFactory {
             this.realClient = new Stripe(apiKey, {
                 // apiVersion: '2023-10-16',
             } as any);
-            console.log('[StripeFactory] Real Stripe client initialized (Sync Fallback)');
+
         }
 
         return this.realClient;
