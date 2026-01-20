@@ -25,6 +25,7 @@ export interface LeadConversionRequestData {
     reviewedAt?: Date | null;
     adminNotes?: string | null;
     declineReason?: string | null;
+    tempPassword?: string | null;
     convertedAt?: Date | null;
     companyId?: string | null;
     createdAt: Date;
@@ -54,6 +55,7 @@ export class LeadConversionRequestModel {
             reviewedAt: request.reviewed_at,
             adminNotes: request.admin_notes,
             declineReason: request.decline_reason,
+            tempPassword: request.temp_password,
             convertedAt: request.converted_at,
             companyId: request.company_id,
             createdAt: request.created_at,
@@ -76,6 +78,7 @@ export class LeadConversionRequestModel {
         city?: string;
         stateProvince?: string;
         agentNotes?: string;
+        tempPassword?: string;
     }): Promise<LeadConversionRequestData> {
         const request = await prisma.leadConversionRequest.create({
             data: {
@@ -90,6 +93,7 @@ export class LeadConversionRequestModel {
                 city: data.city,
                 state_province: data.stateProvince,
                 agent_notes: data.agentNotes,
+                temp_password: data.tempPassword,
             },
         });
 

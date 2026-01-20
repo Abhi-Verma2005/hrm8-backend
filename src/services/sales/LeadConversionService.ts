@@ -18,9 +18,11 @@ export class LeadConversionService {
         consultantId: string,
         data: {
             agentNotes?: string;
+            tempPassword?: string;
         }
     ): Promise<{ success: boolean; request?: LeadConversionRequestData; error?: string }> {
         try {
+            // ... (validations remain same)
             // 1. Verify lead exists and is assigned to consultant
             const lead = await prisma.lead.findUnique({
                 where: { id: leadId },
@@ -66,7 +68,7 @@ export class LeadConversionService {
                 return { success: false, error: 'A pending conversion request already exists for this lead' };
             }
 
-            // 3. Check 2-attempt limit (total requests excluding CANCELLED)
+            // 3. Check 2-attempt limit
             const totalAttempts = await LeadConversionRequestModel.countByLeadAndStatus(
                 leadId,
                 ['PENDING', 'APPROVED', 'DECLINED', 'CONVERTED']
@@ -89,6 +91,7 @@ export class LeadConversionService {
                 city: lead.city || undefined,
                 stateProvince: lead.state_province || undefined,
                 agentNotes: data.agentNotes,
+                tempPassword: data.tempPassword, // Save the password
             });
 
             return { success: true, request };
@@ -102,9 +105,9 @@ export class LeadConversionService {
      * Get consultant's conversion requests
      */
     static async getConsultantRequests(
-        consultantId: string,
-        filters?: { status?: ConversionRequestStatus }
-    ): Promise<LeadConversionRequestData[]> {
+            consultantId: string,
+            filters?: { status?: ConversionRequestStatus }
+        ): Promise<LeadConversionRequestData[]> {
         return await LeadConversionRequestModel.findByConsultant(consultantId, filters);
     }
 
@@ -154,12 +157,12 @@ export class LeadConversionService {
             // 3. Auto-convert lead to company
             const { LeadService } = await import('./LeadService');
 
-            // Generate temporary password
-            const tempPassword = Math.random().toString(36).slice(-8);
+            // Use provided temp password or fallback to generated one (though UI enforces it)
+            const tempPassword = request.tempPassword || Math.random().toString(36).slice(-8);
 
             const company = await LeadService.convertLeadToCompany(request.leadId, {
                 email: request.email,
-                // Use domain from website if possible, otherwise rely on email domain fallback in LeadService
+                // Use domain from website if possible
                 domain: request.website ? request.website.replace(/^https?:\/\//, '') : undefined,
 
                 // Admin details required by LeadService

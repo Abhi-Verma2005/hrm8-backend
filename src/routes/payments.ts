@@ -323,6 +323,8 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
     return;
   }
 
+  console.log(`🔔 Webhook received: ${event.type}`);
+
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
