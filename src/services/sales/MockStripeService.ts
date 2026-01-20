@@ -15,14 +15,18 @@ export class MockStripeService {
 
     /**
      * Mock Create Connect Account
+     * @param email - Consultant email
+     * @param returnPath - Return path after onboarding (e.g., '/consultant/settings')
      */
-    static mockCreateAccount(email: string): { accountId: string; onboardingUrl: string } {
+    static mockCreateAccount(email: string, returnPath: string = '/consultant/settings'): { accountId: string; onboardingUrl: string } {
         const mockId = `acct_mock_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         console.log(`[MockStripe] Created mock account for ${email}: ${mockId}`);
 
+        const origin = process.env.FRONTEND_URL || 'http://localhost:8080';
+
         return {
             accountId: mockId,
-            onboardingUrl: `http://localhost:8080/mock-stripe-onboard?account=${mockId}`,
+            onboardingUrl: `${origin}${returnPath}?stripe_success=true`,
         };
     }
 

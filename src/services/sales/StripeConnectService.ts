@@ -11,9 +11,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock');
 
 export class StripeConnectService {
     /**
-     * Create a Stripe Connect account for a consultant
+     * Create a Stripe Express Connect account for a consultant
+     * @param consultantId - The consultant's ID
+     * @param returnPath - Optional return path after Stripe onboarding (e.g., '/consultant/settings')
      */
-    static async createConnectAccount(consultantId: string): Promise<{ accountId: string; onboardingUrl: string }> {
+    static async createConnectAccount(
+        consultantId: string,
+        returnPath?: string
+    ): Promise<{ accountId: string; onboardingUrl: string }> {
         const consultant = await prisma.consultant.findUnique({
             where: { id: consultantId },
         });
@@ -24,10 +29,15 @@ export class StripeConnectService {
 
         let accountId = consultant.stripe_account_id;
 
+        // Determine return path based on consultant role if not provided
+        const settingsPath = returnPath || (consultant.role === 'SALES_AGENT'
+            ? '/sales-agent/settings'
+            : '/consultant/settings');
+
         // Check for mock mode
         if (MockStripeService.isMockMode()) {
             if (!accountId) {
-                const mockResult = MockStripeService.mockCreateAccount(consultant.email);
+                const mockResult = MockStripeService.mockCreateAccount(consultant.email, settingsPath);
                 accountId = mockResult.accountId;
 
                 // Save mock account ID to consultant
@@ -44,7 +54,7 @@ export class StripeConnectService {
             }
             return {
                 accountId,
-                onboardingUrl: MockStripeService.mockCreateAccount(consultant.email).onboardingUrl,
+                onboardingUrl: MockStripeService.mockCreateAccount(consultant.email, settingsPath).onboardingUrl,
             };
         }
 
@@ -75,27 +85,30 @@ export class StripeConnectService {
             });
         }
 
-        // Generate onboarding link
-        const onboardingUrl = await this.generateOnboardingLink(accountId);
+        // Generate onboarding link with proper return path
+        const onboardingUrl = await this.generateOnboardingLink(accountId, settingsPath);
 
         return { accountId, onboardingUrl };
     }
 
     /**
      * Generate onboarding link for a Stripe account
+     * @param accountId - Stripe account ID
+     * @param returnPath - Return path after onboarding (e.g., '/consultant/settings')
      */
-    static async generateOnboardingLink(accountId: string): Promise<string> {
+    static async generateOnboardingLink(accountId: string, returnPath: string = '/consultant/settings'): Promise<string> {
         // Mock mode
         if (MockStripeService.isMockMode()) {
-            return `http://localhost:8080/mock-stripe-onboard?account=${accountId}`;
+            const origin = process.env.FRONTEND_URL || 'http://localhost:8080';
+            return `${origin}${returnPath}?stripe_success=true`;
         }
 
-        const origin = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const origin = process.env.FRONTEND_URL || 'http://localhost:8080';
 
         const accountLink = await stripe.accountLinks.create({
             account: accountId,
-            refresh_url: `${origin}/hrm8/settings?stripe_refresh=true`,
-            return_url: `${origin}/hrm8/settings?stripe_success=true`,
+            refresh_url: `${origin}${returnPath}?stripe_refresh=true`,
+            return_url: `${origin}${returnPath}?stripe_success=true`,
             type: 'account_onboarding',
         });
 
