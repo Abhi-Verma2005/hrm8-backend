@@ -22,10 +22,11 @@ export class LeadConversionController {
             }
 
             const { id: leadId } = req.params;
-            const { agentNotes } = req.body;
+            const { agentNotes, tempPassword } = req.body;
 
             const result = await LeadConversionService.submitConversionRequest(leadId, consultantId, {
                 agentNotes,
+                tempPassword
             });
 
             if (!result.success) {

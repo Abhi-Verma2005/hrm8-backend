@@ -22,29 +22,44 @@ const requireGlobalAdmin = (req: Request, res: Response, next: NextFunction): vo
     next();
 };
 
-// All admin routes require HRM8 authentication and GLOBAL_ADMIN role
+// Middleware to require GLOBAL_ADMIN or REGIONAL_LICENSEE role (for billing)
+const requireAdminOrLicensee = (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.hrm8User) {
+        res.status(401).json({ success: false, error: 'Not authenticated' });
+        return;
+    }
+
+    const role = req.hrm8User.role;
+    if (role !== 'GLOBAL_ADMIN' && role !== 'REGIONAL_LICENSEE') {
+        res.status(403).json({ success: false, error: 'Access denied. Admin or Regional Licensee role required.' });
+        return;
+    }
+
+    next();
+};
+
+// All admin routes require HRM8 authentication
 router.use(authenticateHrm8User);
-router.use(requireGlobalAdmin);
 
-// Category routes
-router.get('/categories', CategoryController.getAllCategories);
-router.get('/categories/:id', CategoryController.getCategoryById);
-router.post('/categories', CategoryController.createCategory);
-router.put('/categories/:id', CategoryController.updateCategory);
-router.delete('/categories/:id', CategoryController.deleteCategory);
-router.patch('/categories/reorder', CategoryController.reorderCategories);
+// Category routes (GLOBAL_ADMIN only)
+router.get('/categories', requireGlobalAdmin, CategoryController.getAllCategories);
+router.get('/categories/:id', requireGlobalAdmin, CategoryController.getCategoryById);
+router.post('/categories', requireGlobalAdmin, CategoryController.createCategory);
+router.put('/categories/:id', requireGlobalAdmin, CategoryController.updateCategory);
+router.delete('/categories/:id', requireGlobalAdmin, CategoryController.deleteCategory);
+router.patch('/categories/reorder', requireGlobalAdmin, CategoryController.reorderCategories);
 
-// Tag routes
-router.get('/tags', TagController.getAllTags);
-router.get('/tags/:id', TagController.getTagById);
-router.post('/tags', TagController.createTag);
-router.put('/tags/:id', TagController.updateTag);
-router.delete('/tags/:id', TagController.deleteTag);
+// Tag routes (GLOBAL_ADMIN only)
+router.get('/tags', requireGlobalAdmin, TagController.getAllTags);
+router.get('/tags/:id', requireGlobalAdmin, TagController.getTagById);
+router.post('/tags', requireGlobalAdmin, TagController.createTag);
+router.put('/tags/:id', requireGlobalAdmin, TagController.updateTag);
+router.delete('/tags/:id', requireGlobalAdmin, TagController.deleteTag);
 
-// Billing & Withdrawal Routes
-router.get('/billing/withdrawals', WithdrawalController.getPendingWithdrawals);
-router.post('/billing/withdrawals/:id/approve', WithdrawalController.approveWithdrawal);
-router.post('/billing/withdrawals/:id/process', WithdrawalController.processPayment);
-router.post('/billing/withdrawals/:id/reject', WithdrawalController.rejectWithdrawal);
+// Billing & Withdrawal Routes (GLOBAL_ADMIN or REGIONAL_LICENSEE)
+router.get('/billing/withdrawals', requireAdminOrLicensee, WithdrawalController.getPendingWithdrawals);
+router.post('/billing/withdrawals/:id/approve', requireAdminOrLicensee, WithdrawalController.approveWithdrawal);
+router.post('/billing/withdrawals/:id/process', requireAdminOrLicensee, WithdrawalController.processPayment);
+router.post('/billing/withdrawals/:id/reject', requireAdminOrLicensee, WithdrawalController.rejectWithdrawal);
 
 export default router;

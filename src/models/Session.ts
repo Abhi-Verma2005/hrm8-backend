@@ -73,10 +73,15 @@ export class SessionModel {
    * Update session last activity
    */
   static async updateLastActivity(sessionId: string): Promise<void> {
-    await prisma.session.update({
-      where: { session_id: sessionId },
-      data: { last_activity: new Date() },
-    });
+    try {
+      await prisma.session.update({
+        where: { session_id: sessionId },
+        data: { last_activity: new Date() },
+      });
+    } catch (error) {
+      // Session might not exist (expired or deleted), ignore error
+      console.warn('[SessionModel] Failed to update last activity for session:', sessionId);
+    }
   }
 
   /**

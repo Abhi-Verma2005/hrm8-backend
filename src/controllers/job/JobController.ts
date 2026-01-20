@@ -9,6 +9,9 @@ import { JobService, CreateJobRequest, UpdateJobRequest } from '../../services/j
 import { JobStatus } from '../../types';
 import { HiringTeamInvitationService } from '../../services/job/HiringTeamInvitationService';
 import { JobPaymentService } from '../../services/payments/JobPaymentService';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export class JobController {
   /**
@@ -58,11 +61,70 @@ export class JobController {
         jobData.description = '';
       }
 
+
+      // Check wallet balance for paid jobs
+      let walletCheck = null;
+      if (jobData.servicePackage && jobData.servicePackage !== 'self-managed') {
+        const { WalletJobPaymentService } = await import('../../services/payments/WalletJobPaymentService');
+        const walletService = new WalletJobPaymentService(prisma);
+
+        walletCheck = await walletService.checkCanPostJob(req.user.companyId, jobData.servicePackage);
+
+        if (!walletCheck.canPost) {
+          res.status(402).json({
+            success: false,
+            error: 'INSUFFICIENT_BALANCE',
+            message: `Insufficient wallet balance. Required: $${walletCheck.required}, Available: $${walletCheck.balance}`,
+            data: {
+              balance: walletCheck.balance,
+              required: walletCheck.required,
+              shortfall: walletCheck.shortfall,
+              currency: walletCheck.currency
+            }
+          });
+          return;
+        }
+      }
+
       const job = await JobService.createJob(
         req.user.companyId,
         req.user.id,
         jobData
       );
+
+      // Process wallet payment if applicable
+      if (jobData.servicePackage && jobData.servicePackage !== 'self-managed' && walletCheck?.canPost) {
+        try {
+          const { WalletJobPaymentService } = await import('../../services/payments/WalletJobPaymentService');
+          const walletService = new WalletJobPaymentService(prisma);
+
+          await walletService.payForJobFromWallet(
+            req.user.companyId,
+            job.id,
+            jobData.servicePackage,
+            req.user.id,
+            job.title
+          );
+
+          // Auto-publish after payment
+          await JobService.publishJob(job.id, req.user.companyId);
+
+          // Refresh job data to return updated status
+          const updatedJob = await prisma.job.findUnique({ where: { id: job.id } });
+          if (updatedJob) {
+            Object.assign(job, updatedJob);
+          }
+        } catch (paymentError) {
+          console.error('❌ Wallet payment failed after job creation:', paymentError);
+          // Return success but with payment warning - job is created but remains in DRAFT/PENDING
+          res.status(201).json({
+            success: true,
+            data: job,
+            warning: 'Job created but payment failed. Please try paying again.'
+          });
+          return;
+        }
+      }
 
       res.status(201).json({
         success: true,
@@ -198,11 +260,11 @@ export class JobController {
       // 3. Job status allows editing (OPEN jobs can be edited by creator)
       // This allows editing posted jobs through the edit drawer
       if (!isLifecycleOnlyUpdate) {
-        const canEdit = 
-          existingJob.status === JobStatus.DRAFT || 
+        const canEdit =
+          existingJob.status === JobStatus.DRAFT ||
           existingJob.createdBy === req.user.id ||
           existingJob.status === JobStatus.OPEN; // Allow editing OPEN jobs
-        
+
         if (!canEdit) {
           res.status(403).json({
             success: false,
@@ -272,7 +334,58 @@ export class JobController {
         return;
       }
 
+
       const { id } = req.params;
+
+      // 1. Get job to check service package and status
+      const existingJob = await JobService.getJobById(id, req.user.companyId);
+
+      // 2. Check and process payment if needed
+      if (existingJob.servicePackage &&
+        existingJob.servicePackage !== 'self-managed' &&
+        existingJob.paymentStatus !== 'PAID') {
+
+        const { WalletJobPaymentService } = await import('../../services/payments/WalletJobPaymentService');
+        const walletService = new WalletJobPaymentService(prisma);
+
+        // Check balance
+        const walletCheck = await walletService.checkCanPostJob(req.user.companyId, existingJob.servicePackage);
+
+        if (!walletCheck.canPost) {
+          res.status(402).json({
+            success: false,
+            error: 'INSUFFICIENT_BALANCE',
+            message: `Insufficient wallet balance. Required: $${walletCheck.required}, Available: $${walletCheck.balance}`,
+            data: {
+              balance: walletCheck.balance,
+              required: walletCheck.required,
+              shortfall: walletCheck.shortfall,
+              currency: walletCheck.currency
+            }
+          });
+          return;
+        }
+
+        // Process Payment
+        try {
+          await walletService.payForJobFromWallet(
+            req.user.companyId,
+            id,
+            existingJob.servicePackage,
+            req.user.id,
+            existingJob.title
+          );
+        } catch (paymentError) {
+          console.error('❌ Wallet payment failed during publish:', paymentError);
+          res.status(500).json({
+            success: false,
+            error: 'Payment failed',
+            message: process.env.NODE_ENV === 'development' ? (paymentError as Error).message : 'Failed to process payment from wallet. Please try again.',
+            details: (paymentError as Error).stack // Debugging aid
+          });
+          return;
+        }
+      }
 
       const job = await JobService.publishJob(id, req.user.companyId);
 
@@ -629,12 +742,12 @@ export class JobController {
         workArrangement,
         tags,
         serviceType,
-        
+
         // Step 2 fields (if partially filled)
         existingDescription,
         existingRequirements,
         existingResponsibilities,
-        
+
         // Step 3 fields (if available)
         salaryMin,
         salaryMax,
@@ -645,7 +758,7 @@ export class JobController {
         closeDate,
         visibility,
         stealth,
-        
+
         // Additional context
         additionalContext,
       } = req.body;
@@ -656,7 +769,7 @@ export class JobController {
       }
 
       const { JobDescriptionGeneratorService } = await import('../../services/ai/JobDescriptionGeneratorService');
-      
+
       const generated = await JobDescriptionGeneratorService.generateWithAI({
         title,
         numberOfVacancies,

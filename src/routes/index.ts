@@ -36,6 +36,7 @@ import { JobAllocationController } from '../controllers/hrm8/JobAllocationContro
 import analyticsRoutes from './analytics';
 import notificationRoutes from './notification.routes';
 import userNotificationPreferencesRoutes from './user-notification-preferences.routes';
+import consultantWalletRoutes from './wallet.unified';
 
 const router: RouterType = Router();
 
@@ -66,6 +67,7 @@ router.use('/api/sales', salesRoutes);
 router.use('/api/admin', adminRoutes);
 router.use('/api/admin/billing', billingRoutes);
 router.use('/api/wallet', walletRoutes);
+router.use('/api/consultant-wallet', consultantWalletRoutes);
 router.use('/api/integrations', integrationRoutes);
 router.use('/api/analytics', analyticsRoutes);
 router.use('/api/notifications', notificationRoutes);
