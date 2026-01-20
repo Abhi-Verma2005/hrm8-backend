@@ -56,7 +56,7 @@ export class MockStripeClient implements IStripeClient {
                 }, 2000); // Auto-approve after 2 seconds
             }
 
-            console.log(`[MockStripe] Created account: ${accountId}`);
+
             return account;
         },
 
@@ -70,7 +70,7 @@ export class MockStripeClient implements IStripeClient {
                 throw new Error(`[MockStripe] Account not found: ${accountId}`);
             }
 
-            console.log(`[MockStripe] Retrieved account: ${accountId}, status: ${account.details_submitted ? 'active' : 'pending'}`);
+
             return account;
         },
     };
@@ -100,8 +100,7 @@ export class MockStripeClient implements IStripeClient {
                 url: mockOnboardingUrl,
             };
 
-            console.log(`[MockStripe] Created onboarding link for: ${params.account}`);
-            console.log(`[MockStripe] Onboarding URL: ${mockOnboardingUrl}`);
+
 
             return accountLink;
         },
@@ -144,7 +143,7 @@ export class MockStripeClient implements IStripeClient {
                     metadata: params.metadata,
                 };
 
-                console.log(`[MockStripe] Created checkout session: ${sessionId}, amount: $${amount_total / 100}`);
+
                 return session;
             },
         },
@@ -162,7 +161,7 @@ export function approveMockAccount(accountId: string): void {
         account.payouts_enabled = true;
         account.charges_enabled = true;
         mockAccounts.set(accountId, account);
-        console.log(`[MockStripe] Manually approved account: ${accountId}`);
+
     }
 }
 

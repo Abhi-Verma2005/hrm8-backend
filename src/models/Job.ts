@@ -11,10 +11,7 @@ export class JobModel {
    * Create a new job
    */
   static async create(jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<Job> {
-    console.log('📝 JobModel.create called with:', {
-      ...jobData,
-      description: jobData.description?.substring(0, 100) + '...',
-    });
+
 
     try {
       const prismaData: any = {

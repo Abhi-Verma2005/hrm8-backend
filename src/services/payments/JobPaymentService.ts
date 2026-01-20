@@ -6,7 +6,7 @@
 import { JobModel } from '../../models/Job';
 import { UPGRADE_PRICE_MAP } from './StripeUpgradeService';
 import prisma from '../../lib/prisma';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus, VirtualTransactionType } from '@prisma/client';
 
 export type ServicePackage = 'self-managed' | 'shortlisting' | 'full-service' | 'executive-search';
 
@@ -67,7 +67,7 @@ export class JobPaymentService {
   static async createJobCheckoutSession(params: CreateJobCheckoutParams): Promise<{ checkoutUrl: string; sessionId: string }> {
     const { jobId, servicePackage, companyId, customerEmail } = params;
 
-    console.log('💳 Creating job checkout session:', { jobId, servicePackage, companyId });
+
 
     // Verify job exists and belongs to company
     const job = await JobModel.findById(jobId);
@@ -85,7 +85,7 @@ export class JobPaymentService {
       throw new Error('Invalid service package or free package');
     }
 
-    console.log('💰 Payment info:', paymentInfo);
+
 
     // Import Stripe dynamically
     const Stripe = (await import('stripe')).default;
@@ -268,6 +268,7 @@ export class JobPaymentService {
       select: {
         service_package: true,
         payment_status: true,
+        company_id: true,
       },
     });
 
@@ -275,13 +276,29 @@ export class JobPaymentService {
       return false;
     }
 
-    // Self-managed jobs can always be published
-    if (prismaJob.service_package === 'self-managed' || !prismaJob.service_package) {
+    // If already paid, it can always be published
+    if (prismaJob.payment_status === PaymentStatus.PAID) {
       return true;
     }
 
-    // Paid packages require payment
-    return prismaJob.payment_status === PaymentStatus.PAID;
+    // Self-managed jobs check
+    if (prismaJob.service_package === 'self-managed' || !prismaJob.service_package) {
+      // Check if company has an active subscription
+      const { SubscriptionService } = await import('../subscriptionService');
+      const subscriptionService = new SubscriptionService(prisma);
+      const activeSub = await subscriptionService.getActiveSubscription(prismaJob.company_id);
+
+      // If they have an active subscription, they MUST go through the payment/quota process
+      if (activeSub) {
+        return false;
+      }
+
+      // NO active subscription, self-managed is free
+      return true;
+    }
+
+    // Paid packages require payment and we already checked if payment_status is PAID
+    return false;
   }
 
   /**
@@ -301,8 +318,6 @@ export class JobPaymentService {
    * Process wallet payment for a job
    */
   static async processWalletPayment(jobId: string, companyId: string): Promise<boolean> {
-    console.log('💳 Processing wallet payment for job:', { jobId, companyId });
-
     // Verify job exists and belongs to company
     const job = await JobModel.findById(jobId);
     if (!job) {
@@ -317,29 +332,54 @@ export class JobPaymentService {
     // If service package is missing, assume self-managed (free)
     const servicePackage = (job.servicePackage || 'self-managed') as ServicePackage;
 
-    // Self-managed is free, so no deduction needed
+    // Self-managed processing
     if (servicePackage === 'self-managed') {
+      const { SubscriptionService } = await import('../subscriptionService');
+      const subscriptionService = new SubscriptionService(prisma);
+      const activeSub = await subscriptionService.getActiveSubscription(companyId);
+
+      if (activeSub) {
+        try {
+          // Process via subscription service (handles quota and wallet balance)
+          await subscriptionService.processJobPosting({
+            subscriptionId: activeSub.id,
+            companyId,
+            userId: 'SYSTEM',
+            jobTitle: job.title
+          });
+
+          // Update job to mark as PAID
+          await prisma.job.update({
+            where: { id: jobId },
+            data: {
+              payment_status: PaymentStatus.PAID,
+              payment_amount: 0, // Deducted from subscription/prepaid balance
+              payment_completed_at: new Date(),
+            }
+          });
+
+          return true;
+        } catch (error: any) {
+          throw error; // Propagate quota/balance errors
+        }
+      }
+
       return true;
     }
 
     const paymentInfo = this.getPaymentAmount(servicePackage);
     if (!paymentInfo) {
       // Should not happen if requiresPayment check passed, but safety first
-      console.warn('⚠️ No payment info found for package, assuming free:', servicePackage);
       return true;
     }
 
     const { amount, currency } = paymentInfo;
 
     // Get Virtual Wallet Service instance
-    // We need to instantiate it here or pass it in. Since it requires PrismaClient, we can import prisma lib.
     const { VirtualWalletService } = await import('../virtualWalletService'); // Dynamic import to avoid circular dep if any
     const walletService = new VirtualWalletService(prisma);
 
     // Get Company Wallet
-    // Assuming 'COMPANY' is the owner type. We need to check the exact enum value from Prisma.
-    // Based on schema, it's likely 'COMPANY'.
-    // Let's get the account first.
     const account = await walletService.getAccountByOwner('COMPANY', companyId);
 
     if (!account) {
@@ -348,7 +388,8 @@ export class JobPaymentService {
 
     // Check Balance
     if (account.balance < amount) {
-      throw new Error(`Insufficient wallet balance. Required: $${amount.toFixed(2)}, Available: $${account.balance.toFixed(2)}`);
+      const shortfall = amount - account.balance;
+      throw new Error(`Insufficient wallet balance. Required: $${amount.toFixed(2)}, Available: $${account.balance.toFixed(2)}. Shortfall: $${shortfall.toFixed(2)}.`);
     }
 
     let debitResult;
@@ -357,7 +398,7 @@ export class JobPaymentService {
       debitResult = await walletService.debitAccount({
         accountId: account.id,
         amount: amount,
-        type: 'JOB_POSTING_DEDUCTION',
+        type: VirtualTransactionType.JOB_POSTING_DEDUCTION,
         description: `Payment for job: ${job.title} (${this.getPackageLabel(servicePackage)})`,
         referenceType: 'JOB',
         referenceId: jobId,
@@ -365,7 +406,6 @@ export class JobPaymentService {
         createdBy: 'SYSTEM',
       });
     } catch (error: any) {
-      console.error('❌ Wallet debit failed:', error);
       throw error; // Re-throw deduction error (e.g. Insufficient Funds) directly
     }
 
@@ -384,23 +424,22 @@ export class JobPaymentService {
       return true;
 
     } catch (updateError: any) {
-      console.error('❌ Job update failed after wallet deduction. Initiating REFUND...', updateError);
+      console.error('❌ [JobPaymentService] Job update failed after wallet deduction. Initiating REFUND...', updateError);
 
       // CRITICAL: ROLLBACK (REFUND) THE WALLET
       try {
         await walletService.creditAccount({
           accountId: account.id,
           amount: amount,
-          type: 'REFUND', // Used 'REFUND' as generic fallback if specific enum missing
+          type: VirtualTransactionType.JOB_REFUND,
           description: `REFUND: System error during job posting for ${job.title}`,
           referenceType: 'JOB',
           referenceId: jobId,
           jobId: jobId,
           createdBy: 'SYSTEM',
         });
-        console.log('✅ Refund successful for job:', jobId);
       } catch (refundError) {
-        console.error('🚨 CRITICAL: REFUND FAILED for job:', jobId, refundError);
+        console.error('🚨 [JobPaymentService] CRITICAL: REFUND FAILED for job:', jobId, refundError);
         // This requires manual intervention or a reconciliation background job
       }
 
@@ -412,6 +451,7 @@ export class JobPaymentService {
       throw new Error('System error during payment processing. Any deducted funds have been refunded. Please try again.');
     }
   }
+
 }
 
 

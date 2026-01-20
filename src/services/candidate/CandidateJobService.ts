@@ -339,13 +339,7 @@ export class CandidateJobService {
         const { prisma } = await import('../../lib/prisma');
         const { CandidateNotificationPreferencesService } = await import('../candidate/CandidateNotificationPreferencesService');
 
-        console.log('🔔 processJobAlerts called for job:', {
-            id: job.id,
-            title: job.title,
-            work_arrangement: job.work_arrangement,
-            category: job.category,
-            location: job.location
-        });
+
 
         try {
             // Re-fetch job with company info for richer notifications
@@ -370,15 +364,14 @@ export class CandidateJobService {
                 }
             });
 
-            console.log(`📊 Found ${activeAlerts.length} active alerts to process`);
+
 
             for (const alert of activeAlerts) {
-                console.log(`🔍 Checking alert "${alert.name}" (ID: ${alert.id})`);
-                console.log(`   Criteria:`, alert.criteria);
+
 
                 if (this.jobMatchesAlert(jobData, alert.criteria)) {
                     const alertWithCandidate = alert as typeof alert & { candidate: { id: string; email: string; first_name: string; last_name: string } };
-                    console.log(`✅ Job matches alert ${alert.id} for candidate ${alertWithCandidate.candidate.email}`);
+
 
                     // Respect candidate preferences
                     const allowEmail = await CandidateNotificationPreferencesService.shouldSendNotification(
@@ -401,7 +394,7 @@ export class CandidateJobService {
                         await this.createInAppNotification(alert.candidate_id, jobData);
                     }
                 } else {
-                    console.log(`❌ Job does NOT match alert ${alert.id}`);
+
                 }
             }
         } catch (error) {
@@ -485,7 +478,7 @@ export class CandidateJobService {
                 jobUrl,
             });
 
-            console.log(`✅ Job alert email sent to ${candidate.email} for job: ${job.title}`);
+
         } catch (error) {
             console.error(`❌ Failed to send job alert email to ${candidate.email}:`, error);
             // Don't throw - we don't want to fail the alert processing if email fails
@@ -507,11 +500,11 @@ export class CandidateJobService {
             );
 
             if (!shouldSend) {
-                console.log(`⏭️ In-app job alert skipped by preferences for candidate ${candidateId}`);
+
                 return;
             }
 
-            const notification = await prisma.notification.create({
+            await prisma.notification.create({
                 data: {
                     id: randomUUID(),
                     candidate_id: candidateId,
@@ -531,10 +524,7 @@ export class CandidateJobService {
             });
 
 
-            console.log(`✅ IN-APP NOTIFICATION CREATED:`);
-            console.log(`   ID: ${notification.id}`);
-            console.log(`   Candidate ID: ${candidateId}`);
-            console.log(`   Message: ${notification.message}`);
+
         } catch (error) {
             console.error('❌ Failed to create in-app notification:', error);
         }

@@ -124,11 +124,7 @@ paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) =
     // Retrieve session from Stripe
     const session = await stripe.checkout.sessions.retrieve(job.stripe_session_id);
 
-    console.log('🔍 Verifying Stripe session:', {
-      sessionId: session.id,
-      paymentStatus: session.payment_status,
-      status: session.status,
-    });
+
 
     if (session.payment_status === 'paid') {
       const paymentIntentId = typeof session.payment_intent === 'string'
@@ -152,9 +148,9 @@ paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) =
       const { JobService } = await import('../services/job/JobService');
       try {
         await JobService.publishJob(jobId, companyId);
-        console.log(`✅ Job ${jobId} auto-published after payment verification`);
+
       } catch (publishError: any) {
-        console.log(`ℹ️ Job ${jobId} publishing note: ${publishError.message}`);
+
       }
 
       // Create commissions (same as webhook handler)
@@ -183,13 +179,13 @@ paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) =
             paymentAmount
           );
           if (commissionResult.success) {
-            console.log(`✅ Created consultant commission ${commissionResult.commissionId} for job ${jobId}`);
+
           } else {
-            console.log(`ℹ️ Consultant commission not created: ${commissionResult.error}`);
+
           }
         }
       } catch (commissionError: any) {
-        console.log(`ℹ️ Commission creation note: ${commissionError.message}`);
+
       }
 
       // 2. Commission for sales agent who acquired the company (Using new centralized logic)
@@ -206,7 +202,7 @@ paymentsRouter.post('/verify-job-payment', async (req: Request, res: Response) =
           'JOB_PAYMENT'
         );
       } catch (salesError: any) {
-        console.log(`ℹ️ Sales commission note: ${salesError.message}`);
+
       }
 
       return res.status(200).json({
@@ -369,7 +365,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
               await JobService.publishJob(jobId, companyId);
             } catch (publishError: any) {
               // If already published or other non-fatal error, just log it
-              console.log(`ℹ️ Job ${jobId} publishing status: ${publishError.message}`);
+
             }
 
             // 4. Create commission for assigned consultant (if any)
@@ -396,14 +392,14 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
                   (session.amount_total || 0) / 100 // Service fee amount
                 );
                 if (commissionResult.success) {
-                  console.log(`✅ Created commission ${commissionResult.commissionId} for job ${jobId}`);
+
                 } else {
-                  console.log(`ℹ️ Commission not created for job ${jobId}: ${commissionResult.error}`);
+
                 }
               }
             } catch (commissionError: any) {
               // Non-fatal - log but don't fail payment processing
-              console.log(`ℹ️ Commission creation note: ${commissionError.message}`);
+
             }
 
             // 5. Create commission for sales agent who acquired this company (Using centralized logic)
@@ -421,7 +417,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
               );
             } catch (salesError: any) {
               // Non-fatal - log but don't fail payment processing
-              console.log(`ℹ️ Sales commission note: ${salesError.message}`);
+
             }
           } catch (error) {
             console.error(`❌ Error processing payment for job ${jobId}:`, error);

@@ -321,7 +321,7 @@ export class CommissionService {
       if (company.attributionLockedAt) {
         const monthsSinceLock = differenceInMonths(new Date(), new Date(company.attributionLockedAt));
         if (monthsSinceLock >= 12) {
-          console.log(`⏰ Attribution expired for company ${companyId} (${monthsSinceLock} months since lock). No sales commission created.`);
+
           return { success: false, error: 'Attribution expired' };
         }
       }
@@ -349,7 +349,7 @@ export class CommissionService {
       // Auto-lock attribution on first payment
       if (!company.attributionLocked) {
         await AttributionService.lockAttribution(companyId);
-        console.log(`🔒 Attribution locked for company ${companyId}`);
+
       }
 
       // Close related Opportunity if exists and is open

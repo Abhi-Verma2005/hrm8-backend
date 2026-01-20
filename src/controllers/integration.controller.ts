@@ -195,7 +195,7 @@ export class IntegrationController {
             let integration = await IntegrationStripeService.getStripeIntegration(entityType, entityId);
 
             if (!integration) {
-                console.log('[IntegrationController] No existing integration found, creating new one...');
+
                 // If no integration exists, create one first
                 try {
                     integration = await IntegrationStripeService.createStripeIntegration(entityType, entityId);
@@ -219,7 +219,7 @@ export class IntegrationController {
                 return;
             }
 
-            console.log('[IntegrationController] Creating payment session with amount:', amount);
+
 
             // Create checkout session
             const session = await IntegrationStripeService.createPaymentSession(integration.id, {
@@ -264,7 +264,7 @@ export class IntegrationController {
                 return;
             }
 
-            const { entityType, entityId } = entityInfo;
+            const { entityId } = entityInfo;
             const { sessionId, amount } = req.body;
 
             if (!sessionId || !amount) {
@@ -275,7 +275,7 @@ export class IntegrationController {
                 return;
             }
 
-            console.log('[IntegrationController] Processing mock payment success:', { sessionId, amount, entityType, entityId });
+
 
             // Import VirtualWalletService and prisma
             const { VirtualWalletService } = await import('../services/virtualWalletService');
@@ -298,10 +298,7 @@ export class IntegrationController {
                 referenceId: sessionId,
             });
 
-            console.log('[IntegrationController] Wallet credited successfully:', {
-                amount: amount / 100,
-                accountId: virtualAccount.id,
-            });
+
 
             res.json({
                 success: true,

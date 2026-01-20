@@ -49,9 +49,9 @@ export class IntegrationStripeService {
      * Create Stripe Connect integration
      */
     static async createStripeIntegration(entityType: EntityType, entityId: string) {
-        console.log('[IntegrationStripeService] Creating Stripe integration for:', { entityType, entityId });
+
         const whereClause = this.buildWhereClause(entityType, entityId);
-        console.log('[IntegrationStripeService] Where clause:', whereClause);
+
 
         // Check if integration already exists
         const existingIntegration = await prisma.integration.findFirst({
@@ -62,15 +62,15 @@ export class IntegrationStripeService {
         });
 
         if (existingIntegration) {
-            console.log('[IntegrationStripeService] Found existing integration:', existingIntegration.id);
+
             return existingIntegration;
         }
 
-        console.log('[IntegrationStripeService] No existing integration, creating new one...');
+
 
         // Get entity email for Stripe account creation
         const email = await this.getEntityEmail(entityType, entityId);
-        console.log('[IntegrationStripeService] Entity email:', email);
+
 
         // Get Stripe Client Async
         const stripe = await StripeFactory.getClientAsync();
@@ -106,7 +106,7 @@ export class IntegrationStripeService {
             },
         });
 
-        console.log('[IntegrationStripeService] Created integration in DB:', integration.id);
+
         return integration;
     }
 
