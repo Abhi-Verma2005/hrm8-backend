@@ -189,6 +189,7 @@ export class WithdrawalService {
 
     /**
      * Approve withdrawal (Admin only)
+     * Credits the amount to consultant's virtual wallet
      */
     static async approveWithdrawal(
         withdrawalId: string,
@@ -205,7 +206,21 @@ export class WithdrawalService {
                 return { success: false, error: 'Can only approve pending withdrawals' };
             }
 
+            // Approve the withdrawal
             await CommissionWithdrawalModel.approve(withdrawalId, adminId);
+
+            // Credit to consultant's virtual wallet
+            const { CommissionWalletService } = await import('../CommissionWalletService');
+            const walletResult = await CommissionWalletService.creditWalletOnApproval(
+                withdrawal.consultantId,
+                withdrawal.amount,
+                withdrawalId
+            );
+
+            if (!walletResult.success) {
+                console.error('Failed to credit wallet:', walletResult.error);
+                // Don't fail the approval, but log the issue
+            }
 
             return { success: true };
         } catch (error: any) {
@@ -291,22 +306,56 @@ export class WithdrawalService {
     /**
      * Get all pending withdrawals (Admin only)
      * Optionally filter by region for regional admins
+     * Includes consultant details for admin visibility
      */
-    static async getPendingWithdrawals(regionId?: string): Promise<CommissionWithdrawalData[]> {
+    static async getPendingWithdrawals(regionId?: string): Promise<any[]> {
+        const whereClause: any = {
+            status: 'PENDING',
+        };
+
         if (regionId) {
-            // Regional admin - only show withdrawals from consultants in their region
-            const withdrawals = await prisma.commissionWithdrawal.findMany({
-                where: {
-                    status: 'PENDING',
-                    consultant: {
-                        region_id: regionId
-                    }
-                },
-                orderBy: { created_at: 'desc' },
-            });
-            return withdrawals.map((w) => CommissionWithdrawalModel['mapPrismaToWithdrawal'](w));
+            whereClause.consultant = { region_id: regionId };
         }
-        // Global admin - show all pending withdrawals
-        return await CommissionWithdrawalModel.findAll({ status: 'PENDING' });
+
+        const withdrawals = await prisma.commissionWithdrawal.findMany({
+            where: whereClause,
+            orderBy: { created_at: 'desc' },
+            include: {
+                consultant: {
+                    select: {
+                        id: true,
+                        first_name: true,
+                        last_name: true,
+                        email: true,
+                        stripe_account_id: true,
+                        stripe_account_status: true,
+                        payout_enabled: true,
+                        role: true,
+                        region_id: true,
+                    }
+                }
+            }
+        });
+
+        // Map to include consultant details in response
+        return withdrawals.map((w) => ({
+            id: w.id,
+            consultantId: w.consultant_id,
+            consultantName: `${w.consultant.first_name} ${w.consultant.last_name}`,
+            consultantEmail: w.consultant.email,
+            consultantRole: w.consultant.role,
+            stripeConnected: !!w.consultant.stripe_account_id,
+            stripeAccountStatus: w.consultant.stripe_account_status,
+            payoutEnabled: w.consultant.payout_enabled,
+            regionId: w.consultant.region_id,
+            amount: w.amount,
+            status: w.status,
+            paymentMethod: w.payment_method,
+            paymentDetails: w.payment_details,
+            commissionIds: w.commission_ids,
+            notes: w.notes,
+            createdAt: w.created_at,
+            updatedAt: w.updated_at,
+        }));
     }
 }

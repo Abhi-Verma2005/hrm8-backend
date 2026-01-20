@@ -5,8 +5,9 @@
 
 import Stripe from 'stripe';
 import prisma from '../../lib/prisma';
+import { MockStripeService } from './MockStripeService';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock');
 
 export class StripeConnectService {
     /**
@@ -22,6 +23,30 @@ export class StripeConnectService {
         }
 
         let accountId = consultant.stripe_account_id;
+
+        // Check for mock mode
+        if (MockStripeService.isMockMode()) {
+            if (!accountId) {
+                const mockResult = MockStripeService.mockCreateAccount(consultant.email);
+                accountId = mockResult.accountId;
+
+                // Save mock account ID to consultant
+                await prisma.consultant.update({
+                    where: { id: consultantId },
+                    data: {
+                        stripe_account_id: accountId,
+                        stripe_account_status: 'active', // Mock accounts are always active
+                        payout_enabled: true,
+                    },
+                });
+
+                return mockResult;
+            }
+            return {
+                accountId,
+                onboardingUrl: MockStripeService.mockCreateAccount(consultant.email).onboardingUrl,
+            };
+        }
 
         // Create Stripe account if it doesn't exist
         if (!accountId) {
@@ -60,6 +85,11 @@ export class StripeConnectService {
      * Generate onboarding link for a Stripe account
      */
     static async generateOnboardingLink(accountId: string): Promise<string> {
+        // Mock mode
+        if (MockStripeService.isMockMode()) {
+            return `http://localhost:8080/mock-stripe-onboard?account=${accountId}`;
+        }
+
         const origin = process.env.FRONTEND_URL || 'http://localhost:5173';
 
         const accountLink = await stripe.accountLinks.create({
@@ -85,6 +115,11 @@ export class StripeConnectService {
 
         if (!consultant?.stripe_account_id) {
             return { payoutEnabled: false, detailsSubmitted: false };
+        }
+
+        // Mock mode
+        if (MockStripeService.isMockMode()) {
+            return MockStripeService.mockAccountStatus();
         }
 
         const account = await stripe.accounts.retrieve(consultant.stripe_account_id);
@@ -119,6 +154,11 @@ export class StripeConnectService {
 
         if (!consultant?.stripe_account_id) {
             throw new Error('Stripe account not connected');
+        }
+
+        // Mock mode
+        if (MockStripeService.isMockMode()) {
+            return MockStripeService.mockLoginLink();
         }
 
         const loginLink = await stripe.accounts.createLoginLink(consultant.stripe_account_id);
