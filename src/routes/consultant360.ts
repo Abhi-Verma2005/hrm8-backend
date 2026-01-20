@@ -18,6 +18,17 @@ router.use(authenticateConsultant);
 // GET /api/consultant360/dashboard - Get unified dashboard stats
 router.get('/dashboard', Consultant360Controller.getUnifiedDashboard);
 
+// ==================== Sales / Leads ====================
+
+// GET /api/consultant360/leads - Get leads
+router.get('/leads', Consultant360Controller.getLeads);
+
+// POST /api/consultant360/leads - Create lead
+router.post('/leads', Consultant360Controller.createLead);
+
+// POST /api/consultant360/leads/:id/conversion-request - Submit conversion request
+router.post('/leads/:id/conversion-request', Consultant360Controller.submitConversionRequest);
+
 // ==================== Earnings & Commissions ====================
 
 // GET /api/consultant360/earnings - Get unified earnings breakdown

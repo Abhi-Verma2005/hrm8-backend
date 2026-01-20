@@ -120,7 +120,8 @@ export async function requireConsultant360(
 }
 
 /**
- * Middleware requiring RECRUITER role (or CONSULTANT_360 who has access to all)
+ * Middleware requiring RECRUITER role ONLY (strict isolation)
+ * CONSULTANT_360 should use /api/consultant360/* routes instead
  */
 export async function requireRecruiter(
   req: ConsultantAuthenticatedRequest,
@@ -128,7 +129,7 @@ export async function requireRecruiter(
   next: NextFunction
 ): Promise<void> {
   const role = req.consultant?.role;
-  if (role !== 'RECRUITER' && role !== 'CONSULTANT_360') {
+  if (role !== 'RECRUITER') {
     res.status(403).json({
       success: false,
       error: 'Access denied. Recruiter role required.',
@@ -139,7 +140,8 @@ export async function requireRecruiter(
 }
 
 /**
- * Middleware requiring SALES_AGENT role (or CONSULTANT_360 who has access to all)
+ * Middleware requiring SALES_AGENT role ONLY (strict isolation)
+ * CONSULTANT_360 should use /api/consultant360/* routes instead
  */
 export async function requireSalesAgent(
   req: ConsultantAuthenticatedRequest,
@@ -147,7 +149,7 @@ export async function requireSalesAgent(
   next: NextFunction
 ): Promise<void> {
   const role = req.consultant?.role;
-  if (role !== 'SALES_AGENT' && role !== 'CONSULTANT_360') {
+  if (role !== 'SALES_AGENT') {
     res.status(403).json({
       success: false,
       error: 'Access denied. Sales Agent role required.',

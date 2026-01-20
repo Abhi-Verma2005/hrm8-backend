@@ -8,6 +8,7 @@ import { Response } from 'express';
 import { ConsultantAuthenticatedRequest } from '../../middleware/consultantAuth';
 import { UnifiedEarningsService } from '../../services/consultant360/UnifiedEarningsService';
 import { WithdrawalService } from '../../services/sales/WithdrawalService';
+import { LeadConversionService } from '../../services/sales/LeadConversionService';
 import prisma from '../../lib/prisma';
 
 export class Consultant360Controller {
@@ -484,6 +485,181 @@ export class Consultant360Controller {
             res.status(500).json({
                 success: false,
                 error: error.message || 'Failed to get login link',
+            });
+        }
+    }
+
+    /**
+     * Get Leads
+     * GET /api/consultant360/leads
+     */
+    static async getLeads(
+        req: ConsultantAuthenticatedRequest,
+        res: Response
+    ): Promise<void> {
+        try {
+            const consultantId = req.consultant?.id;
+            if (!consultantId) {
+                res.status(401).json({ success: false, error: 'Unauthorized' });
+                return;
+            }
+
+            const leads = await prisma.lead.findMany({
+                where: {
+                    assigned_consultant_id: consultantId,
+                },
+                include: {
+                    conversion_requests: {
+                        orderBy: {
+                            created_at: 'desc',
+                        },
+                        take: 1,
+                    },
+                },
+                orderBy: {
+                    created_at: 'desc',
+                },
+            });
+
+            res.json({
+                success: true,
+                data: { leads },
+            });
+        } catch (error: any) {
+            console.error('Get leads error:', error);
+            res.status(500).json({ success: false, error: 'Failed to fetch leads' });
+        }
+    }
+
+    /**
+     * Create Lead
+     * POST /api/consultant360/leads
+     */
+    static async createLead(
+        req: ConsultantAuthenticatedRequest,
+        res: Response
+    ): Promise<void> {
+        try {
+            const consultantId = req.consultant?.id;
+            if (!consultantId) {
+                res.status(401).json({ success: false, error: 'Unauthorized' });
+                return;
+            }
+
+            const { companyName, email, phone, website, country, budget, timeline, message } = req.body;
+
+            // Simple validation
+            if (!companyName || !email) {
+                res.status(400).json({ success: false, error: 'Company name and email are required' });
+                return;
+            }
+
+            // Fetch consultant region
+            const consultant = await prisma.consultant.findUnique({
+                where: { id: consultantId },
+                select: { region_id: true }
+            });
+
+            if (!consultant) {
+                res.status(404).json({ success: false, error: 'Consultant not found' });
+                return;
+            }
+
+            const lead = await prisma.lead.create({
+                data: {
+                    assigned_consultant_id: consultantId,
+                    created_by: consultantId,
+                    referred_by: consultantId, // Ensure attribution for commissions
+                    region_id: consultant.region_id,
+                    company_name: companyName,
+                    email,
+                    phone,
+                    website,
+                    country,
+                    status: 'NEW',
+                    notes: `Budget: ${budget}\nTimeline: ${timeline}\nMessage: ${message}`
+                },
+            });
+
+            // Mock qualification data
+            const qualification = {
+                score: 85,
+                category: 'HOT',
+                status: 'QUALIFIED',
+            };
+
+            res.json({
+                success: true,
+                data: { lead, qualification },
+            });
+        } catch (error: any) {
+            console.error('Create lead error:', error);
+            res.status(500).json({ success: false, error: 'Failed to create lead' });
+        }
+    }
+
+    /**
+     * Submit Conversion Request
+     * POST /api/consultant360/leads/:id/conversion-request
+     */
+    static async submitConversionRequest(
+        req: ConsultantAuthenticatedRequest,
+        res: Response
+    ): Promise<void> {
+        try {
+            const consultantId = req.consultant?.id;
+            if (!consultantId) {
+                res.status(401).json({ success: false, error: 'Unauthorized' });
+                return;
+            }
+
+            const { id: leadId } = req.params;
+            const { agentNotes, tempPassword } = req.body;
+
+            // Check if lead has region and referrer assigned (Hotfix for existing leads)
+            const leadCheck = await prisma.lead.findUnique({
+                where: { id: leadId },
+                select: { region_id: true, referred_by: true }
+            });
+
+            if (leadCheck && (!leadCheck.region_id || !leadCheck.referred_by)) {
+                // Fetch consultant region and patch lead
+                const consultant = await prisma.consultant.findUnique({
+                    where: { id: consultantId },
+                    select: { region_id: true }
+                });
+
+                if (consultant) {
+                    await prisma.lead.update({
+                        where: { id: leadId },
+                        data: {
+                            region_id: leadCheck.region_id || consultant.region_id,
+                            referred_by: leadCheck.referred_by || consultantId // Ensure attribution is persistent
+                        }
+                    });
+                }
+            }
+
+            const result = await LeadConversionService.submitConversionRequest(leadId, consultantId, {
+                agentNotes,
+                tempPassword
+            });
+
+            if (!result.success) {
+                res.status(400).json(result);
+                return;
+            }
+
+            res.status(201).json({
+                success: true,
+                data: { request: result.request },
+                message: 'Conversion request submitted successfully',
+            });
+        } catch (error: any) {
+            console.error('Submit conversion request error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to submit conversion request',
             });
         }
     }
