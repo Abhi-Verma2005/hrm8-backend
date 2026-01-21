@@ -251,7 +251,7 @@ export class ConsultantManagementService {
     const leadRecords = await prisma.lead.findMany({
       where: {
         assigned_consultant_id: consultantId,
-        status: { notIn: ['CONVERTED', 'LOST', 'ARCHIVED'] }
+        status: { notIn: ['CONVERTED', 'LOST'] }
       },
       select: {
         id: true,
@@ -368,7 +368,7 @@ export class ConsultantManagementService {
       const leadsResult = await prisma.lead.updateMany({
         where: {
           assigned_consultant_id: fromConsultantId,
-          status: { notIn: ['CONVERTED', 'LOST', 'ARCHIVED'] }
+          status: { notIn: ['CONVERTED', 'LOST'] }
         },
         data: {
           assigned_consultant_id: toConsultantId
@@ -423,7 +423,7 @@ export class ConsultantManagementService {
       const leadsResult = await prisma.lead.updateMany({
         where: {
           assigned_consultant_id: consultantId,
-          status: { notIn: ['CONVERTED', 'LOST', 'ARCHIVED'] }
+          status: { notIn: ['CONVERTED', 'LOST'] }
         },
         data: {
           assigned_consultant_id: null,

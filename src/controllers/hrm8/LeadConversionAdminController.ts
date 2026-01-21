@@ -98,6 +98,7 @@ export class LeadConversionAdminController {
                 data: {
                     request: result.request,
                     company: result.company,
+                    tempPassword: (result as any).tempPassword,
                 },
                 message: 'Conversion request approved and lead converted successfully',
             });
