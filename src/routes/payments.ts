@@ -298,7 +298,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
 
   try {
     const logs: string[] = [];
-    const log = (msg: string) => { console.log(msg); logs.push(msg); };
+    const log = (msg: string) => { /* console.log(msg); */ logs.push(msg); };
     const warn = (msg: string) => { console.warn(msg); logs.push(`WARN: ${msg}`); };
     const errorLog = (msg: string) => { console.error(msg); logs.push(`ERROR: ${msg}`); };
 
@@ -348,7 +348,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
             const { JobService } = await import('../services/job/JobService');
             try {
               await JobService.publishJob(jobId, companyId);
-              log(`✅ Job ${jobId} auto-published after payment`);
+              // log(`✅ Job ${jobId} auto-published after payment`);
             } catch (publishError: any) {
               warn(`⚠️ Job publish error (non-fatal): ${publishError.message}`);
             }
@@ -368,7 +368,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
               );
 
               if (result.success) {
-                log(`✅ Sales commission created via webhook: ${result.commissionId} for company ${companyId}`);
+                // log(`✅ Sales commission created via webhook: ${result.commissionId} for company ${companyId}`);
               } else {
                 warn(`⚠️ Sales commission not created: ${result.error}`);
               }

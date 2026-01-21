@@ -34,7 +34,7 @@ async function simulateWebhook(event: {
         });
 
         if (response.ok) {
-            console.log(`✅ Mock webhook sent: ${event.type}`);
+            // console.log(`✅ Mock webhook sent: ${event.type}`);
         } else {
             console.error(`❌ Mock webhook failed with status ${response.status}`);
         }
@@ -189,7 +189,7 @@ export class MockStripeClient implements IStripeClient {
                         type: 'checkout.session.completed',
                         data: { object: session },
                     });
-                }, 500); // 500ms delay to simulate real payment processing
+                }, 1000); // 1000ms delay to simulate real payment processing
 
                 return session;
             },
