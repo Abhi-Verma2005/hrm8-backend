@@ -68,6 +68,11 @@ router.use('/api/integrations', integrationRoutes);
 router.use('/api/analytics', analyticsRoutes);
 router.use('/api/notifications', notificationRoutes);
 router.use('/api/user/notifications', userNotificationPreferencesRoutes);
+
+// Employer messages (for HR inbox)
+import employerMessagesRoutes from './employerMessages';
+router.use('/api/messages', employerMessagesRoutes);
+
 router.use('/', devRoutes); // Dev routes (only enabled in development)
 
 export default router;
