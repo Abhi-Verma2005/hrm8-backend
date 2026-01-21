@@ -91,13 +91,8 @@ export class ConsultantManagementService {
     }
   ): Promise<ConsultantData | { error: string; status: number }> {
     try {
-      // If updating regionId, check if that region already has a consultant
-      if (data.regionId) {
-        const existingRegionConsultant = await ConsultantModel.findByRegionId(data.regionId);
-        if (existingRegionConsultant && existingRegionConsultant.id !== id) {
-          return { error: 'Region already has a consultant assigned', status: 409 };
-        }
-      }
+      // Note: Multiple consultants can belong to the same region
+      // (removed the old check that prevented multiple consultants per region)
 
       return await ConsultantModel.update(id, data);
     } catch (error: any) {
@@ -110,12 +105,7 @@ export class ConsultantManagementService {
    */
   static async assignToRegion(consultantId: string, regionId: string): Promise<ConsultantData | { error: string; status: number }> {
     try {
-      // Check if region already has a consultant
-      const existingRegionConsultant = await ConsultantModel.findByRegionId(regionId);
-      if (existingRegionConsultant && existingRegionConsultant.id !== consultantId) {
-        return { error: 'Region already has a consultant assigned', status: 409 };
-      }
-
+      // Note: Multiple consultants can belong to the same region
       return await ConsultantModel.assignToRegion(consultantId, regionId);
     } catch (error: any) {
       throw error;
@@ -220,7 +210,302 @@ export class ConsultantManagementService {
       return { error: 'Failed to generate email address', status: 500 };
     }
   }
+
+  /**
+   * Get pending tasks for a consultant
+   * Used to warn admin before role change
+   */
+  static async getPendingTasks(consultantId: string): Promise<{
+    jobs: { id: string; title: string; companyName: string; status: string }[];
+    leads: { id: string; companyName: string; status: string }[];
+    conversionRequests: { id: string; companyName: string; status: string }[];
+    pendingCommissions: { id: string; amount: number; status: string }[];
+    totalCount: number;
+  }> {
+    // Get assigned jobs (active ones)
+    const jobAssignments = await prisma.consultantJobAssignment.findMany({
+      where: {
+        consultant_id: consultantId,
+        status: { in: ['ACTIVE', 'PENDING'] }
+      },
+      include: {
+        job: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            company: { select: { name: true } }
+          }
+        }
+      }
+    });
+
+    const jobs = jobAssignments.map(a => ({
+      id: a.job.id,
+      title: a.job.title,
+      companyName: a.job.company?.name || 'Unknown',
+      status: a.job.status
+    }));
+
+    // Get assigned leads (non-converted)
+    const leadRecords = await prisma.lead.findMany({
+      where: {
+        assigned_consultant_id: consultantId,
+        status: { notIn: ['CONVERTED', 'LOST', 'ARCHIVED'] }
+      },
+      select: {
+        id: true,
+        company_name: true,
+        status: true
+      }
+    });
+
+    const leads = leadRecords.map(l => ({
+      id: l.id,
+      companyName: l.company_name,
+      status: l.status
+    }));
+
+    // Get pending conversion requests
+    const conversionRequestRecords = await prisma.leadConversionRequest.findMany({
+      where: {
+        consultant_id: consultantId,
+        status: 'PENDING'
+      },
+      include: {
+        lead: { select: { company_name: true } }
+      }
+    });
+
+    const conversionRequests = conversionRequestRecords.map(r => ({
+      id: r.id,
+      companyName: r.lead.company_name,
+      status: r.status
+    }));
+
+    // Get pending commissions
+    const commissionRecords = await prisma.commission.findMany({
+      where: {
+        consultant_id: consultantId,
+        status: { in: ['PENDING', 'CONFIRMED'] }
+      },
+      select: {
+        id: true,
+        amount: true,
+        status: true
+      }
+    });
+
+    const pendingCommissions = commissionRecords.map(c => ({
+      id: c.id,
+      amount: c.amount.toNumber(),
+      status: c.status
+    }));
+
+    const totalCount = jobs.length + leads.length + conversionRequests.length + pendingCommissions.length;
+
+    return {
+      jobs,
+      leads,
+      conversionRequests,
+      pendingCommissions,
+      totalCount
+    };
+  }
+
+  /**
+   * Get consultants by role and region for reassignment
+   */
+  static async getConsultantsForReassignment(
+    currentConsultantId: string,
+    role: ConsultantRole,
+    regionId: string
+  ): Promise<{ id: string; firstName: string; lastName: string; email: string }[]> {
+    const consultants = await prisma.consultant.findMany({
+      where: {
+        id: { not: currentConsultantId },
+        role: role,
+        region_id: regionId,
+        status: ConsultantStatus.ACTIVE
+      },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        email: true
+      }
+    });
+
+    return consultants.map(c => ({
+      id: c.id,
+      firstName: c.first_name,
+      lastName: c.last_name,
+      email: c.email
+    }));
+  }
+
+  /**
+   * Reassign all active tasks from one consultant to another
+   * Used before role change to hand off work
+   */
+  static async reassignAllTasks(
+    fromConsultantId: string,
+    toConsultantId: string
+  ): Promise<{ success: boolean; reassigned: { jobs: number; leads: number }; error?: string }> {
+    try {
+      // 1. Reassign active job assignments
+      const jobsResult = await prisma.consultantJobAssignment.updateMany({
+        where: {
+          consultant_id: fromConsultantId,
+          status: { in: ['ACTIVE', 'PENDING'] }
+        },
+        data: {
+          consultant_id: toConsultantId
+        }
+      });
+
+      // 2. Reassign active leads
+      const leadsResult = await prisma.lead.updateMany({
+        where: {
+          assigned_consultant_id: fromConsultantId,
+          status: { notIn: ['CONVERTED', 'LOST', 'ARCHIVED'] }
+        },
+        data: {
+          assigned_consultant_id: toConsultantId
+        }
+      });
+
+      // 3. Reassign pending conversion requests
+      await prisma.leadConversionRequest.updateMany({
+        where: {
+          consultant_id: fromConsultantId,
+          status: 'PENDING'
+        },
+        data: {
+          consultant_id: toConsultantId
+        }
+      });
+
+      return {
+        success: true,
+        reassigned: {
+          jobs: jobsResult.count,
+          leads: leadsResult.count
+        }
+      };
+    } catch (error: any) {
+      console.error('Reassign all tasks error:', error);
+      return { success: false, reassigned: { jobs: 0, leads: 0 }, error: error.message };
+    }
+  }
+
+  /**
+   * Terminate (unassign) all active tasks from a consultant
+   * Used before role change when no reassignment target is available
+   */
+  static async terminateAllTasks(
+    consultantId: string
+  ): Promise<{ success: boolean; terminated: { jobs: number; leads: number }; error?: string }> {
+    try {
+      // 1. Mark job assignments as inactive (released back to pool)
+      const jobsResult = await prisma.consultantJobAssignment.updateMany({
+        where: {
+          consultant_id: consultantId,
+          status: { in: ['ACTIVE', 'PENDING'] }
+        },
+        data: {
+          status: 'COMPLETED', // Mark as completed to release
+          ended_at: new Date()
+        }
+      });
+
+      // 2. Unassign leads (set assigned_consultant_id to null)
+      const leadsResult = await prisma.lead.updateMany({
+        where: {
+          assigned_consultant_id: consultantId,
+          status: { notIn: ['CONVERTED', 'LOST', 'ARCHIVED'] }
+        },
+        data: {
+          assigned_consultant_id: null,
+          status: 'NEW' // Reset to new for reallocation
+        }
+      });
+
+      // 3. Cancel pending conversion requests
+      await prisma.leadConversionRequest.updateMany({
+        where: {
+          consultant_id: consultantId,
+          status: 'PENDING'
+        },
+        data: {
+          status: 'CANCELLED'
+        }
+      });
+
+      return {
+        success: true,
+        terminated: {
+          jobs: jobsResult.count,
+          leads: leadsResult.count
+        }
+      };
+    } catch (error: any) {
+      console.error('Terminate all tasks error:', error);
+      return { success: false, terminated: { jobs: 0, leads: 0 }, error: error.message };
+    }
+  }
+
+  /**
+   * Change consultant role with optional task handling
+   * Production-grade method that handles task reassignment before role change
+   */
+  static async changeRoleWithTaskHandling(
+    consultantId: string,
+    newRole: ConsultantRole,
+    taskAction: 'REASSIGN' | 'TERMINATE' | 'KEEP',
+    targetConsultantId?: string
+  ): Promise<{ success: boolean; error?: string; taskResult?: any }> {
+    try {
+      // 1. Get current consultant
+      const consultant = await ConsultantModel.findById(consultantId);
+      if (!consultant) {
+        return { success: false, error: 'Consultant not found' };
+      }
+
+      // Only handle tasks if role is actually changing
+      if (consultant.role === newRole) {
+        return { success: false, error: 'Role is already set to this value' };
+      }
+
+      let taskResult = null;
+
+      // 2. Handle tasks based on action
+      if (taskAction === 'REASSIGN') {
+        if (!targetConsultantId) {
+          return { success: false, error: 'Target consultant required for reassignment' };
+        }
+        taskResult = await this.reassignAllTasks(consultantId, targetConsultantId);
+        if (!taskResult.success) {
+          return { success: false, error: taskResult.error || 'Failed to reassign tasks' };
+        }
+      } else if (taskAction === 'TERMINATE') {
+        taskResult = await this.terminateAllTasks(consultantId);
+        if (!taskResult.success) {
+          return { success: false, error: taskResult.error || 'Failed to terminate tasks' };
+        }
+      }
+      // KEEP means don't touch tasks (they remain with this consultant)
+
+      // 3. Update the role
+      const updateResult = await this.updateConsultant(consultantId, { role: newRole });
+      if ('error' in updateResult) {
+        return { success: false, error: updateResult.error };
+      }
+
+      return { success: true, taskResult };
+    } catch (error: any) {
+      console.error('Change role with task handling error:', error);
+      return { success: false, error: error.message };
+    }
+  }
 }
-
-
-

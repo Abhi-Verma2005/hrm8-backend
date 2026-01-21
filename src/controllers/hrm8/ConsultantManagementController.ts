@@ -582,7 +582,127 @@ export class ConsultantManagementController {
       res.status(500).json({ success: false, error: 'Failed to reassign jobs' });
     }
   }
+
+  /**
+   * Get pending tasks for a consultant
+   * GET /api/hrm8/consultants/:id/pending-tasks
+   * Used to warn admin before role change
+   */
+  static async getPendingTasks(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      // Verify access if licensee
+      if (req.assignedRegionIds) {
+        const consultant = await ConsultantManagementService.getConsultantById(id);
+        if (!consultant || (consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId))) {
+          res.status(403).json({ success: false, error: 'Access denied' });
+          return;
+        }
+      }
+
+      const pendingTasks = await ConsultantManagementService.getPendingTasks(id);
+
+      res.json({
+        success: true,
+        data: pendingTasks
+      });
+    } catch (error) {
+      console.error('Get pending tasks error:', error);
+      res.status(500).json({ success: false, error: 'Failed to get pending tasks' });
+    }
+  }
+
+  /**
+   * Get consultants for reassignment (same role and region)
+   * GET /api/hrm8/consultants/:id/reassignment-options
+   */
+  static async getReassignmentOptions(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const consultant = await ConsultantManagementService.getConsultantById(id);
+      if (!consultant) {
+        res.status(404).json({ success: false, error: 'Consultant not found' });
+        return;
+      }
+
+      // Verify access if licensee
+      if (req.assignedRegionIds && consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId)) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      if (!consultant.regionId) {
+        res.json({ success: true, data: { consultants: [] } });
+        return;
+      }
+
+      const consultants = await ConsultantManagementService.getConsultantsForReassignment(
+        id,
+        consultant.role as ConsultantRole,
+        consultant.regionId
+      );
+
+      res.json({
+        success: true,
+        data: { consultants }
+      });
+    } catch (error) {
+      console.error('Get reassignment options error:', error);
+      res.status(500).json({ success: false, error: 'Failed to get reassignment options' });
+    }
+  }
+
+  /**
+   * Change role with task handling
+   * PUT /api/hrm8/consultants/:id/change-role
+   * Body: { role, taskAction: 'REASSIGN'|'TERMINATE'|'KEEP', targetConsultantId? }
+   */
+  static async changeRoleWithTasks(req: Hrm8AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { role, taskAction, targetConsultantId } = req.body;
+
+      if (!role || !['RECRUITER', 'SALES_AGENT', 'CONSULTANT_360'].includes(role)) {
+        res.status(400).json({ success: false, error: 'Invalid role' });
+        return;
+      }
+
+      if (!taskAction || !['REASSIGN', 'TERMINATE', 'KEEP'].includes(taskAction)) {
+        res.status(400).json({ success: false, error: 'Invalid task action' });
+        return;
+      }
+
+      // Verify access if licensee
+      if (req.assignedRegionIds) {
+        const consultant = await ConsultantManagementService.getConsultantById(id);
+        if (!consultant || (consultant.regionId && !req.assignedRegionIds.includes(consultant.regionId))) {
+          res.status(403).json({ success: false, error: 'Access denied' });
+          return;
+        }
+      }
+
+      const result = await ConsultantManagementService.changeRoleWithTaskHandling(
+        id,
+        role as ConsultantRole,
+        taskAction as 'REASSIGN' | 'TERMINATE' | 'KEEP',
+        targetConsultantId
+      );
+
+      if (!result.success) {
+        res.status(400).json({ success: false, error: result.error });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: 'Role changed successfully',
+        data: { taskResult: result.taskResult }
+      });
+    } catch (error) {
+      console.error('Change role with tasks error:', error);
+      res.status(500).json({ success: false, error: 'Failed to change role' });
+    }
+  }
 }
-
-
-

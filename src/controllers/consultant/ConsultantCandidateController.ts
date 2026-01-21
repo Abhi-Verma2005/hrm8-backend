@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ConsultantAuthenticatedRequest } from '../../middleware/consultantAuth';
 import prisma from '../../lib/prisma';
 import { ApplicationStatus, ApplicationStage } from '@prisma/client';
-import { CommissionService } from '../../services/hrm8/CommissionService';
+// import { CommissionService } from '../../services/hrm8/CommissionService';
 
 export class ConsultantCandidateController {
 
@@ -171,15 +171,17 @@ export class ConsultantCandidateController {
                 }
             });
 
-            // If candidate is hired, confirm commission for this job
+            // If candidate is hired, WE DO NOT AUTO-CONFIRM COMMISSION ANYMORE (Phase 7 Requirement)
+            // Commission must be explicitly approved by the Company via /api/employer/hires/:id/approve
+            /* 
             if (status === 'HIRED') {
                 try {
                     await CommissionService.confirmCommissionForJob(application.job_id);
                 } catch (commError) {
-                    console.error('Failed to auto-confirm commission:', commError);
-                    // Don't fail the request, just log it
+                   console.error('Failed to auto-confirm commission:', commError);
                 }
-            }
+            } 
+            */
 
             // Notify Candidate (Optional but good UX)
             try {
@@ -325,7 +327,8 @@ export class ConsultantCandidateController {
                 }
             });
 
-            // If moving to HIRED round, confirm commission
+            // If moving to HIRED round, WE DO NOT AUTO-CONFIRM COMMISSION (Phase 7)
+            /*
             if (round.fixed_key === 'HIRED') {
                 try {
                     await CommissionService.confirmCommissionForJob(application.job_id);
@@ -333,6 +336,7 @@ export class ConsultantCandidateController {
                     console.error('Failed to auto-confirm commission:', commError);
                 }
             }
+            */
 
             return res.json({ success: true, data: updatedApp });
 

@@ -159,6 +159,7 @@ export class CommissionService {
       const existingCommissions = await CommissionModel.findAll({
         jobId,
         consultantId,
+        type: CommissionType.PLACEMENT,
       });
 
       if (existingCommissions.length > 0) {
