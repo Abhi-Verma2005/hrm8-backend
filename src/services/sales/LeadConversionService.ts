@@ -18,9 +18,11 @@ export class LeadConversionService {
         consultantId: string,
         data: {
             agentNotes?: string;
+            tempPassword?: string;
         }
     ): Promise<{ success: boolean; request?: LeadConversionRequestData; error?: string }> {
         try {
+            // ... (validations remain same)
             // 1. Verify lead exists and is assigned to consultant
             const lead = await prisma.lead.findUnique({
                 where: { id: leadId },
@@ -66,7 +68,7 @@ export class LeadConversionService {
                 return { success: false, error: 'A pending conversion request already exists for this lead' };
             }
 
-            // 3. Check 2-attempt limit (total requests excluding CANCELLED)
+            // 3. Check 2-attempt limit
             const totalAttempts = await LeadConversionRequestModel.countByLeadAndStatus(
                 leadId,
                 ['PENDING', 'APPROVED', 'DECLINED', 'CONVERTED']
@@ -89,6 +91,7 @@ export class LeadConversionService {
                 city: lead.city || undefined,
                 stateProvince: lead.state_province || undefined,
                 agentNotes: data.agentNotes,
+                tempPassword: data.tempPassword, // Save the password
             });
 
             return { success: true, request };
@@ -170,8 +173,8 @@ export class LeadConversionService {
             try {
                 const { LeadService } = await import('./LeadService');
 
-                // Use generic temporary password as requested
-                const tempPassword = 'vAbhi2678';
+                // Use provided temp password (if available via Mandate feature) or fallback to random
+                const tempPassword = request.temp_password || Math.random().toString(36).slice(-8);
 
                 // IMPORTANT: LeadService currently uses global prisma. 
                 // For full consistency, we should ideally refactor it to accept a tx client.
@@ -229,6 +232,8 @@ export class LeadConversionService {
                 console.error('Lead conversion failed during approval:', error);
                 throw error;
             }
+        }, {
+            timeout: 20000 // Increase timeout to 20 seconds for complex conversion Logic
         }).catch(error => {
             return {
                 success: false,

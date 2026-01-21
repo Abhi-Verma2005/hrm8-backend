@@ -25,9 +25,15 @@ export const createLeadSchema = z.object({
         .trim(),
 
     website: z.string()
-        .url('Invalid website URL')
         .optional()
-        .or(z.literal('')),
+        .transform((val) => {
+            if (!val || val === '') return undefined;
+            // Add https:// if missing
+            if (val && !val.startsWith('http://') && !val.startsWith('https://')) {
+                return `https://${val}`;
+            }
+            return val;
+        }),
 
     phone: z.string()
         .optional()

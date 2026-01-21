@@ -209,7 +209,22 @@ export class LeadService {
       // If no website/domain, use email domain to avoid empty domain conflicts
       companyWebsite: conversionData.domain
         ? `https://${conversionData.domain}`
-        : (lead.website || `https://${emailToUse.split('@')[1]}`),
+        : (lead.website ||
+          (() => {
+            const emailDomain = emailToUse.split('@')[1].toLowerCase();
+            const GENERIC_DOMAINS = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com', 'protonmail.com', 'ymail.com', 'live.com'];
+
+            if (GENERIC_DOMAINS.includes(emailDomain)) {
+              // Generate a unique internal domain for generic email providers
+              // Format: companyname-[random].internal
+              const sanitizedName = lead.company_name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20);
+              const uniqueSuffix = Math.random().toString(36).substring(2, 8);
+              return `https://${sanitizedName}-${uniqueSuffix}.internal`;
+            }
+
+            return `https://${emailDomain}`;
+          })()
+        ),
       adminFirstName: conversionData.adminFirstName,
       adminLastName: conversionData.adminLastName,
       adminEmail: emailToUse,
@@ -221,7 +236,8 @@ export class LeadService {
     // Note: registerCompany throws if domain exists.
 
     // Resolve Sales Agent & Region for Attribution
-    let salesAgentId = lead.referred_by;
+    // Priority: Assigned Consultant (active sales agent) -> Referrer (source)
+    let salesAgentId = lead.assigned_consultant_id || lead.referred_by;
     let regionId = lead.region_id; // Use lead's region if available (set during creation)
 
     if (salesAgentId && !regionId) {
@@ -263,9 +279,9 @@ export class LeadService {
       },
     });
 
-    // Assign Attribution if Lead had a referrer
-    if (lead.referred_by) {
-      console.log(`Successfully assigned agent ${lead.referred_by} to company ${company.id} during creation (Region: ${regionId})`);
+    // Assign Attribution
+    if (salesAgentId) {
+      console.log(`Successfully assigned agent ${salesAgentId} to company ${company.id} during creation (Region: ${regionId})`);
 
       // We don't need to call update company region anymore as it's done in registerCompany
       // But we keeping the Opportunity creation
@@ -275,7 +291,7 @@ export class LeadService {
       await prisma.opportunity.create({
         data: {
           company_id: company.id,
-          sales_agent_id: lead.referred_by,
+          sales_agent_id: salesAgentId, // Use resolved agent ID
           name: `${registrationRequest.companyName} - Initial Deal`,
           stage: 'NEW', // Default stage
           amount: 0, // Agent can update later
@@ -287,7 +303,7 @@ export class LeadService {
       });
       console.log(`Created initial opportunity for company ${company.id}`);
     } else {
-      console.log('No referrer found for lead, skipping attribution');
+      console.log('No sales agent found for lead, skipping attribution');
     }
 
     return company;

@@ -387,10 +387,9 @@ export class JobPaymentService {
       throw new Error(`Insufficient wallet balance. Required: $${amount.toFixed(2)}, Available: $${account.balance.toFixed(2)}. Shortfall: $${shortfall.toFixed(2)}.`);
     }
 
-    let debitResult;
     try {
       // Debiting uses a transaction internally in VirtualWalletService
-      debitResult = await walletService.debitAccount({
+      await walletService.debitAccount({
         accountId: account.id,
         amount: amount,
         type: VirtualTransactionType.JOB_POSTING_DEDUCTION,
@@ -416,8 +415,10 @@ export class JobPaymentService {
         }
       });
 
-      return true;
+      // TRIGGER COMMISSION
+      await this.processCommission(companyId, amount, job.title, jobId, this.getPackageLabel(servicePackage));
 
+      return true;
     } catch (updateError: any) {
       console.error('❌ [JobPaymentService] Job update failed after wallet deduction. Initiating REFUND...', updateError);
 
@@ -444,6 +445,26 @@ export class JobPaymentService {
       } catch (e) { /* ignore */ }
 
       throw new Error('System error during payment processing. Any deducted funds have been refunded. Please try again.');
+    }
+  }
+
+  /**
+   * Process commission after successful payment (wrapper)
+   */
+  private static async processCommission(companyId: string, amount: number, jobTitle: string, jobId: string, servicePackage: string) {
+    try {
+      const { CommissionService } = await import('../hrm8/CommissionService');
+      await CommissionService.processSalesCommission(
+        companyId,
+        amount,
+        `Commission for Job Posting: ${jobTitle} (${servicePackage})`,
+        jobId,
+        undefined,
+        'JOB_PAYMENT'
+      );
+      console.log(`✅ [JobPaymentService] Commission processed for job: ${jobId}`);
+    } catch (error) {
+      console.error('❌ [JobPaymentService] Failed to process commission:', error);
     }
   }
 

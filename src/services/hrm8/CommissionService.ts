@@ -159,6 +159,7 @@ export class CommissionService {
       const existingCommissions = await CommissionModel.findAll({
         jobId,
         consultantId,
+        type: CommissionType.PLACEMENT,
       });
 
       if (existingCommissions.length > 0) {
@@ -294,14 +295,44 @@ export class CommissionService {
         return { success: false, error: 'Company not found' };
       }
 
-      if (!company.salesAgentId) {
+      let salesAgentId = company.salesAgentId;
+
+      // Auto-repair: If company has no sales_agent_id, try to find it from the converted lead
+      if (!salesAgentId) {
+        const prisma = (await import('../../lib/prisma')).default;
+        const lead = await prisma.lead.findFirst({
+          where: { converted_to_company_id: companyId },
+          select: { referred_by: true, assigned_consultant_id: true }
+        });
+
+        if (lead) {
+          // Prefer assigned_consultant_id (Sales Agent), fallback to referred_by (Partner/Referrer)
+          const repairAgentId = lead.assigned_consultant_id || lead.referred_by;
+          if (repairAgentId) {
+            // Update company with the repaired sales_agent_id
+            await prisma.company.update({
+              where: { id: companyId },
+              data: { sales_agent_id: repairAgentId }
+            });
+            salesAgentId = repairAgentId;
+            console.log(`🔧 Auto-repaired company ${companyId}: set sales_agent_id to ${repairAgentId}`);
+          }
+        }
+      }
+
+      if (!salesAgentId) {
         return { success: false, error: 'No sales agent assigned to company' };
       }
 
+      // Determine commission type based on event
+      const commissionType = _eventType === 'JOB_PAYMENT'
+        ? CommissionType.RECRUITMENT_SERVICE
+        : CommissionType.SUBSCRIPTION_SALE;
+
       // Check for existing commissions (idempotency)
       const existingFilters: any = {
-        consultantId: company.salesAgentId,
-        type: CommissionType.SUBSCRIPTION_SALE
+        consultantId: salesAgentId,
+        type: commissionType
       };
       if (jobId) existingFilters.jobId = jobId;
       if (subscriptionId) existingFilters.subscriptionId = subscriptionId;
@@ -314,6 +345,7 @@ export class CommissionService {
 
       // If passing specific job/sub ID, check duplicate strictly
       if ((jobId || subscriptionId) && existingCommissions.length > 0) {
+        console.log(`⏭️ Commission already exists for job/subscription: ${jobId || subscriptionId}`);
         return { success: true, commissionId: existingCommissions[0].id, error: 'Commission already exists' };
       }
 
@@ -327,17 +359,17 @@ export class CommissionService {
       }
 
       // Fetch sales agent for dynamic rate
-      const salesAgent = await ConsultantModel.findById(company.salesAgentId);
+      const salesAgent = await ConsultantModel.findById(salesAgentId!);
       const commissionRate = salesAgent?.defaultCommissionRate || 0.10; // Default 10%
       const commissionAmount = Math.round(amount * commissionRate * 100) / 100;
 
       // Create Commission
       const commission = await CommissionModel.create({
-        consultantId: company.salesAgentId,
+        consultantId: salesAgentId!,
         regionId: company.regionId || '', // Should ideally have region
         jobId,
         subscriptionId,
-        type: CommissionType.SUBSCRIPTION_SALE,
+        type: commissionType,
         amount: commissionAmount,
         rate: commissionRate,
         status: CommissionStatus.CONFIRMED,

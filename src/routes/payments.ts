@@ -296,6 +296,8 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
     }
   }
 
+  console.log(`🔔 Webhook received: ${event.type}`);
+
   try {
     const logs: string[] = [];
     const log = (msg: string) => { /* console.log(msg); */ logs.push(msg); };
