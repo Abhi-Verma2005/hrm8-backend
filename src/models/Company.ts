@@ -38,6 +38,7 @@ export class CompanyModel {
           linked_in_url: companyData.verificationData?.linkedInUrl,
           region_id: companyData.regionId,
           referred_by: companyData.referredBy,
+          sales_agent_id: companyData.salesAgentId,
         },
       });
 
