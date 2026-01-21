@@ -92,12 +92,15 @@ export class ConsultantManagementService {
   ): Promise<ConsultantData | { error: string; status: number }> {
     try {
       // If updating regionId, check if that region already has a consultant
+      // Allowing multiple consultants per region now
+      /*
       if (data.regionId) {
         const existingRegionConsultant = await ConsultantModel.findByRegionId(data.regionId);
         if (existingRegionConsultant && existingRegionConsultant.id !== id) {
           return { error: 'Region already has a consultant assigned', status: 409 };
         }
       }
+      */
 
       return await ConsultantModel.update(id, data);
     } catch (error: any) {
@@ -111,10 +114,13 @@ export class ConsultantManagementService {
   static async assignToRegion(consultantId: string, regionId: string): Promise<ConsultantData | { error: string; status: number }> {
     try {
       // Check if region already has a consultant
+      // Allowing multiple consultants per region now
+      /*
       const existingRegionConsultant = await ConsultantModel.findByRegionId(regionId);
       if (existingRegionConsultant && existingRegionConsultant.id !== consultantId) {
         return { error: 'Region already has a consultant assigned', status: 409 };
       }
+      */
 
       return await ConsultantModel.assignToRegion(consultantId, regionId);
     } catch (error: any) {
