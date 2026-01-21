@@ -369,7 +369,7 @@ export class CommissionService {
         description: description,
       });
 
-      console.log(`✅ Created sales commission ${commission.id}: $${commissionAmount} (${commissionRate * 100}%)`);
+      // console.log(`✅ Created sales commission ${commission.id}: $${commissionAmount} (${commissionRate * 100}%)`);
 
       // Auto-lock attribution on first payment
       if (!company.attributionLocked) {

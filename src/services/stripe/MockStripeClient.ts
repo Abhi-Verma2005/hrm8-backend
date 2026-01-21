@@ -3,11 +3,46 @@
  * Simulates Stripe Connect operations for development
  */
 
+
 import { IStripeClient, StripeAccount, StripeAccountLink, StripeCheckoutSession } from './types';
 
 // In-memory storage for mock accounts
 const mockAccounts = new Map<string, StripeAccount>();
 const mockSessions = new Map<string, StripeCheckoutSession>();
+
+/**
+ * Simulate webhook event (dev mode only)
+ * Sends a POST request to the local webhook endpoint
+ */
+async function simulateWebhook(event: {
+    type: string;
+    data: { object: any };
+}): Promise<void> {
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    const webhookUrl = `${backendUrl}/api/payments/stripe-webhook`;
+
+    try {
+        // In mock mode, we don't have signature verification
+        // So we'll send the event with a special mock header
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Mock-Stripe-Event': 'true', // Flag to bypass signature check
+            },
+            body: JSON.stringify(event),
+        });
+
+        if (response.ok) {
+            // console.log(`✅ Mock webhook sent: ${event.type}`);
+        } else {
+            console.error(`❌ Mock webhook failed with status ${response.status}`);
+        }
+    } catch (error) {
+        console.error(`❌ Mock webhook error:`, error);
+    }
+}
+
 
 export class MockStripeClient implements IStripeClient {
     accounts = {
@@ -147,8 +182,18 @@ export class MockStripeClient implements IStripeClient {
                 // Store session
                 mockSessions.set(sessionId, session);
 
+                // 🆕 AUTO-TRIGGER WEBHOOK after a small delay (simulating async payment)
+                setTimeout(async () => {
+                    console.log(`🧪 Triggering mock webhook for session ${sessionId}`);
+                    await simulateWebhook({
+                        type: 'checkout.session.completed',
+                        data: { object: session },
+                    });
+                }, 1000); // 1000ms delay to simulate real payment processing
+
                 return session;
             },
+
 
             /**
              * Retrieve a mock checkout session
