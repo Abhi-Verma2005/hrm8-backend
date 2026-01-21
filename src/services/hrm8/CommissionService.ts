@@ -294,13 +294,38 @@ export class CommissionService {
         return { success: false, error: 'Company not found' };
       }
 
-      if (!company.salesAgentId) {
+      let salesAgentId = company.salesAgentId;
+
+      // Auto-repair: If company has no sales_agent_id, try to find it from the converted lead
+      if (!salesAgentId) {
+        const prisma = (await import('../../lib/prisma')).default;
+        const lead = await prisma.lead.findFirst({
+          where: { converted_to_company_id: companyId },
+          select: { referred_by: true, assigned_consultant_id: true }
+        });
+
+        if (lead) {
+          // Prefer referred_by, fallback to assigned_consultant_id
+          const repairAgentId = lead.referred_by || lead.assigned_consultant_id;
+          if (repairAgentId) {
+            // Update company with the repaired sales_agent_id
+            await prisma.company.update({
+              where: { id: companyId },
+              data: { sales_agent_id: repairAgentId }
+            });
+            salesAgentId = repairAgentId;
+            console.log(`🔧 Auto-repaired company ${companyId}: set sales_agent_id to ${repairAgentId}`);
+          }
+        }
+      }
+
+      if (!salesAgentId) {
         return { success: false, error: 'No sales agent assigned to company' };
       }
 
       // Check for existing commissions (idempotency)
       const existingFilters: any = {
-        consultantId: company.salesAgentId,
+        consultantId: salesAgentId,
         type: CommissionType.SUBSCRIPTION_SALE
       };
       if (jobId) existingFilters.jobId = jobId;
@@ -327,13 +352,13 @@ export class CommissionService {
       }
 
       // Fetch sales agent for dynamic rate
-      const salesAgent = await ConsultantModel.findById(company.salesAgentId);
+      const salesAgent = await ConsultantModel.findById(salesAgentId!);
       const commissionRate = salesAgent?.defaultCommissionRate || 0.10; // Default 10%
       const commissionAmount = Math.round(amount * commissionRate * 100) / 100;
 
       // Create Commission
       const commission = await CommissionModel.create({
-        consultantId: company.salesAgentId,
+        consultantId: salesAgentId!,
         regionId: company.regionId || '', // Should ideally have region
         jobId,
         subscriptionId,
