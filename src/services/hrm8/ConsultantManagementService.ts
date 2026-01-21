@@ -298,7 +298,9 @@ export class ConsultantManagementService {
 
     const pendingCommissions = commissionRecords.map(c => ({
       id: c.id,
-      amount: c.amount.toNumber(),
+      amount: typeof c.amount === 'object' && c.amount !== null && 'toNumber' in c.amount
+        ? (c.amount as any).toNumber()
+        : Number(c.amount),
       status: c.status
     }));
 

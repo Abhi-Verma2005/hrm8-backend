@@ -232,6 +232,8 @@ export class LeadConversionService {
                 console.error('Lead conversion failed during approval:', error);
                 throw error;
             }
+        }, {
+            timeout: 20000 // Increase timeout to 20 seconds for complex conversion Logic
         }).catch(error => {
             return {
                 success: false,

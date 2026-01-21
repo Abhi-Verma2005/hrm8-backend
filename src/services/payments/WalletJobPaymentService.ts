@@ -70,7 +70,8 @@ export class WalletJobPaymentService {
             return { success: true };
         }
 
-        return await this.prisma.$transaction(async (tx) => {
+        // Execute wallet transaction (debit + job update)
+        const txResult = await this.prisma.$transaction(async (tx) => {
             // Re-instantiate wallet service with transaction client
             const txWalletService = new VirtualWalletService(tx as any);
 
@@ -114,21 +115,8 @@ export class WalletJobPaymentService {
                     payment_currency: paymentInfo.currency,
                     payment_completed_at: new Date(),
                     service_package: servicePackage,
-                    // payment_method: 'WALLET', // Not in schema
-                    // wallet_transaction_id: debitResult.transaction.id // Not in schema
                 }
             });
-
-            // 5. Create centralized commission (Sales Agent)
-            // This is moved here from stripe webhook to unify logic
-            try {
-                // const { CommissionService } = await import('../../hrm8/CommissionService');
-                // Note: We're calling this outside the transaction context or need to pass tx if service supports it
-                // For now, we'll let it handle its own transaction management or be separate
-                // Ideally CommissionService should accept Prisma.TransactionClient
-            } catch (e) {
-                console.error('Failed to load CommissionService', e);
-            }
 
             return {
                 success: true,
@@ -136,5 +124,28 @@ export class WalletJobPaymentService {
                 newBalance: debitResult.account.balance
             };
         });
+
+        // 5. Process commission AFTER transaction commits (fire-and-forget to not block)
+        if (txResult.success) {
+            // Use setImmediate to ensure this runs after the current event loop tick
+            setImmediate(async () => {
+                try {
+                    const { CommissionService } = await import('../hrm8/CommissionService');
+                    await CommissionService.processSalesCommission(
+                        companyId,
+                        paymentInfo.amount,
+                        `Commission for Job Posting: ${jobTitle} (${servicePackage})`,
+                        jobId,
+                        undefined,
+                        'JOB_PAYMENT'
+                    );
+                    console.log(`✅ Commission processed for job ${jobId} via wallet payment`);
+                } catch (e) {
+                    console.error('❌ Failed to process commission for wallet payment:', e);
+                }
+            });
+        }
+
+        return txResult;
     }
 }

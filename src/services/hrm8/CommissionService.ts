@@ -306,8 +306,8 @@ export class CommissionService {
         });
 
         if (lead) {
-          // Prefer referred_by, fallback to assigned_consultant_id
-          const repairAgentId = lead.referred_by || lead.assigned_consultant_id;
+          // Prefer assigned_consultant_id (Sales Agent), fallback to referred_by (Partner/Referrer)
+          const repairAgentId = lead.assigned_consultant_id || lead.referred_by;
           if (repairAgentId) {
             // Update company with the repaired sales_agent_id
             await prisma.company.update({
@@ -324,10 +324,15 @@ export class CommissionService {
         return { success: false, error: 'No sales agent assigned to company' };
       }
 
+      // Determine commission type based on event
+      const commissionType = _eventType === 'JOB_PAYMENT'
+        ? CommissionType.RECRUITMENT_SERVICE
+        : CommissionType.SUBSCRIPTION_SALE;
+
       // Check for existing commissions (idempotency)
       const existingFilters: any = {
         consultantId: salesAgentId,
-        type: CommissionType.SUBSCRIPTION_SALE
+        type: commissionType
       };
       if (jobId) existingFilters.jobId = jobId;
       if (subscriptionId) existingFilters.subscriptionId = subscriptionId;
@@ -340,6 +345,7 @@ export class CommissionService {
 
       // If passing specific job/sub ID, check duplicate strictly
       if ((jobId || subscriptionId) && existingCommissions.length > 0) {
+        console.log(`⏭️ Commission already exists for job/subscription: ${jobId || subscriptionId}`);
         return { success: true, commissionId: existingCommissions[0].id, error: 'Commission already exists' };
       }
 
@@ -363,7 +369,7 @@ export class CommissionService {
         regionId: company.regionId || '', // Should ideally have region
         jobId,
         subscriptionId,
-        type: CommissionType.SUBSCRIPTION_SALE,
+        type: commissionType,
         amount: commissionAmount,
         rate: commissionRate,
         status: CommissionStatus.CONFIRMED,

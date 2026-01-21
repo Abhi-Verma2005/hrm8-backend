@@ -340,6 +340,17 @@ export class JobController {
       // 1. Get job to check service package and status
       const existingJob = await JobService.getJobById(id, req.user.companyId);
 
+      // IDEMPOTENCY: If job is already published (OPEN), just return success
+      if (existingJob.status === 'OPEN') {
+        console.log(`ℹ️ Job ${id} is already published, returning success.`);
+        res.json({
+          success: true,
+          data: existingJob,
+          message: 'Job is already published'
+        });
+        return;
+      }
+
       // 2. Check and process payment if needed
       if (existingJob.servicePackage &&
         existingJob.servicePackage !== 'self-managed' &&
