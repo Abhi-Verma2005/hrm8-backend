@@ -98,21 +98,35 @@ export const getCompanySubscriptions = async (req: AuthenticatedRequest, res: Re
     try {
         const companyId = req.user?.companyId || req.user?.id;
 
+        console.log('[getCompanySubscriptions] Request received:', {
+            userId: req.user?.id,
+            userType: req.user?.type,
+            companyId,
+            headers: {
+                authorization: req.headers.authorization ? 'present' : 'missing',
+                cookie: req.headers.cookie ? 'present' : 'missing',
+            },
+        });
+
         if (!companyId) {
+            console.log('[getCompanySubscriptions] Unauthorized: missing companyId');
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
+        console.log('[getCompanySubscriptions] Looking up subscriptions for company:', companyId);
         const subscriptions = await prisma.subscription.findMany({
             where: { company_id: companyId },
             orderBy: { created_at: 'desc' },
         });
+
+        console.log('[getCompanySubscriptions] Found', subscriptions.length, 'subscriptions');
 
         return res.json({
             success: true,
             data: subscriptions,
         });
     } catch (error: any) {
-        console.error('Error getting company subscriptions:', error);
+        console.error('[getCompanySubscriptions] Error:', error);
         return res.status(500).json({ error: error.message || 'Failed to get subscriptions' });
     }
 };

@@ -277,8 +277,23 @@ export class CompanyController {
     try {
       const { id } = req.params;
 
+      console.log('[getCompanyStats] Request received:', {
+        requestedCompanyId: id,
+        userId: req.user?.id,
+        userCompanyId: req.user?.companyId,
+        userRole: req.user?.role,
+        headers: {
+          authorization: req.headers.authorization ? 'present' : 'missing',
+          cookie: req.headers.cookie ? 'present' : 'missing',
+        },
+      });
+
       // Verify the user belongs to this company
       if (req.user?.companyId !== id) {
+        console.log('[getCompanyStats] Unauthorized: user companyId mismatch', {
+          userCompanyId: req.user?.companyId,
+          requestedId: id,
+        });
         res.status(403).json({
           success: false,
           error: 'Unauthorized to access this company\'s statistics',
@@ -286,13 +301,16 @@ export class CompanyController {
         return;
       }
 
+      console.log('[getCompanyStats] Fetching stats for company:', id);
       const stats = await companyStatsService.getCompanyStats(id);
+      console.log('[getCompanyStats] Stats fetched successfully');
 
       res.json({
         success: true,
         data: stats,
       });
     } catch (error) {
+      console.error('[getCompanyStats] Error:', error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch company statistics',

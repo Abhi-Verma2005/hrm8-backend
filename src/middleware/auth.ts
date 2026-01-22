@@ -19,7 +19,16 @@ export async function authenticate(
   try {
     const sessionId = req.cookies?.sessionId;
 
+    console.log('[authenticate] Auth check:', {
+      path: req.path,
+      method: req.method,
+      hasSessionCookie: !!sessionId,
+      hasCookieHeader: !!req.headers.cookie,
+      hasAuthHeader: !!req.headers.authorization,
+    });
+
     if (!sessionId) {
+      console.log('[authenticate] No sessionId cookie found');
       res.status(401).json({
         success: false,
         error: 'Not authenticated. Please login.',
@@ -30,6 +39,7 @@ export async function authenticate(
     const session = await SessionModel.findBySessionId(sessionId);
 
     if (!session) {
+      console.log('[authenticate] Session not found or expired for sessionId:', sessionId.substring(0, 8) + '...');
       res.clearCookie('sessionId', getSessionCookieOptions());
 
       res.status(401).json({
@@ -50,8 +60,17 @@ export async function authenticate(
       type: session.companyId ? 'COMPANY' : undefined,
     };
 
+    console.log('[authenticate] User authenticated:', {
+      userId: session.userId,
+      email: session.email,
+      companyId: session.companyId,
+      role: session.userRole,
+      type: req.user.type,
+    });
+
     next();
   } catch (error) {
+    console.error('[authenticate] Error during authentication:', error);
     res.status(401).json({
       success: false,
       error: 'Authentication failed',
