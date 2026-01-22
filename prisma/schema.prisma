@@ -1686,6 +1686,7 @@ model LeadConversionRequest {
   reviewed_at    DateTime?               @map("reviewed_at")
   admin_notes    String?                 @map("admin_notes")
   decline_reason String?                 @map("decline_reason")
+  temp_password  String?                 @map("temp_password")
   converted_at   DateTime?               @map("converted_at")
   company_id     String?                 @map("company_id")
   created_at     DateTime                @default(now()) @map("created_at")

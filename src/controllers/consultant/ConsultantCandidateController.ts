@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ConsultantAuthenticatedRequest } from '../../middleware/consultantAuth';
 import prisma from '../../lib/prisma';
 import { ApplicationStatus, ApplicationStage } from '@prisma/client';
-import { CommissionService } from '../../services/hrm8/CommissionService';
+// import { CommissionService } from '../../services/hrm8/CommissionService';
 
 export class ConsultantCandidateController {
 
@@ -31,14 +31,12 @@ export class ConsultantCandidateController {
 
             // Security: Strictly enforce assignment unless we add loose regional viewing later
             if (job.assigned_consultant_id !== consultant.id) {
-                // Allow if licensee? For now, strict consultant check as per previous logic
-                // But wait, Licensees might want to see too. 
-                // For now, let's allow if assigned OR if user is a licensee of the region.
-                // Simpler: Check assignment.
-                const isLicenseeOfRegion = (consultant.role === 'LICENSEE' || consultant.role === 'AREA_MANAGER')
+                // Allow if licensee, area manager, consultant_360, or recruiter of the region
+                const allowedRegionalRoles = ['LICENSEE', 'AREA_MANAGER', 'CONSULTANT_360', 'RECRUITER', 'SALES_AGENT'];
+                const isRegionalAllowed = allowedRegionalRoles.includes(consultant.role as string)
                     && consultant.regionId === job.region_id;
 
-                if (job.assigned_consultant_id !== consultant.id && !isLicenseeOfRegion) {
+                if (job.assigned_consultant_id !== consultant.id && !isRegionalAllowed) {
                     return res.status(403).json({ success: false, error: 'Access denied to this job pipeline' });
                 }
             }
@@ -98,10 +96,11 @@ export class ConsultantCandidateController {
 
             // Security Check
             const isAssigned = job.assigned_consultant_id === consultant.id;
-            const isLicenseeOfRegion = (consultant.role === 'LICENSEE' || consultant.role === 'AREA_MANAGER')
+            const allowedRegionalRoles = ['LICENSEE', 'AREA_MANAGER', 'CONSULTANT_360', 'RECRUITER', 'SALES_AGENT'];
+            const isRegionalAllowed = allowedRegionalRoles.includes(consultant.role as string)
                 && consultant.regionId === job.region_id;
 
-            if (!isAssigned && !isLicenseeOfRegion) {
+            if (!isAssigned && !isRegionalAllowed) {
                 return res.status(403).json({ success: false, error: 'Access denied' });
             }
 
@@ -154,10 +153,11 @@ export class ConsultantCandidateController {
 
             // Security Check (Same as pipeline)
             const isAssigned = application.job.assigned_consultant_id === consultant.id;
-            const isLicenseeOfRegion = (consultant.role === 'LICENSEE' || consultant.role === 'AREA_MANAGER')
+            const allowedRegionalRoles = ['LICENSEE', 'AREA_MANAGER', 'CONSULTANT_360', 'RECRUITER', 'SALES_AGENT'];
+            const isRegionalAllowed = allowedRegionalRoles.includes(consultant.role as string)
                 && consultant.regionId === application.job.region_id;
 
-            if (!isAssigned && !isLicenseeOfRegion) {
+            if (!isAssigned && !isRegionalAllowed) {
                 return res.status(403).json({ success: false, error: 'Access denied' });
             }
 
@@ -171,15 +171,17 @@ export class ConsultantCandidateController {
                 }
             });
 
-            // If candidate is hired, confirm commission for this job
+            // If candidate is hired, WE DO NOT AUTO-CONFIRM COMMISSION ANYMORE (Phase 7 Requirement)
+            // Commission must be explicitly approved by the Company via /api/employer/hires/:id/approve
+            /* 
             if (status === 'HIRED') {
                 try {
                     await CommissionService.confirmCommissionForJob(application.job_id);
                 } catch (commError) {
-                    console.error('Failed to auto-confirm commission:', commError);
-                    // Don't fail the request, just log it
+                   console.error('Failed to auto-confirm commission:', commError);
                 }
-            }
+            } 
+            */
 
             // Notify Candidate (Optional but good UX)
             try {
@@ -268,10 +270,11 @@ export class ConsultantCandidateController {
 
             // Security Check
             const isAssigned = application.job.assigned_consultant_id === consultant.id;
-            const isLicenseeOfRegion = (consultant.role === 'LICENSEE' || consultant.role === 'AREA_MANAGER')
+            const allowedRegionalRoles = ['LICENSEE', 'AREA_MANAGER', 'CONSULTANT_360', 'RECRUITER', 'SALES_AGENT'];
+            const isRegionalAllowed = allowedRegionalRoles.includes(consultant.role as string)
                 && consultant.regionId === application.job.region_id;
 
-            if (!isAssigned && !isLicenseeOfRegion) {
+            if (!isAssigned && !isRegionalAllowed) {
                 return res.status(403).json({ success: false, error: 'Access denied' });
             }
 
@@ -325,7 +328,8 @@ export class ConsultantCandidateController {
                 }
             });
 
-            // If moving to HIRED round, confirm commission
+            // If moving to HIRED round, WE DO NOT AUTO-CONFIRM COMMISSION (Phase 7)
+            /*
             if (round.fixed_key === 'HIRED') {
                 try {
                     await CommissionService.confirmCommissionForJob(application.job_id);
@@ -333,6 +337,7 @@ export class ConsultantCandidateController {
                     console.error('Failed to auto-confirm commission:', commError);
                 }
             }
+            */
 
             return res.json({ success: true, data: updatedApp });
 
@@ -368,10 +373,11 @@ export class ConsultantCandidateController {
 
             // Security Check
             const isAssigned = application.job.assigned_consultant_id === consultant.id;
-            const isLicenseeOfRegion = (consultant.role === 'LICENSEE' || consultant.role === 'AREA_MANAGER')
+            const allowedRegionalRoles = ['LICENSEE', 'AREA_MANAGER', 'CONSULTANT_360', 'RECRUITER', 'SALES_AGENT'];
+            const isRegionalAllowed = allowedRegionalRoles.includes(consultant.role as string)
                 && consultant.regionId === application.job.region_id;
 
-            if (!isAssigned && !isLicenseeOfRegion) {
+            if (!isAssigned && !isRegionalAllowed) {
                 return res.status(403).json({ success: false, error: 'Access denied' });
             }
 

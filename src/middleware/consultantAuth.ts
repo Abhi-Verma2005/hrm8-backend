@@ -101,4 +101,80 @@ export async function authenticateConsultant(
   }
 }
 
+/**
+ * Middleware requiring CONSULTANT_360 role only
+ */
+export async function requireConsultant360(
+  req: ConsultantAuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  if (req.consultant?.role !== 'CONSULTANT_360') {
+    res.status(403).json({
+      success: false,
+      error: 'Access denied. Consultant 360 role required.',
+    });
+    return;
+  }
+  next();
+}
 
+/**
+ * Middleware requiring RECRUITER role ONLY (strict isolation)
+ * CONSULTANT_360 should use /api/consultant360/* routes instead
+ */
+export async function requireRecruiter(
+  req: ConsultantAuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const role = req.consultant?.role;
+  if (role !== 'RECRUITER') {
+    res.status(403).json({
+      success: false,
+      error: 'Access denied. Recruiter role required.',
+    });
+    return;
+  }
+  next();
+}
+
+/**
+ * Middleware requiring SALES_AGENT role ONLY (strict isolation)
+ * CONSULTANT_360 should use /api/consultant360/* routes instead
+ */
+export async function requireSalesAgent(
+  req: ConsultantAuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const role = req.consultant?.role;
+  if (role !== 'SALES_AGENT') {
+    res.status(403).json({
+      success: false,
+      error: 'Access denied. Sales Agent role required.',
+    });
+    return;
+  }
+  next();
+}
+
+/**
+ * Middleware allowing CONSULTANT_360 to access both consultant and sales routes
+ * Accepts any authenticated consultant (used for shared resources)
+ */
+export async function requireConsultant360OrAccess(
+  req: ConsultantAuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const role = req.consultant?.role;
+  if (role === 'CONSULTANT_360' || role === 'RECRUITER' || role === 'SALES_AGENT') {
+    next();
+    return;
+  }
+  res.status(403).json({
+    success: false,
+    error: 'Access denied. Valid consultant role required.',
+  });
+}

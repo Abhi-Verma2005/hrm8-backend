@@ -37,12 +37,15 @@ export class StripeUpgradeService {
     const profile = await CompanyProfileModel.getOrCreate(companyId);
     const profileData = profile.profileData || {};
 
+    // amount is in cents if provided (from Stripe), UPGRADE_PRICE_MAP is in dollars
+    const paymentAmountInDollars = amount ? amount / 100 : UPGRADE_PRICE_MAP[tier].amount;
+
     const billing = {
       ...(profileData.billing || {}),
       subscriptionTier: tier as SubscriptionTier,
       subscriptionStatus: 'active',
       subscriptionStartDate: new Date().toISOString(),
-      lastPaymentAmount: amount ?? UPGRADE_PRICE_MAP[tier].amount,
+      lastPaymentAmount: paymentAmountInDollars,
       lastPaymentCurrency: (currency || UPGRADE_PRICE_MAP[tier].currency).toLowerCase(),
       lastStripeSessionId: stripeSessionId,
     };
@@ -61,7 +64,7 @@ export class StripeUpgradeService {
       const { CommissionService } = await import('../hrm8/CommissionService');
       await CommissionService.processSalesCommission(
         companyId,
-        amount ?? UPGRADE_PRICE_MAP[tier].amount,
+        paymentAmountInDollars,
         `Sales commission for ${UPGRADE_PRICE_MAP[tier].label} subscription`
       );
     } catch (commissionError) {

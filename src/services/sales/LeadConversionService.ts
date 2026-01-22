@@ -18,9 +18,11 @@ export class LeadConversionService {
         consultantId: string,
         data: {
             agentNotes?: string;
+            tempPassword?: string;
         }
     ): Promise<{ success: boolean; request?: LeadConversionRequestData; error?: string }> {
         try {
+            // ... (validations remain same)
             // 1. Verify lead exists and is assigned to consultant
             const lead = await prisma.lead.findUnique({
                 where: { id: leadId },
@@ -66,7 +68,7 @@ export class LeadConversionService {
                 return { success: false, error: 'A pending conversion request already exists for this lead' };
             }
 
-            // 3. Check 2-attempt limit (total requests excluding CANCELLED)
+            // 3. Check 2-attempt limit
             const totalAttempts = await LeadConversionRequestModel.countByLeadAndStatus(
                 leadId,
                 ['PENDING', 'APPROVED', 'DECLINED', 'CONVERTED']
@@ -89,6 +91,7 @@ export class LeadConversionService {
                 city: lead.city || undefined,
                 stateProvince: lead.state_province || undefined,
                 agentNotes: data.agentNotes,
+                tempPassword: data.tempPassword, // Save the password
             });
 
             return { success: true, request };
@@ -212,8 +215,7 @@ export class LeadConversionService {
                     createdAt: convertedRequest.created_at,
                     updatedAt: convertedRequest.updated_at,
                 },
-                company,
-                tempPassword // Include the password so admin can see/provide it
+                company // Include the password so admin can see/provide it
             };
         } catch (error: any) {
             // If conversion fails, roll back to PENDING
@@ -241,7 +243,6 @@ export class LeadConversionService {
             } catch (notifError) {
                 console.error('Failed to send failure notification to agent:', notifError);
             }
-
             return {
                 success: false,
                 error: error.message || 'Failed to convert lead to company'
