@@ -2590,6 +2590,7 @@ enum UniversalNotificationType {
   JOB_ASSIGNMENT_RECEIVED
   SHORTLIST_SUBMITTED
   SYSTEM_ANNOUNCEMENT
+  NEW_MESSAGE
 }
 
 enum NotificationRecipientType {

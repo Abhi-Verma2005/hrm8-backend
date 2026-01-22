@@ -93,6 +93,8 @@ export class UniversalNotificationService {
                 return 'subscription_change';
             case 'SERVICE_PURCHASED':
                 return 'payment_received';
+            case 'NEW_MESSAGE':
+                return 'new_message';
             case 'SYSTEM_ANNOUNCEMENT':
                 return 'system_announcement';
             case 'NEW_LEAD':

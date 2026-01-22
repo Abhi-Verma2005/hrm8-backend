@@ -110,9 +110,9 @@ export class ConversationService {
       take: limit,
       ...(cursor
         ? {
-            skip: 1,
-            cursor: { id: cursor },
-          }
+          skip: 1,
+          cursor: { id: cursor },
+        }
         : {}),
       include: { attachments: true },
     });
@@ -137,7 +137,7 @@ export class ConversationService {
    */
   static async archiveConversation(conversationId: string, reason: string) {
     const { prisma } = await import('../../lib/prisma');
-    
+
     // Update conversation status
     const conversation = await prisma.conversation.update({
       where: { id: conversationId },
@@ -167,7 +167,7 @@ export class ConversationService {
    */
   static async closeConversation(conversationId: string, reason: string) {
     const { prisma } = await import('../../lib/prisma');
-    
+
     // Update conversation status
     const conversation = await prisma.conversation.update({
       where: { id: conversationId },
@@ -212,7 +212,7 @@ export class ConversationService {
     }>;
   }) {
     const { prisma } = await import('../../lib/prisma');
-    
+
     // Check conversation status (allow system messages even in archived/closed conversations)
     if (params.senderType !== ParticipantType.SYSTEM) {
       const conversation = await prisma.conversation.findUnique({
@@ -240,13 +240,13 @@ export class ConversationService {
         in_reply_to_message_id: params.inReplyToMessageId,
         attachments: params.attachments
           ? {
-              create: params.attachments.map((a) => ({
-                file_name: a.fileName,
-                file_url: a.fileUrl,
-                mime_type: a.mimeType,
-                size: a.size,
-              })),
-            }
+            create: params.attachments.map((a) => ({
+              file_name: a.fileName,
+              file_url: a.fileUrl,
+              mime_type: a.mimeType,
+              size: a.size,
+            })),
+          }
           : undefined,
       },
       include: { attachments: true },
@@ -259,6 +259,21 @@ export class ConversationService {
         last_message_at: message.created_at,
       },
     });
+
+    // Notify other participants
+    try {
+      const fullConversation = await prisma.conversation.findUnique({
+        where: { id: params.conversationId },
+        include: { participants: true }
+      });
+
+      if (fullConversation) {
+        await this.notifyMessageParticipants(message, fullConversation, params.senderId);
+      }
+    } catch (error) {
+      console.error('Failed to notify message participants:', error);
+      // Continue without failing the request
+    }
 
     return message;
   }
@@ -305,5 +320,61 @@ export class ConversationService {
       },
     });
   }
-}
 
+  /**
+   * Notify other participants about a new message
+   */
+  static async notifyMessageParticipants(
+    message: any,
+    conversation: any,
+    senderId: string
+  ) {
+    const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+    const { UniversalNotificationType } = await import('@prisma/client');
+
+    const recipients = conversation.participants.filter(
+      (p: any) => p.participant_id !== senderId
+    );
+
+    for (const recipient of recipients) {
+      let recipientType;
+      // Map ParticipantType to NotificationRecipientType
+      switch (recipient.participant_type) {
+        case 'CANDIDATE':
+          recipientType = 'CANDIDATE';
+          break;
+        case 'CONSULTANT':
+          recipientType = 'CONSULTANT';
+          break;
+        case 'EMPLOYER': // Handles both USER and HRM8
+          recipientType = 'USER';
+          break;
+        default:
+          continue; // Skip system or unknown
+      }
+
+      // Sender display name
+      const sender = conversation.participants.find((p: any) => p.participant_id === senderId);
+      const senderName = sender?.display_name || 'Someone';
+
+      await UniversalNotificationService.createNotification({
+        recipientType: recipientType as any,
+        recipientId: recipient.participant_id,
+        type: 'NEW_MESSAGE' as any, // Cast as any until types are fully regenerated and picked up
+        title: `New message from ${senderName}`,
+        message: message.content_type === 'FILE' ? 'Sent an attachment' : message.content,
+        // The frontend expects actionUrl to navigate
+        actionUrl: recipientType === 'CONSULTANT'
+          ? `/consultant/messages/${conversation.id}`
+          : recipientType === 'CANDIDATE'
+            ? `/candidate/messages/${conversation.id}`
+            : `/messages/${conversation.id}`,
+        data: {
+          conversationId: conversation.id,
+          messageId: message.id,
+          senderName,
+        }
+      });
+    }
+  }
+}
