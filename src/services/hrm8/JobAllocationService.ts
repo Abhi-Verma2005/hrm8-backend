@@ -27,7 +27,9 @@ export class JobAllocationService {
       }
 
       const canOffload = await PackageService.canOffloadToConsultants(job.companyId);
-      if (!canOffload) {
+      const isJobPaid = (job as any).paymentStatus === 'PAID';
+
+      if (!canOffload && !isJobPaid) {
         return {
           success: false,
           error: 'Companies with free packages (ATS Lite) cannot assign jobs to consultants. Please upgrade to a paid subscription to use consultant services.'
@@ -78,12 +80,17 @@ export class JobAllocationService {
       }
 
       // Validate that company has paid package before allowing consultant assignment
-      // Skip if explicitly requested (e.g. for administrative reassignment)
+      // Skip if explicitly requested or if the specific job is paid (e.g. one-time payment)
       if (!skipValidation) {
-        try {
-          await PackageService.validateConsultantAssignment(job.companyId);
-        } catch (error: any) {
-          return { success: false, error: error.message };
+        // If job is paid (one-time payment or premium posting), we allow consultant assignment regardless of company package
+        const isJobPaid = (job as any).paymentStatus === 'PAID';
+
+        if (!isJobPaid) {
+          try {
+            await PackageService.validateConsultantAssignment(job.companyId);
+          } catch (error: any) {
+            return { success: false, error: error.message };
+          }
         }
       }
 
@@ -107,6 +114,15 @@ export class JobAllocationService {
       // Get existing assignment to check if we need to update old consultant's count
       const existingAssignments = await ConsultantJobAssignmentModel.findByJobId(jobId, true);
       const oldConsultantIds = new Set(existingAssignments.map(a => a.consultantId));
+
+      // IMPORTANT: Deactivate ALL existing assignments to ensure exclusive access
+      // This prevents the previous consultant from still seeing the job
+      for (const existingAssignment of existingAssignments) {
+        if (existingAssignment.consultantId !== consultantId) {
+          await ConsultantJobAssignmentModel.deactivate(existingAssignment.id);
+          console.log(`📤 Deactivated assignment for consultant ${existingAssignment.consultantId} on job ${jobId}`);
+        }
+      }
 
       // Update job's regionId and assignedConsultantId
       await prisma.job.update({
