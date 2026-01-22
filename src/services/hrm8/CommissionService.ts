@@ -330,16 +330,18 @@ export class CommissionService {
         : CommissionType.SUBSCRIPTION_SALE;
 
       // Check for existing commissions (idempotency)
+      // We need to prevent duplicates from:
+      // 1. Webhook retries (same payment processed multiple times)
+      // 2. Race conditions
+      // 3. Manual re-triggering
+
       const existingFilters: any = {
         consultantId: salesAgentId,
         type: commissionType
       };
+
       if (jobId) existingFilters.jobId = jobId;
       if (subscriptionId) existingFilters.subscriptionId = subscriptionId;
-
-      // Note: For subscription upgrades without a unique ID (just companyId time-based), 
-      // strict idempotency might be tricky, but usually upgrades happen once per month max.
-      // We rely on caller to pass specific IDs if possible.
 
       const existingCommissions = await CommissionModel.findAll(existingFilters);
 

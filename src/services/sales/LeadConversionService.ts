@@ -3,10 +3,10 @@
  * Business logic for lead conversion approval workflow
  */
 
+import { prisma } from '../../lib/prisma';
 import { LeadConversionRequestModel, LeadConversionRequestData } from '../../models/LeadConversionRequest';
-import { ConversionRequestStatus, PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { UniversalNotificationService } from '../notification/UniversalNotificationService';
+import { ConversionRequestStatus } from '@prisma/client';
 
 export class LeadConversionService {
     /**
@@ -139,107 +139,115 @@ export class LeadConversionService {
         adminId: string,
         notes?: string
     ): Promise<{ success: boolean; request?: LeadConversionRequestData; company?: any; error?: string }> {
-        return await prisma.$transaction(async (tx) => {
-            // 1. Get request details
-            const request = await tx.leadConversionRequest.findUnique({
-                where: { id: requestId }
+        // Fetch the request
+        const request = await prisma.leadConversionRequest.findUnique({
+            where: { id: requestId },
+        });
+
+        if (!request) {
+            return { success: false, error: 'Conversion request not found' };
+        }
+
+        if (request.status !== 'PENDING') {
+            return { success: false, error: `Request is already ${request.status.toLowerCase()}` };
+        }
+
+        // Step 1: Mark as APPROVED
+        await prisma.leadConversionRequest.update({
+            where: { id: requestId },
+            data: {
+                status: 'APPROVED',
+                reviewed_by: adminId,
+                reviewed_at: new Date(),
+                admin_notes: notes,
+            },
+        });
+
+        // Step 2: Attempt lead conversion
+        try {
+            const { LeadService } = await import('./LeadService');
+
+            // Use generic temporary password as requested
+            const tempPassword = 'vAbhi2678';
+
+            // Convert the lead to a company
+            const company = await LeadService.convertLeadToCompany(request.lead_id, {
+                email: request.email,
+                domain: request.website ? request.website.replace(/^https?:\/\//, '') : undefined,
+                adminFirstName: 'Company',
+                adminLastName: 'Admin',
+                password: tempPassword,
+                acceptTerms: true,
             });
 
-            if (!request) {
-                return { success: false, error: 'Conversion request not found' };
-            }
-
-            if (request.status !== 'PENDING') {
-                return { success: false, error: 'Can only approve pending requests' };
-            }
-
-            // 2. Approve the request (inside transaction)
-            await tx.leadConversionRequest.update({
+            // Step 3: Mark as CONVERTED
+            const convertedRequest = await prisma.leadConversionRequest.update({
                 where: { id: requestId },
                 data: {
-                    status: 'APPROVED',
-                    reviewed_by: adminId,
-                    reviewed_at: new Date(),
-                    admin_notes: notes,
+                    status: 'CONVERTED',
+                    converted_at: new Date(),
+                    company_id: company.id,
                 },
             });
 
-            // 3. Auto-convert lead to company
-            // Since LeadService uses the global prisma client, we need a way to pass the transaction or 
-            // accept that it might be slightly inconsistent if LeadService isn't transaction-aware.
-            // However, the major issue is the request status changing permanently. 
-            // If we throw an error here, the transaction rolls back the status change.
+            return {
+                success: true,
+                request: {
+                    id: convertedRequest.id,
+                    leadId: convertedRequest.lead_id,
+                    consultantId: convertedRequest.consultant_id,
+                    regionId: convertedRequest.region_id,
+                    status: convertedRequest.status,
+                    companyName: convertedRequest.company_name,
+                    email: convertedRequest.email,
+                    phone: convertedRequest.phone,
+                    website: convertedRequest.website,
+                    country: convertedRequest.country,
+                    city: convertedRequest.city,
+                    stateProvince: convertedRequest.state_province,
+                    agentNotes: convertedRequest.agent_notes,
+                    reviewedBy: convertedRequest.reviewed_by,
+                    reviewedAt: convertedRequest.reviewed_at,
+                    adminNotes: convertedRequest.admin_notes,
+                    declineReason: convertedRequest.decline_reason,
+                    convertedAt: convertedRequest.converted_at,
+                    companyId: convertedRequest.company_id,
+                    createdAt: convertedRequest.created_at,
+                    updatedAt: convertedRequest.updated_at,
+                },
+                company // Include the password so admin can see/provide it
+            };
+        } catch (error: any) {
+            // If conversion fails, roll back to PENDING
+            console.error('Lead conversion failed during approval:', error);
 
+            await prisma.leadConversionRequest.update({
+                where: { id: requestId },
+                data: {
+                    status: 'PENDING',
+                    reviewed_by: null,
+                    reviewed_at: null,
+                    admin_notes: null,
+                },
+            });
+
+            // Notify the sales agent about the failure
             try {
-                const { LeadService } = await import('./LeadService');
-
-                // Use provided temp password (if available via Mandate feature) or fallback to random
-                const tempPassword = request.temp_password || Math.random().toString(36).slice(-8);
-
-                // IMPORTANT: LeadService currently uses global prisma. 
-                // For full consistency, we should ideally refactor it to accept a tx client.
-                // But wrapping this in a catch-and-rethrow will at least rollback our status update.
-                const company = await LeadService.convertLeadToCompany(request.lead_id, {
-                    email: request.email,
-                    domain: request.website ? request.website.replace(/^https?:\/\//, '') : undefined,
-                    adminFirstName: 'Company',
-                    adminLastName: 'Admin',
-                    password: tempPassword,
-                    acceptTerms: true,
+                await UniversalNotificationService.createNotification({
+                    recipientType: 'CONSULTANT',
+                    recipientId: request.consultant_id,
+                    title: 'Lead Conversion Failed',
+                    message: `Your conversion request for "${request.company_name}" failed: ${error.message}`,
+                    type: 'SYSTEM_ANNOUNCEMENT',
                 });
-
-                // 4. Mark request as converted
-                const convertedRequest = await tx.leadConversionRequest.update({
-                    where: { id: requestId },
-                    data: {
-                        status: 'CONVERTED',
-                        converted_at: new Date(),
-                        company_id: company.id,
-                    },
-                });
-
-                return {
-                    success: true,
-                    request: {
-                        id: convertedRequest.id,
-                        leadId: convertedRequest.lead_id,
-                        consultantId: convertedRequest.consultant_id,
-                        regionId: convertedRequest.region_id,
-                        status: convertedRequest.status,
-                        companyName: convertedRequest.company_name,
-                        email: convertedRequest.email,
-                        phone: convertedRequest.phone,
-                        website: convertedRequest.website,
-                        country: convertedRequest.country,
-                        city: convertedRequest.city,
-                        stateProvince: convertedRequest.state_province,
-                        agentNotes: convertedRequest.agent_notes,
-                        reviewedBy: convertedRequest.reviewed_by,
-                        reviewedAt: convertedRequest.reviewed_at,
-                        adminNotes: convertedRequest.admin_notes,
-                        declineReason: convertedRequest.decline_reason,
-                        convertedAt: convertedRequest.converted_at,
-                        companyId: convertedRequest.company_id,
-                        createdAt: convertedRequest.created_at,
-                        updatedAt: convertedRequest.updated_at,
-                    },
-                    company,
-                    tempPassword // Include the password so admin can see/provide it
-                };
-            } catch (error: any) {
-                // If anything fails in LeadService, we throw to rollback the transaction
-                // so the request status stays PENDING.
-                console.error('Lead conversion failed during approval:', error);
-                throw error;
+            } catch (notifError) {
+                console.error('Failed to send failure notification to agent:', notifError);
             }
-        }, {
-            timeout: 20000 // Increase timeout to 20 seconds for complex conversion Logic
-        }).catch(error => {
             return {
                 success: false,
-                error: error.message || 'Failed to approve and convert lead'
+                error: error.message || 'Failed to convert lead to company'
             };
-        });
+        }
     }
 
     /**
@@ -266,6 +274,19 @@ export class LeadConversionService {
             }
 
             const declinedRequest = await LeadConversionRequestModel.decline(requestId, adminId, reason);
+
+            // Notify the sales agent about the decline
+            try {
+                await UniversalNotificationService.createNotification({
+                    recipientType: 'CONSULTANT',
+                    recipientId: request.consultantId,
+                    title: 'Lead Conversion Request Declined',
+                    message: `Your conversion request for "${request.companyName}" has been declined. Reason: ${reason}`,
+                    type: 'SYSTEM_ANNOUNCEMENT',
+                });
+            } catch (notifError) {
+                console.error('Failed to send decline notification to agent:', notifError);
+            }
 
             return { success: true, request: declinedRequest };
         } catch (error: any) {
