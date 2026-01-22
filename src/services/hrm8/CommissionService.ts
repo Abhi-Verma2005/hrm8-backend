@@ -299,22 +299,44 @@ export class CommissionService {
       }
 
       // Check for existing commissions (idempotency)
+      // We need to prevent duplicates from:
+      // 1. Webhook retries (same payment processed multiple times)
+      // 2. Race conditions
+      // 3. Manual re-triggering
+
       const existingFilters: any = {
         consultantId: company.salesAgentId,
-        type: CommissionType.SUBSCRIPTION_SALE
+        type: CommissionType.SUBSCRIPTION_SALE,
+        companyId: companyId,
       };
+
       if (jobId) existingFilters.jobId = jobId;
       if (subscriptionId) existingFilters.subscriptionId = subscriptionId;
 
-      // Note: For subscription upgrades without a unique ID (just companyId time-based), 
-      // strict idempotency might be tricky, but usually upgrades happen once per month max.
-      // We rely on caller to pass specific IDs if possible.
-
       const existingCommissions = await CommissionModel.findAll(existingFilters);
 
-      // If passing specific job/sub ID, check duplicate strictly
-      if ((jobId || subscriptionId) && existingCommissions.length > 0) {
-        return { success: true, commissionId: existingCommissions[0].id, error: 'Commission already exists' };
+      // Strict idempotency: If we have a specific job or subscription ID, check for exact match
+      if (jobId || subscriptionId) {
+        const exactMatch = existingCommissions.find(c =>
+          (jobId && c.jobId === jobId) || (subscriptionId && c.subscriptionId === subscriptionId)
+        );
+        if (exactMatch) {
+          console.log(`⚠️ Duplicate commission prevented for ${jobId ? 'job' : 'subscription'} ${jobId || subscriptionId}`);
+          return { success: true, commissionId: exactMatch.id };
+        }
+      } else {
+        // For non-specific payments (e.g., subscription upgrades without ID), 
+        // check if a commission with the same amount was created recently (within 5 minutes)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const recentDuplicate = existingCommissions.find(c =>
+          Math.abs(c.amount - (amount * (salesAgent?.defaultCommissionRate || 0.10))) < 0.01 && // Same amount (within 1 cent)
+          new Date(c.createdAt) > fiveMinutesAgo
+        );
+
+        if (recentDuplicate) {
+          console.log(`⚠️ Duplicate commission prevented: Recent commission ${recentDuplicate.id} with same amount found`);
+          return { success: true, commissionId: recentDuplicate.id };
+        }
       }
 
       // Check attribution expiry (12-month rule)
