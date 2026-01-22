@@ -41,7 +41,7 @@ export class ConsultantCandidateController {
                 }
             }
 
-            // 2. Fetch Applications
+            // 2. Fetch Applications with full data (matching employer endpoint)
             const applications = await prisma.application.findMany({
                 where: { job_id: jobId },
                 include: {
@@ -56,16 +56,71 @@ export class ConsultantCandidateController {
                             linked_in_url: true
                         }
                     },
-                    // Include latest interview status if exists?
+                    // Include video interview status
                     video_interview: {
                         orderBy: { created_at: 'desc' },
+                        take: 1
+                    },
+                    // Include round progress for pipeline tracking
+                    application_round_progress: {
+                        orderBy: { updated_at: 'desc' },
                         take: 1
                     }
                 },
                 orderBy: { applied_date: 'desc' }
             });
 
-            return res.json({ success: true, data: applications });
+            // Map applications to camelCase format with all fields (matching employer format)
+            const mappedApplications = applications.map(app => ({
+                id: app.id,
+                candidateId: app.candidate_id,
+                jobId: app.job_id,
+                status: app.status,
+                stage: app.stage,
+                appliedDate: app.applied_date?.toISOString(),
+                applied_date: app.applied_date?.toISOString(), // Keep for backward compatibility
+                resumeUrl: app.resume_url,
+                coverLetterUrl: app.cover_letter_url,
+                portfolioUrl: app.portfolio_url,
+                linkedInUrl: app.linked_in_url,
+                isRead: app.is_read,
+                isNew: app.is_new,
+                tags: app.tags || [],
+                // AI scoring fields
+                score: app.score,
+                aiScore: app.score, // Alias for frontend
+                aiAnalysis: app.ai_analysis,
+                aiReasoning: (app.ai_analysis as any)?.reasoning || (app.ai_analysis as any)?.summary,
+                aiMatchType: (app.ai_analysis as any)?.matchType || (app.ai_analysis as any)?.recommendation,
+                rank: app.rank,
+                shortlisted: app.shortlisted,
+                manuallyAdded: app.manually_added,
+                recruiterNotes: app.recruiter_notes,
+                createdAt: app.created_at?.toISOString(),
+                updatedAt: app.updated_at?.toISOString(),
+                // Round progress
+                roundId: app.application_round_progress?.[0]?.job_round_id,
+                // Candidate info (mapped to both camelCase and snake_case for compatibility)
+                candidate: app.candidate ? {
+                    id: app.candidate.id,
+                    firstName: app.candidate.first_name,
+                    lastName: app.candidate.last_name,
+                    first_name: app.candidate.first_name,
+                    last_name: app.candidate.last_name,
+                    email: app.candidate.email,
+                    photo: app.candidate.photo,
+                    resumeUrl: app.candidate.resume_url,
+                    resume_url: app.candidate.resume_url,
+                    linkedInUrl: app.candidate.linked_in_url,
+                    linked_in_url: app.candidate.linked_in_url
+                } : null,
+                // Video interview status
+                videoInterview: app.video_interview?.[0] ? {
+                    status: app.video_interview[0].status
+                } : null
+            }));
+
+            return res.json({ success: true, data: mappedApplications });
 
         } catch (error) {
             console.error('Error fetching pipeline:', error);
