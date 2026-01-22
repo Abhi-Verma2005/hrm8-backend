@@ -10,9 +10,8 @@ import { CompanyProfileService } from '../../services/company/CompanyProfileServ
 import { CompanyStatsService } from '../../services/company/CompanyStatsService';
 import { UpdateCompanyProfileRequest, AuthenticatedRequest, JobAssignmentMode } from '../../types';
 import { CompanyModel } from '../../models/Company';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../lib/prisma';
 
-const prisma = new PrismaClient();
 const companyStatsService = new CompanyStatsService(prisma);
 
 export class CompanyController {

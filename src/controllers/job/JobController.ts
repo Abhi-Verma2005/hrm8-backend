@@ -9,9 +9,7 @@ import { JobService, CreateJobRequest, UpdateJobRequest } from '../../services/j
 import { JobStatus } from '../../types';
 import { HiringTeamInvitationService } from '../../services/job/HiringTeamInvitationService';
 import { JobPaymentService } from '../../services/payments/JobPaymentService';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../lib/prisma';
 
 export class JobController {
   /**

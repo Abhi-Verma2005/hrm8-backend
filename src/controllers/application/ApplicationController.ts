@@ -165,13 +165,14 @@ export class ApplicationController {
         res.cookie('candidateSessionId', sessionId, getSessionCookieOptions());
       }
 
+      // Fetch job details once for all notifications
+      const job = await JobModel.findById(application.jobId);
+
       // Send email notification with login details
       try {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
         const applicationTrackingUrl = `${frontendUrl}/candidate/applications/${application.id}`;
 
-        // Fetch job title for email
-        const job = await JobModel.findById(application.jobId);
         const jobTitle = job?.title || 'the position';
 
         await emailService.sendApplicationConfirmationEmail({
@@ -193,7 +194,6 @@ export class ApplicationController {
 
       // Send notification to employer
       try {
-        const job = await JobModel.findById(application.jobId);
         if (job && job.createdBy) {
           const candidateName = `${candidate.firstName} ${candidate.lastName}`;
           await UniversalNotificationService.createNotification({
@@ -523,9 +523,13 @@ export class ApplicationController {
    */
   static async getJobApplications(req: Request, res: Response): Promise<void> {
     try {
+      const { jobId } = req.params;
+      console.log('[ApplicationController.getJobApplications] Fetching applications for job:', jobId, {
+        query: req.query,
+      });
+
       // This endpoint should be protected by company auth middleware
       // For now, we'll allow it but in production should check company permissions
-      const { jobId } = req.params;
 
       // Parse query filters
       const filters: {
@@ -553,6 +557,7 @@ export class ApplicationController {
       }
 
       const applications = await ApplicationService.getJobApplications(jobId, filters);
+      console.log(`[ApplicationController.getJobApplications] Found ${applications.length} applications for job ${jobId}`);
 
       // Also load ApplicationRoundProgress to map applications to rounds
       const roundProgress = await prisma.applicationRoundProgress.findMany({

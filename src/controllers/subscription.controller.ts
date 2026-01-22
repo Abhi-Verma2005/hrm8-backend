@@ -5,11 +5,12 @@
 
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types';
-import { PrismaClient, VirtualTransactionType } from '@prisma/client';
+import { VirtualTransactionType } from '@prisma/client'; // Import just types/enums
+import prisma from '../lib/prisma';
 import { SubscriptionService } from '../services/subscriptionService';
 import { VirtualWalletService } from '../services/virtualWalletService';
+import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 const subscriptionService = new SubscriptionService(prisma);
 const walletService = new VirtualWalletService(prisma);
 

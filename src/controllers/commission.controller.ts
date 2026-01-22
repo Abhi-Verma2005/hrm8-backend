@@ -4,11 +4,9 @@
  */
 
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { CommissionService } from '../services/commissionService';
 import { AuthenticatedRequest } from '../types';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 const commissionService = new CommissionService(prisma);
 
 /**

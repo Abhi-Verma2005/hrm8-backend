@@ -146,20 +146,43 @@ export class VirtualWalletService {
      * Get account by owner
      */
     async getAccountByOwner(ownerType: VirtualAccountOwner, ownerId: string) {
-        const account = await this.prisma.virtualAccount.findFirst({
-            where: {
-                owner_type: ownerType,
-                owner_id: ownerId,
-            },
-            include: {
-                transactions: {
-                    orderBy: { created_at: 'desc' },
-                    take: 10,
-                },
-            },
-        });
+        console.log('[VirtualWalletService.getAccountByOwner] Looking up account:', { ownerType, ownerId });
+        const startTime = Date.now();
 
-        return account;
+        try {
+            const account = await this.prisma.virtualAccount.findFirst({
+                where: {
+                    owner_type: ownerType,
+                    owner_id: ownerId,
+                },
+                include: {
+                    transactions: {
+                        orderBy: { created_at: 'desc' },
+                        take: 10,
+                    },
+                },
+            });
+
+            const duration = Date.now() - startTime;
+
+            if (account) {
+                console.log('[VirtualWalletService.getAccountByOwner] Found account in', duration, 'ms:', {
+                    accountId: account.id,
+                    balance: account.balance,
+                    status: account.status,
+                    transactionCount: account.transactions?.length || 0,
+                });
+            } else {
+                console.log('[VirtualWalletService.getAccountByOwner] No account found in', duration, 'ms for:', { ownerType, ownerId });
+            }
+
+            return account;
+        } catch (error: any) {
+            const duration = Date.now() - startTime;
+            console.error('[VirtualWalletService.getAccountByOwner] Error after', duration, 'ms:', error.message);
+            console.error('[VirtualWalletService.getAccountByOwner] Stack:', error.stack);
+            throw error;
+        }
     }
 
     /**

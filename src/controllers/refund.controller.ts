@@ -5,10 +5,8 @@
 
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types';
-import { PrismaClient } from '@prisma/client';
 import { RefundService } from '../services/refundService';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 const refundService = new RefundService(prisma);
 
 /**

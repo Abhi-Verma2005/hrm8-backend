@@ -3,9 +3,8 @@
  * Database operations for lead conversion requests
  */
 
-import { PrismaClient, ConversionRequestStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { ConversionRequestStatus } from '@prisma/client';
+import prisma from '../lib/prisma';
 
 export interface LeadConversionRequestData {
     id: string;

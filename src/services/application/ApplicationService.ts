@@ -86,19 +86,27 @@ export class ApplicationService {
   static async submitApplication(
     applicationData: SubmitApplicationRequest
   ): Promise<ApplicationData | { error: string; code?: string }> {
+    console.log('[ApplicationService.submitApplication] Starting submission:', {
+      candidateId: applicationData.candidateId,
+      jobId: applicationData.jobId,
+    });
+
     // Verify candidate exists
     const candidate = await CandidateModel.findById(applicationData.candidateId);
     if (!candidate) {
+      console.log('[ApplicationService.submitApplication] Candidate not found:', applicationData.candidateId);
       return { error: 'Candidate not found', code: 'CANDIDATE_NOT_FOUND' };
     }
 
     // Verify job exists and is open
     const job = await JobModel.findById(applicationData.jobId);
     if (!job) {
+      console.log('[ApplicationService.submitApplication] Job not found:', applicationData.jobId);
       return { error: 'Job not found', code: 'JOB_NOT_FOUND' };
     }
 
     if (job.status !== 'OPEN') {
+      console.log('[ApplicationService.submitApplication] Job not open:', { jobId: job.id, status: job.status });
       return { error: 'Job is not accepting applications', code: 'JOB_NOT_ACCEPTING' };
     }
 

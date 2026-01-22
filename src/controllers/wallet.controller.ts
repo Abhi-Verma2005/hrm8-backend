@@ -5,10 +5,10 @@
 
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { VirtualWalletService } from '../services/virtualWalletService';
+import { PrismaClient } from '@prisma/client'; // Keep type import if needed or remove if unused, but VirtualWalletService probably uses it
 
-const prisma = new PrismaClient();
 const walletService = new VirtualWalletService(prisma);
 
 /**

@@ -3,9 +3,7 @@
  * Aggregates revenue data from Bills and Commission tracking
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../lib/prisma';
 
 export interface RevenueSummary {
     totalRevenue: number;
