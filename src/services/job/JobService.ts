@@ -167,10 +167,7 @@ export class JobService {
         // Don't throw - job creation should succeed even if auto-assignment fails
       }
 
-      // Process job alerts asynchronously (don't wait for it)
-      this.processJobAlertsAsync(job).catch(err => {
-        console.error('Failed to process job alerts:', err);
-      });
+
 
       // Fetch the job again to get updated assignment info
       const updatedJob = await JobModel.findById(job.id);
@@ -314,7 +311,7 @@ export class JobService {
   /**
    * Publish a job (change status from DRAFT to OPEN)
    */
-  static async publishJob(jobId: string, companyId: string): Promise<Job> {
+  static async publishJob(jobId: string, companyId: string, userId?: string): Promise<Job> {
     const job = await this.getJobById(jobId, companyId);
 
     if (job.status !== JobStatus.DRAFT) {
@@ -328,7 +325,20 @@ export class JobService {
     if (!canPublish) {
 
       try {
-        await JobPaymentService.processWalletPayment(jobId, companyId);
+        const { WalletJobPaymentService } = await import('../payments/WalletJobPaymentService');
+        const walletService = new WalletJobPaymentService(prisma);
+
+        const paymentResult = await walletService.payForJobFromWallet(
+          companyId,
+          jobId,
+          job.servicePackage || 'self-managed',
+          companyId, // Acting user (system/company admin)
+          job.title
+        );
+
+        if (!paymentResult.success) {
+          throw new Error(paymentResult.error || 'Insufficient wallet balance or payment failed');
+        }
 
       } catch (error: any) {
         console.error('❌ Failed to process wallet payment:', {
@@ -336,6 +346,28 @@ export class JobService {
           error: error.message,
           stack: error.stack,
         });
+
+        // Send in-app notification about payment failure
+        try {
+          const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+          const { NotificationRecipientType } = await import('@prisma/client');
+
+          await UniversalNotificationService.createNotification({
+            recipientType: NotificationRecipientType.USER,
+            recipientId: userId || job.createdBy, // Notify the acting user or the creator
+            type: 'SYSTEM_ANNOUNCEMENT' as any, // Using generic type as PAYMENT_FAILED doesn't exist yet
+            title: 'Payment Failed',
+            message: `Failed to process payment for job "${job.title}". Reason: ${error.message.includes('Insufficient') ? 'Insufficient wallet balance' : 'System error'}.`,
+            data: {
+              jobId,
+              error: error.message
+            },
+            jobId,
+            actionUrl: `/company/wallet` // Redirect to wallet for recharge
+          });
+        } catch (notifyError) {
+          console.error('Failed to send payment failure notification:', notifyError);
+        }
 
         // Return clear error message to guide user
         if (error.message.includes('Insufficient')) {
@@ -367,6 +399,16 @@ export class JobService {
     } catch (autoAssignError) {
       console.error('❌ Auto-assignment error on publish (non-fatal):', autoAssignError);
     }
+
+    // Process job alerts asynchronously
+    this.processJobAlertsAsync(updatedJob).catch(err => {
+      console.error('Failed to process job alerts on publish:', err);
+    });
+
+    // Notify Company User about successful publish
+    this.notifyCompanyJobPublished(updatedJob, companyId).catch(err => {
+      console.error('Failed to notify company about job publish:', err);
+    });
 
     return updatedJob;
   }
@@ -439,6 +481,17 @@ export class JobService {
     } catch (autoAssignError) {
       console.error('❌ Auto-assignment error on submit (non-fatal):', autoAssignError);
     }
+
+
+    // Process job alerts asynchronously
+    this.processJobAlertsAsync(updatedJob).catch(err => {
+      console.error('Failed to process job alerts on submit:', err);
+    });
+
+    // Notify Company User about successful publish
+    this.notifyCompanyJobPublished(updatedJob, companyId).catch(err => {
+      console.error('Failed to notify company about job publish:', err);
+    });
 
     return updatedJob;
   }
@@ -524,6 +577,39 @@ export class JobService {
 
     // Format: JOB-001, JOB-002, etc.
     return `JOB-${String(jobNumber).padStart(3, '0')}`;
+  }
+  /**
+   * Notify company users about successful job publish
+   */
+  private static async notifyCompanyJobPublished(job: Job, companyId: string) {
+    try {
+      const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+      const { NotificationRecipientType } = await import('@prisma/client');
+
+      // Notify the creator or all admins in the company?
+      // Let's notify the creator first if available, otherwise admins.
+      // For simplicity and effectiveness, we notify the job creator.
+
+      if (job.createdBy) {
+        await UniversalNotificationService.createNotification({
+          recipientType: NotificationRecipientType.USER,
+          recipientId: job.createdBy,
+          type: 'JOB_PUBLISHED' as any,
+          title: 'Job Published Successfully',
+          message: `Your job "${job.title}" is now live and alerts have been sent to relevant candidates.`,
+          data: {
+            jobId: job.id,
+            jobTitle: job.title,
+            status: 'OPEN'
+          },
+          jobId: job.id,
+          companyId: companyId,
+          actionUrl: `/jobs/${job.id}`
+        });
+      }
+    } catch (error) {
+      console.error('Error notifying company about job publish:', error);
+    }
   }
 }
 

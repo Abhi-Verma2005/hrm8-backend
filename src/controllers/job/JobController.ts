@@ -62,51 +62,19 @@ export class JobController {
       }
 
 
-      // Check wallet balance for paid jobs
-      let walletCheck = null;
-      if (jobData.servicePackage && jobData.servicePackage !== 'self-managed') {
-        const { WalletJobPaymentService } = await import('../../services/payments/WalletJobPaymentService');
-        const walletService = new WalletJobPaymentService(prisma);
-
-        walletCheck = await walletService.checkCanPostJob(req.user.companyId, jobData.servicePackage);
-
-        if (!walletCheck.canPost) {
-          res.status(402).json({
-            success: false,
-            error: 'INSUFFICIENT_BALANCE',
-            message: `Insufficient wallet balance. Required: $${walletCheck.required}, Available: $${walletCheck.balance}`,
-            data: {
-              balance: walletCheck.balance,
-              required: walletCheck.required,
-              shortfall: walletCheck.shortfall,
-              currency: walletCheck.currency
-            }
-          });
-          return;
-        }
-      }
-
       const job = await JobService.createJob(
         req.user.companyId,
         req.user.id,
         jobData
       );
 
-      // Process wallet payment if applicable
-      if (jobData.servicePackage && jobData.servicePackage !== 'self-managed' && walletCheck?.canPost) {
+      // Process wallet payment if applicable by attempting to publish
+      if (jobData.servicePackage && jobData.servicePackage !== 'self-managed') {
         try {
-          const { WalletJobPaymentService } = await import('../../services/payments/WalletJobPaymentService');
-          const walletService = new WalletJobPaymentService(prisma);
+          // Check balance first to avoid creating job then failing safely?
+          // Actually user wants notification on failure.
+          // JobService.publishJob will handle payment + notification + status update
 
-          await walletService.payForJobFromWallet(
-            req.user.companyId,
-            job.id,
-            jobData.servicePackage,
-            req.user.id,
-            job.title
-          );
-
-          // Auto-publish after payment
           await JobService.publishJob(job.id, req.user.companyId);
 
           // Refresh job data to return updated status
@@ -116,11 +84,12 @@ export class JobController {
           }
         } catch (paymentError) {
           console.error('❌ Wallet payment failed after job creation:', paymentError);
-          // Return success but with payment warning - job is created but remains in DRAFT/PENDING
+          // Return 201 Created because job IS created (as Draft), but payment failed.
+          // Frontend should handle the warning.
           res.status(201).json({
             success: true,
             data: job,
-            warning: 'Job created but payment failed. Please try paying again.'
+            warning: 'Job created as Draft. Payment failed: Insufficient funds. Please recharge your wallet.'
           });
           return;
         }
@@ -352,53 +321,7 @@ export class JobController {
       }
 
       // 2. Check and process payment if needed
-      if (existingJob.servicePackage &&
-        existingJob.servicePackage !== 'self-managed' &&
-        existingJob.paymentStatus !== 'PAID') {
-
-        const { WalletJobPaymentService } = await import('../../services/payments/WalletJobPaymentService');
-        const walletService = new WalletJobPaymentService(prisma);
-
-        // Check balance
-        const walletCheck = await walletService.checkCanPostJob(req.user.companyId, existingJob.servicePackage);
-
-        if (!walletCheck.canPost) {
-          res.status(402).json({
-            success: false,
-            error: 'INSUFFICIENT_BALANCE',
-            message: `Insufficient wallet balance. Required: $${walletCheck.required}, Available: $${walletCheck.balance}`,
-            data: {
-              balance: walletCheck.balance,
-              required: walletCheck.required,
-              shortfall: walletCheck.shortfall,
-              currency: walletCheck.currency
-            }
-          });
-          return;
-        }
-
-        // Process Payment
-        try {
-          await walletService.payForJobFromWallet(
-            req.user.companyId,
-            id,
-            existingJob.servicePackage,
-            req.user.id,
-            existingJob.title
-          );
-        } catch (paymentError) {
-          console.error('❌ Wallet payment failed during publish:', paymentError);
-          res.status(500).json({
-            success: false,
-            error: 'Payment failed',
-            message: process.env.NODE_ENV === 'development' ? (paymentError as Error).message : 'Failed to process payment from wallet. Please try again.',
-            details: (paymentError as Error).stack // Debugging aid
-          });
-          return;
-        }
-      }
-
-      const job = await JobService.publishJob(id, req.user.companyId);
+      const job = await JobService.publishJob(id, req.user.companyId, req.user.id);
 
       res.json({
         success: true,

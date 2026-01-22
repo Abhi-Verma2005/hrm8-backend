@@ -461,62 +461,9 @@ wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
                 return;
               }
 
-              // ========== CANDIDATE REPLY RESTRICTION ==========
-              // Candidates have restrictions: HR must send first, candidate can only reply once
-              if (currentConnection.userType === 'CANDIDATE') {
-                console.log('🔒 Checking candidate reply restrictions for conversation:', msgConvId);
-
-                // Get all messages in conversation ordered by time (DESC - newest first)
-                const allMessages = await ConversationService.listMessages(msgConvId, 100);
-                console.log('📨 Total messages in conversation:', allMessages.length);
-
-                // Filter out SYSTEM messages - only count HR and Candidate messages
-                const nonSystemMessages = allMessages.filter(
-                  (m: any) => m.sender_type !== ParticipantType.SYSTEM
-                );
-                console.log('📨 Non-system messages:', nonSystemMessages.length);
-
-                // If there are no non-system messages, candidate cannot send first
-                if (nonSystemMessages.length === 0) {
-                  console.log('❌ No non-system messages - blocking candidate from sending first');
-                  sendError(ws, 'Please wait for the employer/HR to send the first message before you can reply.', 4010);
-                  return;
-                }
-
-                // Check if any HR/employer message exists (they must send first)
-                const hrMessages = nonSystemMessages.filter(
-                  (m: any) => m.sender_type === ParticipantType.EMPLOYER || m.sender_type === ParticipantType.CONSULTANT
-                );
-                console.log('📨 HR/Employer messages:', hrMessages.length);
-
-                if (hrMessages.length === 0) {
-                  // No HR message yet - block candidate
-                  console.log('❌ No HR messages yet - blocking candidate');
-                  sendError(ws, 'Please wait for the employer/HR to send the first message before you can reply.', 4010);
-                  return;
-                }
-
-                // Find the most recent HR message (first in DESC order list)
-                const lastHrMessageIndex = nonSystemMessages.findIndex(
-                  (m: any) => m.sender_type === ParticipantType.EMPLOYER || m.sender_type === ParticipantType.CONSULTANT
-                );
-
-                // Messages AFTER the last HR message = slice from 0 to lastHrMessageIndex (since DESC order, newer ones are before)
-                const messagesAfterLastHr = nonSystemMessages.slice(0, lastHrMessageIndex);
-                const candidateRepliesAfterHr = messagesAfterLastHr.filter(
-                  (m: any) => m.sender_type === ParticipantType.CANDIDATE
-                );
-                console.log('📨 Candidate replies after last HR message:', candidateRepliesAfterHr.length);
-
-                if (candidateRepliesAfterHr.length >= 1) {
-                  console.log('❌ Candidate already replied - blocking');
-                  sendError(ws, 'You have already replied. Please wait for the employer/HR to respond before sending another message.', 4011);
-                  return;
-                }
-
-                console.log('✅ Candidate allowed to send message');
-              }
-              // ========== END CANDIDATE RESTRICTION ==========
+              // ========== CANDIDATE REPLY RESTRICTION REMOVED ==========
+              // Open conversation allowed as per user request
+              // ========== END CANDIDATE RESTRICTION REMOVED ==========
 
               // Create message in database
               const newMessage = await ConversationService.createMessage({

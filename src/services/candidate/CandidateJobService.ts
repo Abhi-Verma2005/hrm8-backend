@@ -182,9 +182,16 @@ export class CandidateJobService {
             throw new Error('Job alert not found');
         }
 
+        // Map frontend camelCase to backend snake_case
+        const updateData: any = { ...data };
+        if (updateData.isActive !== undefined) {
+            updateData.is_active = updateData.isActive;
+            delete updateData.isActive;
+        }
+
         return await prisma.jobAlert.update({
             where: { id },
-            data,
+            data: updateData,
         });
     }
 
@@ -445,10 +452,30 @@ export class CandidateJobService {
         // Check keywords in title or description
         if (criteria.search) {
             const searchLower = criteria.search.toLowerCase();
-            const titleMatch = job.title?.toLowerCase().includes(searchLower);
-            const descMatch = job.description?.toLowerCase().includes(searchLower);
-            if (!titleMatch && !descMatch) {
-                return false;
+            // Split by comma or other delimiters to support multiple keywords
+            // e.g. "webdev, senior, react" -> ["webdev", "senior", "react"]
+            const keywords = searchLower.split(/[,|]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
+
+            if (keywords.length > 0) {
+                const jobTitle = job.title?.toLowerCase() || '';
+                const jobDesc = job.description?.toLowerCase() || '';
+
+                // Check if ANY keyword matches (OR logic)
+                // Use word boundary check if possible for better accuracy, but simple include is safer for now
+                const matchesAny = keywords.some((keyword: string) =>
+                    jobTitle.includes(keyword) || jobDesc.includes(keyword)
+                );
+
+                if (!matchesAny) {
+                    return false;
+                }
+            } else {
+                // Fallback to simple include if splitting resulted in empty (edge case)
+                const titleMatch = job.title?.toLowerCase().includes(searchLower);
+                const descMatch = job.description?.toLowerCase().includes(searchLower);
+                if (!titleMatch && !descMatch) {
+                    return false;
+                }
             }
         }
 
@@ -489,7 +516,6 @@ export class CandidateJobService {
      * Create in-app notification
      */
     private static async createInAppNotification(candidateId: string, job: any) {
-        const { prisma } = await import('../../lib/prisma');
         const { CandidateNotificationPreferencesService } = await import('../candidate/CandidateNotificationPreferencesService');
 
         try {
@@ -504,23 +530,25 @@ export class CandidateJobService {
                 return;
             }
 
-            await prisma.notification.create({
+            const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+            const { NotificationRecipientType } = await import('@prisma/client');
+
+            await UniversalNotificationService.createNotification({
+                recipientType: NotificationRecipientType.CANDIDATE,
+                recipientId: candidateId,
+                type: 'JOB_ALERT' as any,
+                title: 'New Job Matching Your Criteria',
+                message: `New job matching your criteria: ${job.title}`,
                 data: {
-                    id: randomUUID(),
-                    candidate_id: candidateId,
-                    type: 'JOB_ALERT',
-                    title: 'New Job Alert',
-                    message: `New job matching your criteria: ${job.title}`,
-                    data: {
-                        jobId: job.id,
-                        jobTitle: job.title,
-                        companyName: job.company?.name || job.companyName || 'Company',
-                        location: job.location,
-                        workArrangement: job.work_arrangement,
-                        employmentType: job.employment_type
-                    },
-                    read: false,
-                }
+                    jobId: job.id,
+                    jobTitle: job.title,
+                    companyName: job.company?.name || job.companyName || 'Company',
+                    location: job.location,
+                    workArrangement: job.work_arrangement,
+                    employmentType: job.employment_type
+                },
+                jobId: job.id,
+                actionUrl: `/jobs/${job.id}`
             });
 
 

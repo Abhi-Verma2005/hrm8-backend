@@ -35,10 +35,10 @@ export class ConsultantMessageController {
                 return res.status(401).json({ success: false, error: 'Not authenticated' });
             }
 
-            const { id } = req.params;
+            const { conversationId } = req.params;
             const { limit = '50', cursor } = req.query;
 
-            const conversation = await ConversationService.getConversation(id);
+            const conversation = await ConversationService.getConversation(conversationId);
             if (!conversation) {
                 return res.status(404).json({ success: false, error: 'Conversation not found' });
             }
@@ -51,7 +51,7 @@ export class ConsultantMessageController {
                 return res.status(403).json({ success: false, error: 'Access denied' });
             }
 
-            const messages = await ConversationService.listMessages(id, parseInt(limit as string, 10), cursor as string | undefined);
+            const messages = await ConversationService.listMessages(conversationId, parseInt(limit as string, 10), cursor as string | undefined);
             return res.json({ success: true, data: messages });
         } catch (error) {
             console.error('Error listing messages:', error);
@@ -69,7 +69,7 @@ export class ConsultantMessageController {
                 return res.status(401).json({ success: false, error: 'Not authenticated' });
             }
 
-            const { id: conversationId } = req.params;
+            const { conversationId } = req.params;
             const { content, contentType, attachments } = req.body;
 
             if (!content || !content.toString().trim()) {
@@ -121,7 +121,7 @@ export class ConsultantMessageController {
                 return res.status(401).json({ success: false, error: 'Not authenticated' });
             }
 
-            const { id: conversationId } = req.params;
+            const { conversationId } = req.params;
 
             // Security Check
             const conversation = await ConversationService.getConversation(conversationId);
