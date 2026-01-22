@@ -310,9 +310,11 @@ export class JobPaymentService {
   }
 
   /**
+   * @deprecated Use WalletJobPaymentService.payForJobFromWallet instead for transaction safety
    * Process wallet payment for a job
    */
   static async processWalletPayment(jobId: string, companyId: string): Promise<boolean> {
+    console.warn('⚠️ [DEPRECATED] JobPaymentService.processWalletPayment called. Use WalletJobPaymentService instead.');
     // Verify job exists and belongs to company
     const job = await JobModel.findById(jobId);
     if (!job) {
