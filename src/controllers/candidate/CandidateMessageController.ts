@@ -73,13 +73,13 @@ export class CandidateMessageController {
         participantEmail: string;
         displayName: string;
       }> = [
-        {
-          participantType: ParticipantType.CANDIDATE,
-          participantId: candidate.id,
-          participantEmail: candidate.email,
-          displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
-        },
-      ];
+          {
+            participantType: ParticipantType.CANDIDATE,
+            participantId: candidate.id,
+            participantEmail: candidate.email,
+            displayName: `${candidate.firstName} ${candidate.lastName}`.trim(),
+          },
+        ];
 
       if (employerUserId) {
         const { prisma } = await import('../../lib/prisma');
@@ -126,6 +126,8 @@ export class CandidateMessageController {
 
   /**
    * Send a message in a conversation.
+   * RESTRICTION: Candidates can only reply ONCE per HR message.
+   * They must wait for HR to send another message before they can reply again.
    */
   static async sendMessage(req: Request, res: Response) {
     try {
@@ -161,6 +163,57 @@ export class CandidateMessageController {
           error: `Cannot send messages in ${conversation.status.toLowerCase()} conversations`,
         });
       }
+
+      // === REPLY RESTRICTION LOGIC ===
+      // Candidates can only send ONE message per HR/Employer message.
+      // They must wait for HR to respond before sending another message.
+      const messages = await ConversationService.listMessages(conversationId, 100);
+
+      if (messages.length === 0) {
+        // No messages yet - candidate cannot initiate, must wait for HR
+        return res.status(403).json({
+          success: false,
+          error: 'You cannot start a conversation. Please wait for the hiring team to contact you first.',
+          code: 'AWAITING_HR_FIRST_MESSAGE',
+        });
+      }
+
+      // Find the last message from HR/Employer (non-candidate)
+      let lastHrMessageIndex = -1;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].sender_type !== ParticipantType.CANDIDATE) {
+          lastHrMessageIndex = i;
+          break;
+        }
+      }
+
+      if (lastHrMessageIndex === -1) {
+        // No HR messages at all - candidate cannot send
+        return res.status(403).json({
+          success: false,
+          error: 'You cannot send a message yet. Please wait for the hiring team to contact you first.',
+          code: 'AWAITING_HR_FIRST_MESSAGE',
+        });
+      }
+
+      // Count candidate messages AFTER the last HR message
+      let candidateRepliesAfterHr = 0;
+      for (let i = lastHrMessageIndex + 1; i < messages.length; i++) {
+        if (messages[i].sender_type === ParticipantType.CANDIDATE &&
+          messages[i].sender_id === candidate.id) {
+          candidateRepliesAfterHr++;
+        }
+      }
+
+      if (candidateRepliesAfterHr >= 1) {
+        // Candidate already replied once - block until HR responds
+        return res.status(403).json({
+          success: false,
+          error: 'You have already replied to this message. Please wait for the hiring team to respond before sending another message.',
+          code: 'REPLY_LIMIT_REACHED',
+        });
+      }
+      // === END REPLY RESTRICTION LOGIC ===
 
       const message = await ConversationService.createMessage({
         conversationId,
