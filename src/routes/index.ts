@@ -75,6 +75,10 @@ router.use('/api/analytics', analyticsRoutes);
 router.use('/api/notifications', notificationRoutes);
 router.use('/api/user/notifications', userNotificationPreferencesRoutes);
 
+// HRM8-Assess routes
+import assessRoutes from './assess';
+router.use('/api/assess', assessRoutes);
+
 // Employer messages (for HR inbox)
 import employerMessagesRoutes from './employerMessages';
 router.use('/api/messages', employerMessagesRoutes);
