@@ -330,7 +330,6 @@ export class ConversationService {
     senderId: string
   ) {
     const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
-    const { UniversalNotificationType } = await import('@prisma/client');
 
     const recipients = conversation.participants.filter(
       (p: any) => p.participant_id !== senderId
@@ -356,6 +355,13 @@ export class ConversationService {
       // Sender display name
       const sender = conversation.participants.find((p: any) => p.participant_id === senderId);
       const senderName = sender?.display_name || 'Someone';
+
+      // SKIP NOTIFICATION if sender is 'system'
+      // System messages (e.g. "Application Submitted", "Interview Scheduled") usually come with 
+      // their own dedicated notifications. We don't want to double-notify with "New message from Someone".
+      if (senderId === 'system') {
+        continue;
+      }
 
       await UniversalNotificationService.createNotification({
         recipientType: recipientType as any,
