@@ -4,8 +4,8 @@
  * Used by both Consultant and Sales Agent portals
  */
 
-import { VirtualWalletService, CreateVirtualAccountInput, CreditAccountInput, DebitAccountInput } from './virtualWalletService';
-import { WithdrawalService, WithdrawalBalance } from './sales/WithdrawalService';
+import { VirtualWalletService } from './virtualWalletService';
+import { WithdrawalService } from './sales/WithdrawalService';
 import { StripeConnectService } from './sales/StripeConnectService';
 import { CommissionModel } from '../models/Commission';
 import prisma from '../lib/prisma';
@@ -199,7 +199,7 @@ export class CommissionWalletService {
             await walletService.creditAccount({
                 accountId: wallet.id,
                 amount,
-                type: VirtualTransactionType.COMMISSION,
+                type: VirtualTransactionType.COMMISSION_EARNED,
                 description: `Withdrawal #${withdrawalId} approved`,
                 referenceType: 'WITHDRAWAL',
                 referenceId: withdrawalId,
@@ -219,7 +219,7 @@ export class CommissionWalletService {
     static async debitWalletOnPayout(
         consultantId: string,
         amount: number,
-        withdrawalId: string,
+        _withdrawalId: string,
         stripeTransferId: string
     ): Promise<{ success: boolean; error?: string }> {
         try {
@@ -235,7 +235,7 @@ export class CommissionWalletService {
             await walletService.debitAccount({
                 accountId: wallet.id,
                 amount,
-                type: VirtualTransactionType.WITHDRAWAL,
+                type: VirtualTransactionType.COMMISSION_WITHDRAWAL,
                 description: `Stripe payout ${stripeTransferId}`,
                 referenceType: 'STRIPE_TRANSFER',
                 referenceId: stripeTransferId,

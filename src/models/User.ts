@@ -162,12 +162,33 @@ export class UserModel {
     role: UserRole,
     assignedBy: string
   ): Promise<User> {
+    const existing = await this.findById(id);
+
     const user = await prisma.user.update({
       where: { id },
       data: { role, assigned_by: assignedBy },
     });
 
-    return this.mapPrismaToUser(user as any);
+    const mappedUser = this.mapPrismaToUser(user as any);
+
+    // If role changed, send email
+    if (existing && existing.role !== mappedUser.role) {
+      try {
+        const { emailService } = await import('../services/email/EmailService');
+        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+        await emailService.sendRoleChangeEmail({
+          to: mappedUser.email,
+          name: mappedUser.name,
+          oldRole: existing.role,
+          newRole: mappedUser.role,
+          loginUrl: `${baseUrl}/login`
+        });
+      } catch (error) {
+        console.error('Failed to send role change email for user:', error);
+      }
+    }
+
+    return mappedUser;
   }
 
   /**

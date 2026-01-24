@@ -203,9 +203,9 @@ export class FinanceService {
    * Process refund impact on revenue stats
    * Deducts the refunded amount from the current period's RegionalRevenue
    */
-  static async processRefundRevenue(transactionId: string, amount: number) {
+  static async processRefundRevenue(transactionId: string, amount: number, client: any = prisma) {
     // 1. Identify context (company -> region -> licensee) and original transaction
-    const job = await prisma.job.findUnique({
+    const job = await client.job.findUnique({
       where: { id: transactionId },
       include: {
         company: {
@@ -224,7 +224,7 @@ export class FinanceService {
     if (job) {
       company = job.company;
     } else {
-      const bill = await prisma.bill.findUnique({
+      const bill = await client.bill.findUnique({
         where: { id: transactionId },
         include: {
           company: {
@@ -261,7 +261,7 @@ export class FinanceService {
     const licenseeShare = amount - hrm8Share;
 
     // Find existing revenue record for this period
-    const existingRevenue = await prisma.regionalRevenue.findFirst({
+    const existingRevenue = await client.regionalRevenue.findFirst({
       where: {
         region_id: region.id,
         licensee_id: licensee?.id,
@@ -273,7 +273,7 @@ export class FinanceService {
 
     if (existingRevenue) {
       // Decrease values
-      await prisma.regionalRevenue.update({
+      await client.regionalRevenue.update({
         where: { id: existingRevenue.id },
         data: {
           total_revenue: { decrement: amount },
@@ -283,7 +283,7 @@ export class FinanceService {
       });
     } else {
       // Create negative revenue record (Credit)
-      await prisma.regionalRevenue.create({
+      await client.regionalRevenue.create({
         data: {
           region_id: region.id,
           licensee_id: licensee?.id,

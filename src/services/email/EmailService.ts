@@ -3682,6 +3682,120 @@ The Hiring Team
   }
 
   /**
+   * Send role change notification email
+   */
+  async sendRoleChangeEmail(data: {
+    to: string;
+    name: string;
+    oldRole: string;
+    newRole: string;
+    loginUrl: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const subject = `Account Role Updated: ${data.newRole}`;
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject,
+        html: this.getRoleChangeTemplate(data.name, data.oldRole, data.newRole, data.loginUrl),
+        text: this.getRoleChangeText(data.name, data.oldRole, data.newRole, data.loginUrl),
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Role Change Notification Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', subject);
+        console.log('Old Role:', data.oldRole);
+        console.log('New Role:', data.newRole);
+        console.log('Login URL:', data.loginUrl);
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send role change notification email:', error);
+      throw new Error('Failed to send role change notification email');
+    }
+  }
+
+  /**
+   * Get HTML template for role change notification
+   */
+  private getRoleChangeTemplate(name: string, oldRole: string, newRole: string, loginUrl: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Role Updated</h1>
+            
+            <p>Hello ${name || 'there'},</p>
+            
+            <p>This is to inform you that your account role has been updated.</p>
+            
+            <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 20px 0; border: 1px solid #e2e8f0;">
+              <p style="margin: 0 0 10px 0;"><strong>Previous Role:</strong> ${oldRole}</p>
+              <p style="margin: 0;"><strong>New Role:</strong> <span style="color: #7c3aed; font-weight: bold;">${newRole}</span></p>
+            </div>
+            
+            <p>Please note that there are <strong>no changes to your login credentials</strong>. You can continue to use your existing email and password to access the system.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${loginUrl}" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Go to Login Page
+              </a>
+            </div>
+            
+            <p>If you have any questions regarding this change, please contact your administrator.</p>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Stay secure,<br>
+              The HRM8 Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of role change notification
+   */
+  private getRoleChangeText(name: string, oldRole: string, newRole: string, loginUrl: string): string {
+    return `
+Role Updated
+
+Hello ${name || 'there'},
+
+This is to inform you that your account role has been updated.
+
+Previous Role: ${oldRole}
+New Role: ${newRole}
+
+Please note that there are no changes to your login credentials. You can continue to use your existing email and password to access the system.
+
+You can access the login page here: ${loginUrl}
+
+If you have any questions regarding this change, please contact your administrator.
+
+Best regards,
+The HRM8 Team
+    `.trim();
+  }
+
+  /**
    * Render template with merge fields
    */
   renderTemplate(template: string, variables: Record<string, any>): string {

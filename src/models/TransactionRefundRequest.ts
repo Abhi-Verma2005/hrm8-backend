@@ -39,8 +39,8 @@ export class TransactionRefundRequestModel {
         transactionType: 'JOB_PAYMENT' | 'SUBSCRIPTION_BILL';
         amount: number;
         reason: string;
-    }): Promise<TransactionRefundRequestData> {
-        const refundRequest = await prisma.transactionRefundRequest.create({
+    }, client: any = prisma): Promise<TransactionRefundRequestData> {
+        const refundRequest = await client.transactionRefundRequest.create({
             data: {
                 company_id: data.companyId,
                 transaction_id: data.transactionId,
@@ -57,8 +57,8 @@ export class TransactionRefundRequestModel {
     /**
      * Find refund request by ID
      */
-    static async findById(id: string): Promise<TransactionRefundRequestData | null> {
-        const refundRequest = await prisma.transactionRefundRequest.findUnique({
+    static async findById(id: string, client: any = prisma): Promise<TransactionRefundRequestData | null> {
+        const refundRequest = await client.transactionRefundRequest.findUnique({
             where: { id },
         });
 
@@ -68,8 +68,8 @@ export class TransactionRefundRequestModel {
     /**
      * Find all refund requests for a company
      */
-    static async findByCompanyId(companyId: string): Promise<TransactionRefundRequestData[]> {
-        const refundRequests = await prisma.transactionRefundRequest.findMany({
+    static async findByCompanyId(companyId: string, client: any = prisma): Promise<TransactionRefundRequestData[]> {
+        const refundRequests = await client.transactionRefundRequest.findMany({
             where: { company_id: companyId },
             orderBy: { created_at: 'desc' },
         });
@@ -83,7 +83,7 @@ export class TransactionRefundRequestModel {
     static async findAll(filters?: {
         status?: RefundStatus;
         regionIds?: string[];
-    }): Promise<TransactionRefundRequestData[]> {
+    }, client: any = prisma): Promise<TransactionRefundRequestData[]> {
         const where: any = {};
 
         if (filters?.status) {
@@ -97,7 +97,7 @@ export class TransactionRefundRequestModel {
             };
         }
 
-        const refundRequests = await prisma.transactionRefundRequest.findMany({
+        const refundRequests = await client.transactionRefundRequest.findMany({
             where,
             orderBy: { created_at: 'desc' },
             include: {
@@ -112,37 +112,37 @@ export class TransactionRefundRequestModel {
 
         // Fetch transaction context (Job or Bill details)
         const jobIds = refundRequests
-            .filter(r => r.transaction_type === 'JOB_PAYMENT')
-            .map(r => r.transaction_id);
+            .filter((r: any) => r.transaction_type === 'JOB_PAYMENT')
+            .map((r: any) => r.transaction_id);
 
         const billIds = refundRequests
-            .filter(r => r.transaction_type === 'SUBSCRIPTION_BILL')
-            .map(r => r.transaction_id);
+            .filter((r: any) => r.transaction_type === 'SUBSCRIPTION_BILL')
+            .map((r: any) => r.transaction_id);
 
-        const jobs = jobIds.length > 0 ? await prisma.job.findMany({
+        const jobs = jobIds.length > 0 ? await client.job.findMany({
             where: { id: { in: jobIds } },
             select: { id: true, title: true, created_at: true }
         }) : [];
 
-        const bills = billIds.length > 0 ? await prisma.bill.findMany({
+        const bills = billIds.length > 0 ? await client.bill.findMany({
             where: { id: { in: billIds } },
             select: { id: true, bill_number: true, paid_at: true }
         }) : [];
 
-        const jobMap = new Map(jobs.map(j => [j.id, j]));
-        const billMap = new Map(bills.map(b => [b.id, b]));
+        const jobMap = new Map(jobs.map((j: any) => [j.id, j]));
+        const billMap = new Map(bills.map((b: any) => [b.id, b]));
 
-        return refundRequests.map(req => {
+        return refundRequests.map((req: any) => {
             const data = this.mapToData(req);
             let context;
 
             if (req.transaction_type === 'JOB_PAYMENT') {
-                const job = jobMap.get(req.transaction_id);
+                const job: any = jobMap.get(req.transaction_id);
                 if (job) {
                     context = { title: job.title, date: job.created_at.toISOString() };
                 }
             } else if (req.transaction_type === 'SUBSCRIPTION_BILL') {
-                const bill = billMap.get(req.transaction_id);
+                const bill: any = billMap.get(req.transaction_id);
                 if (bill) {
                     context = { billNumber: bill.bill_number, date: (bill.paid_at || new Date()).toISOString() };
                 }
@@ -155,8 +155,8 @@ export class TransactionRefundRequestModel {
     /**
      * Update refund request status to APPROVED
      */
-    static async approve(id: string, adminId: string, adminNotes?: string): Promise<TransactionRefundRequestData> {
-        const refundRequest = await prisma.transactionRefundRequest.update({
+    static async approve(id: string, adminId: string, adminNotes?: string, client: any = prisma): Promise<TransactionRefundRequestData> {
+        const refundRequest = await client.transactionRefundRequest.update({
             where: { id },
             data: {
                 status: 'APPROVED',
@@ -172,8 +172,8 @@ export class TransactionRefundRequestModel {
     /**
      * Update refund request status to REJECTED
      */
-    static async reject(id: string, adminId: string, rejectionReason: string): Promise<TransactionRefundRequestData> {
-        const refundRequest = await prisma.transactionRefundRequest.update({
+    static async reject(id: string, adminId: string, rejectionReason: string, client: any = prisma): Promise<TransactionRefundRequestData> {
+        const refundRequest = await client.transactionRefundRequest.update({
             where: { id },
             data: {
                 status: 'REJECTED',
@@ -189,8 +189,8 @@ export class TransactionRefundRequestModel {
     /**
      * Mark refund as completed
      */
-    static async complete(id: string, paymentReference?: string): Promise<TransactionRefundRequestData> {
-        const refundRequest = await prisma.transactionRefundRequest.update({
+    static async complete(id: string, paymentReference?: string, client: any = prisma): Promise<TransactionRefundRequestData> {
+        const refundRequest = await client.transactionRefundRequest.update({
             where: { id },
             data: {
                 status: 'COMPLETED',
@@ -205,8 +205,8 @@ export class TransactionRefundRequestModel {
     /**
      * Cancel refund request
      */
-    static async cancel(id: string): Promise<TransactionRefundRequestData> {
-        const refundRequest = await prisma.transactionRefundRequest.update({
+    static async cancel(id: string, client: any = prisma): Promise<TransactionRefundRequestData> {
+        const refundRequest = await client.transactionRefundRequest.update({
             where: { id },
             data: {
                 status: 'CANCELLED',

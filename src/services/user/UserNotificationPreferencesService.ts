@@ -20,7 +20,8 @@ export type NotificationEventType =
     | 'system_announcement'
     | 'user_signup'
     | 'support_ticket'
-    | 'new_message';
+    | 'new_message'
+    | 'refund_update';
 
 export type NotificationChannel = 'email' | 'in-app' | 'sms' | 'slack';
 
@@ -53,6 +54,7 @@ const DEFAULT_EVENT_PREFERENCES: Record<NotificationEventType, EventPreference> 
     user_signup: { enabled: true, channels: ['in-app'] },
     support_ticket: { enabled: true, channels: ['email', 'in-app'] },
     new_message: { enabled: true, channels: ['email', 'in-app'] },
+    refund_update: { enabled: true, channels: ['email', 'in-app'] },
 };
 
 export class UserNotificationPreferencesService {

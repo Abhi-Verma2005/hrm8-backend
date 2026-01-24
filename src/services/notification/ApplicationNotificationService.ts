@@ -24,7 +24,7 @@ export class ApplicationNotificationService {
   private static async createInAppNotification(data: NotificationData): Promise<void> {
     const { prisma } = await import('../../lib/prisma');
     const { CandidateNotificationPreferencesService } = await import('../candidate/CandidateNotificationPreferencesService');
-    const { EmailService } = await import('../email/EmailService');
+    const { emailService } = await import('../email/EmailService');
 
     try {
       // 1. In-App Notification
@@ -69,7 +69,7 @@ export class ApplicationNotificationService {
           // data.data.actionUrl or similar might be useful if available, otherwise just generic link
           const actionUrl = data.data?.actionUrl || '/candidate/dashboard';
 
-          await EmailService.getInstance().sendNotificationEmail(
+          await emailService.sendNotificationEmail(
             candidate.email,
             data.title,
             data.message,
@@ -141,12 +141,8 @@ export class ApplicationNotificationService {
           stage,
         },
       });
-    } catch (error) {
-      console.error('❌ Error in notifyStatusChange:', error);
-    }
 
-    // Notify Job Owner (Recruiter)
-    try {
+      // Notify Job Owner (Recruiter)
       if (job && job.createdBy) {
         const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
         const { NotificationRecipientType } = await import('@prisma/client');
@@ -169,11 +165,11 @@ export class ApplicationNotificationService {
         });
 
         // Email Notification for Recruiter
-        const { prisma } = await import('../../lib/prisma');
-        const { EmailService } = await import('../email/EmailService');
+        const { prisma: prismaDb } = await import('../../lib/prisma');
+        const { emailService: mailSvc } = await import('../email/EmailService');
         const { UserNotificationPreferencesService } = await import('../user/UserNotificationPreferencesService');
 
-        const recruiter = await prisma.user.findUnique({ where: { id: job.createdBy } });
+        const recruiter = await prismaDb.user.findUnique({ where: { id: job.createdBy } });
 
         if (recruiter && recruiter.email) {
           // Check recruiter preferences
@@ -184,7 +180,7 @@ export class ApplicationNotificationService {
           );
 
           if (shouldEmailRecruiter) {
-            await EmailService.getInstance().sendNotificationEmail(
+            await mailSvc.sendNotificationEmail(
               recruiter.email,
               `Application Status Updated: ${candidate.firstName} ${candidate.lastName}`,
               `The status for ${candidate.firstName} ${candidate.lastName}'s application has been updated to "${newStatusLabel}".`,
@@ -196,8 +192,8 @@ export class ApplicationNotificationService {
           }
         }
       }
-    } catch (recruiterNotifyError) {
-      console.error('Failed to notify recruiter of status change:', recruiterNotifyError);
+    } catch (error) {
+      console.error('❌ Error in notifyStatusChange:', error);
     }
   }
 
@@ -258,12 +254,8 @@ export class ApplicationNotificationService {
           status,
         },
       });
-    } catch (error) {
-      console.error('❌ Error in notifyStageChange:', error);
-    }
 
-    // Notify Job Owner (Recruiter)
-    try {
+      // Notify Job Owner (Recruiter)
       if (job && job.createdBy) {
         const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
         const { NotificationRecipientType } = await import('@prisma/client');
@@ -286,11 +278,11 @@ export class ApplicationNotificationService {
         });
 
         // Email Notification
-        const { prisma } = await import('../../lib/prisma');
-        const { EmailService } = await import('../email/EmailService');
+        const { prisma: prismaDb } = await import('../../lib/prisma');
+        const { emailService: stageMailSvc } = await import('../email/EmailService');
         const { UserNotificationPreferencesService } = await import('../user/UserNotificationPreferencesService');
 
-        const recruiter = await prisma.user.findUnique({ where: { id: job.createdBy } });
+        const recruiter = await prismaDb.user.findUnique({ where: { id: job.createdBy } });
 
         if (recruiter && recruiter.email) {
           // Check recruiter preferences
@@ -301,7 +293,7 @@ export class ApplicationNotificationService {
           );
 
           if (shouldEmailRecruiter) {
-            await EmailService.getInstance().sendNotificationEmail(
+            await stageMailSvc.sendNotificationEmail(
               recruiter.email,
               `Application Stage Updated: ${candidate.firstName} ${candidate.lastName}`,
               `The stage for ${candidate.firstName} ${candidate.lastName}'s application has been updated to "${newStageLabel}".`,
@@ -313,8 +305,8 @@ export class ApplicationNotificationService {
           }
         }
       }
-    } catch (recruiterNotifyError) {
-      console.error('Failed to notify recruiter of stage change:', recruiterNotifyError);
+    } catch (error) {
+      console.error('❌ Error in notifyStageChange:', error);
     }
   }
 

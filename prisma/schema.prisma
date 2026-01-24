@@ -2593,6 +2593,7 @@ enum UniversalNotificationType {
   SYSTEM_ANNOUNCEMENT
   NEW_MESSAGE
   JOB_ALERT
+  REFUND_STATUS_CHANGED
 }
 
 enum NotificationRecipientType {

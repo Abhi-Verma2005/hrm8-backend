@@ -1,10 +1,8 @@
-/**
- * RefundAdminService
- * Handles refund request admin operations (HRM8 dashboard)
- */
-
 import { TransactionRefundRequestModel, TransactionRefundRequestData } from '../../models/TransactionRefundRequest';
-import { RefundStatus } from '@prisma/client';
+import { RefundStatus, VirtualTransactionType, VirtualAccountOwner } from '@prisma/client';
+import { RefundNotificationHelper } from '../company/RefundNotificationHelper';
+import prisma from '../../lib/prisma';
+import { VirtualWalletService } from '../virtualWalletService';
 
 export class RefundAdminService {
     /**
@@ -39,6 +37,15 @@ export class RefundAdminService {
 
             const approved = await TransactionRefundRequestModel.approve(refundId, adminId, adminNotes);
 
+            // Notify company of approval
+            await RefundNotificationHelper.notifyCompanyOfRefundStatus(
+                refundId,
+                refund.companyId,
+                refund.amount,
+                'APPROVED',
+                adminNotes
+            );
+
             return { success: true, refundRequest: approved };
         } catch (error: any) {
             console.error('Approve refund error:', error);
@@ -71,6 +78,15 @@ export class RefundAdminService {
 
             const rejected = await TransactionRefundRequestModel.reject(refundId, adminId, rejectionReason);
 
+            // Notify company of rejection
+            await RefundNotificationHelper.notifyCompanyOfRefundStatus(
+                refundId,
+                refund.companyId,
+                refund.amount,
+                'REJECTED',
+                rejectionReason
+            );
+
             return { success: true, refundRequest: rejected };
         } catch (error: any) {
             console.error('Reject refund error:', error);
@@ -96,15 +112,106 @@ export class RefundAdminService {
                 return { success: false, error: 'Can only complete approved requests' };
             }
 
-            const completed = await TransactionRefundRequestModel.complete(refundId, paymentReference);
+            return await prisma.$transaction(async (tx) => {
+                console.log(`[RefundAdminService.completeRefund] Admin starting completion for Refund: ${refundId}`);
 
-            // Process revenue deduction/reversal
-            await import('./FinanceService').then(m => m.FinanceService.processRefundRevenue(refund.transactionId, refund.amount));
+                // Mark as completed - PASS THE TRANSACTION CLIENT
+                const completed = await TransactionRefundRequestModel.complete(refundId, paymentReference, tx);
 
-            return { success: true, refundRequest: completed };
+                // Initialize wallet service with the transaction client
+                const walletService = new VirtualWalletService(tx as any);
+
+                // Get or create virtual account for company
+                const virtualAccount = await walletService.getOrCreateAccount({
+                    ownerType: VirtualAccountOwner.COMPANY,
+                    ownerId: refund.companyId,
+                });
+
+                console.log(`[RefundAdminService.completeRefund] Wallet: ${virtualAccount.id}, Old Balance: ${virtualAccount.balance}`);
+
+                // Get transaction context info for description
+                let description = `Refund for ${refund.transactionType.toLowerCase().replace('_', ' ')}`;
+                if (refund.transactionType === 'JOB_PAYMENT') {
+                    const job = await tx.job.findUnique({ where: { id: refund.transactionId }, select: { title: true } });
+                    if (job) description = `Refund for job: ${job.title}`;
+                } else if (refund.transactionType === 'SUBSCRIPTION_BILL') {
+                    const bill = await tx.bill.findUnique({ where: { id: refund.transactionId }, select: { bill_number: true } });
+                    if (bill) description = `Refund for bill: ${bill.bill_number}`;
+                }
+
+                // Credit the company's virtual wallet
+                const creditResult = await walletService.creditAccount({
+                    accountId: virtualAccount.id,
+                    amount: refund.amount,
+                    type: refund.transactionType === 'JOB_PAYMENT' ? VirtualTransactionType.JOB_REFUND : VirtualTransactionType.SUBSCRIPTION_REFUND,
+                    description: description,
+                    referenceType: 'REFUND_REQUEST',
+                    referenceId: refundId,
+                });
+
+                console.log(`[RefundAdminService.completeRefund] Credit successful. New Balance: ${creditResult.account.balance}`);
+
+                // Process revenue deduction/reversal
+                const { FinanceService } = await import('./FinanceService');
+                await FinanceService.processRefundRevenue(refund.transactionId, refund.amount, tx);
+
+                console.log(`[RefundAdminService.completeRefund] Complete: Refund fully credited and closed.`);
+                return { success: true, refundRequest: completed };
+            }, {
+                timeout: 30000,
+            });
         } catch (error: any) {
             console.error('Complete refund error:', error);
             return { success: false, error: error.message || 'Failed to complete refund' };
         }
+    }
+
+    /**
+     * Get refund statistics
+     */
+    static async getRefundStats(filters?: { companyId?: string; startDate?: Date; endDate?: Date }) {
+        const { companyId, startDate, endDate } = filters || {};
+        const where: any = {};
+
+        if (companyId) {
+            where.company_id = companyId;
+        }
+
+        if (startDate || endDate) {
+            where.created_at = {};
+            if (startDate) where.created_at.gte = startDate;
+            if (endDate) where.created_at.lte = endDate;
+        }
+
+        const [total, approved, rejected, pending, totalAmount, approvedAmount] = await Promise.all([
+            prisma.transactionRefundRequest.count({ where }),
+            prisma.transactionRefundRequest.count({
+                where: { ...where, status: RefundStatus.APPROVED },
+            }),
+            prisma.transactionRefundRequest.count({
+                where: { ...where, status: RefundStatus.REJECTED },
+            }),
+            prisma.transactionRefundRequest.count({
+                where: { ...where, status: RefundStatus.PENDING },
+            }),
+            prisma.transactionRefundRequest.aggregate({
+                where,
+                _sum: { amount: true },
+            }),
+            prisma.transactionRefundRequest.aggregate({
+                where: { ...where, status: RefundStatus.APPROVED },
+                _sum: { amount: true },
+            }),
+        ]);
+
+        return {
+            total,
+            approved,
+            rejected,
+            pending,
+            totalAmount: totalAmount._sum.amount || 0,
+            approvedAmount: approvedAmount._sum.amount || 0,
+            approvalRate: total > 0 ? (approved / total) * 100 : 0,
+        };
     }
 }

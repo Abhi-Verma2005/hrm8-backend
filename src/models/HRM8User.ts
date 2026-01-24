@@ -65,6 +65,8 @@ export class HRM8UserModel {
    * Update HRM8 user
    */
   static async update(id: string, data: Partial<HRM8User>): Promise<HRM8User> {
+    const existing = await this.findById(id);
+
     const user = await prisma.hRM8User.update({
       where: { id },
       data: {
@@ -78,7 +80,26 @@ export class HRM8UserModel {
       },
     });
 
-    return this.mapPrismaToUser(user);
+    const mappedUser = this.mapPrismaToUser(user);
+
+    // If role changed, send email
+    if (existing && data.role && existing.role !== data.role) {
+      try {
+        const { emailService } = await import('../services/email/EmailService');
+        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+        await emailService.sendRoleChangeEmail({
+          to: mappedUser.email,
+          name: `${mappedUser.firstName} ${mappedUser.lastName}`,
+          oldRole: existing.role,
+          newRole: mappedUser.role,
+          loginUrl: `${baseUrl}/hrm8/login`
+        });
+      } catch (error) {
+        console.error('Failed to send role change email for HRM8 user:', error);
+      }
+    }
+
+    return mappedUser;
   }
 
   /**

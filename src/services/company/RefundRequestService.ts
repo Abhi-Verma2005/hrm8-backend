@@ -1,10 +1,8 @@
-/**
- * RefundRequestService
- * Handles refund request logic for employers
- */
-
 import { TransactionRefundRequestModel, TransactionRefundRequestData } from '../../models/TransactionRefundRequest';
 import prisma from '../../lib/prisma';
+import { VirtualWalletService } from '../virtualWalletService';
+import { VirtualTransactionType, VirtualAccountOwner } from '@prisma/client';
+import { RefundNotificationHelper } from './RefundNotificationHelper';
 
 export class RefundRequestService {
     /**
@@ -55,6 +53,20 @@ export class RefundRequestService {
 
             // Create refund request
             const refundRequest = await TransactionRefundRequestModel.create(data);
+
+            // Fetch company name for notification
+            const company = await prisma.company.findUnique({
+                where: { id: data.companyId },
+                select: { name: true }
+            });
+
+            // Trigger notifications for new refund request
+            await RefundNotificationHelper.notifyAdminsOfNewRefund(
+                refundRequest.id,
+                data.companyId,
+                data.amount,
+                company?.name || 'A company'
+            );
 
             return { success: true, refundRequest };
         } catch (error: any) {
@@ -186,14 +198,54 @@ export class RefundRequestService {
                 return { success: false, error: 'Can only withdraw approved refunds' };
             }
 
-            // Mark as completed
-            const completed = await TransactionRefundRequestModel.complete(refundId);
+            return await prisma.$transaction(async (tx) => {
+                console.log(`[RefundRequestService.withdrawRefund] Starting withdrawal: ${refundId} for company ${companyId}`);
 
-            // Process revenue deduction
-            const { FinanceService } = await import('../hrm8/FinanceService');
-            await FinanceService.processRefundRevenue(refund.transactionId, refund.amount);
+                // Mark as completed - PASS THE TRANSACTION CLIENT
+                const completed = await TransactionRefundRequestModel.complete(refundId, undefined, tx);
 
-            return { success: true, refundRequest: completed };
+                // Initialize wallet service with the transaction client
+                const walletService = new VirtualWalletService(tx as any);
+
+                // Get or create virtual account for company
+                const virtualAccount = await walletService.getOrCreateAccount({
+                    ownerType: VirtualAccountOwner.COMPANY,
+                    ownerId: companyId,
+                });
+
+                console.log(`[RefundRequestService.withdrawRefund] Wallet found: ${virtualAccount.id}, Old Balance: ${virtualAccount.balance}`);
+
+                // Get transaction context info for description
+                let description = `Refund for ${refund.transactionType.toLowerCase().replace('_', ' ')}`;
+                if (refund.transactionType === 'JOB_PAYMENT') {
+                    const job = await tx.job.findUnique({ where: { id: refund.transactionId }, select: { title: true } });
+                    if (job) description = `Refund for job: ${job.title}`;
+                } else if (refund.transactionType === 'SUBSCRIPTION_BILL') {
+                    const bill = await tx.bill.findUnique({ where: { id: refund.transactionId }, select: { bill_number: true } });
+                    if (bill) description = `Refund for bill: ${bill.bill_number}`;
+                }
+
+                // Credit the company's virtual wallet
+                const creditResult = await walletService.creditAccount({
+                    accountId: virtualAccount.id,
+                    amount: refund.amount,
+                    type: refund.transactionType === 'JOB_PAYMENT' ? VirtualTransactionType.JOB_REFUND : VirtualTransactionType.SUBSCRIPTION_REFUND,
+                    description: description,
+                    referenceType: 'REFUND_REQUEST',
+                    referenceId: refundId,
+                });
+
+                console.log(`[RefundRequestService.withdrawRefund] Credit successful. New Balance: ${creditResult.account.balance}`);
+
+                // Process revenue deduction
+                const { FinanceService } = await import('../hrm8/FinanceService');
+                await FinanceService.processRefundRevenue(refund.transactionId, refund.amount, tx);
+
+                console.log(`[RefundRequestService.withdrawRefund] Complete: Refund ${refundId} fully processed and credited.`);
+                return { success: true, refundRequest: completed };
+            }, {
+                timeout: 30000,
+            });
         } catch (error: any) {
             console.error('Withdraw refund error:', error);
             return { success: false, error: error.message || 'Failed to withdraw refund' };

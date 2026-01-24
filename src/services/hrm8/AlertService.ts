@@ -178,7 +178,7 @@ export class AlertService {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        const pendingRefunds = await prisma.refundRequest.findMany({
+        const pendingRefunds = await prisma.transactionRefundRequest.findMany({
             where: {
                 status: 'PENDING',
                 created_at: { lt: sevenDaysAgo },
@@ -189,7 +189,7 @@ export class AlertService {
             take: 10,
         });
 
-        return pendingRefunds.map((r) => ({
+        return pendingRefunds.map((r: any) => ({
             id: `refund-${r.id}`,
             type: 'PENDING_REFUND' as AlertType,
             severity: 'WARNING' as AlertSeverity,

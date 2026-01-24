@@ -192,6 +192,8 @@ export class ConsultantModel {
    * Update consultant
    */
   static async update(id: string, data: Partial<ConsultantData>): Promise<ConsultantData> {
+    const existing = await this.findById(id);
+
     const updateData: any = {};
 
     if (data.firstName !== undefined) updateData.first_name = data.firstName.trim();
@@ -239,7 +241,26 @@ export class ConsultantModel {
       include: { region: true },
     });
 
-    return this.mapPrismaToConsultant(consultant);
+    const updated = this.mapPrismaToConsultant(consultant);
+
+    // If role changed, send email
+    if (existing && data.role && existing.role !== data.role) {
+      try {
+        const { emailService } = await import('../services/email/EmailService');
+        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+        await emailService.sendRoleChangeEmail({
+          to: updated.email,
+          name: `${updated.firstName} ${updated.lastName}`,
+          oldRole: existing.role,
+          newRole: updated.role,
+          loginUrl: `${baseUrl}/consultant/login`
+        });
+      } catch (error) {
+        console.error('Failed to send role change email for consultant:', error);
+      }
+    }
+
+    return updated;
   }
 
   /**

@@ -32,6 +32,7 @@ interface CreateNotificationParams {
     leadId?: string;
     regionId?: string;
     actionUrl?: string;
+    force?: boolean;
 }
 
 interface BulkCreateNotificationParams {
@@ -97,6 +98,8 @@ export class UniversalNotificationService {
                 return 'new_message';
             case 'SYSTEM_ANNOUNCEMENT':
                 return 'system_announcement';
+            case 'REFUND_STATUS_CHANGED':
+                return 'refund_update';
             case 'NEW_LEAD':
             case 'LEAD_CONVERTED':
                 // Creating a simplified mapping for leads as they don't have a specific event type yet
@@ -119,7 +122,7 @@ export class UniversalNotificationService {
      */
     static async createNotification(params: CreateNotificationParams): Promise<UniversalNotification | null> {
         // Preference Check for Users
-        if (params.recipientType === 'USER') {
+        if (params.recipientType === 'USER' && !params.force) {
             const eventType = this.mapToEventType(params.type);
 
             // Check if In-App notifications are enabled for this event
