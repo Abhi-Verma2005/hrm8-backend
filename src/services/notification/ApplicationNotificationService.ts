@@ -18,41 +18,69 @@ interface NotificationData {
 
 export class ApplicationNotificationService {
   /**
-   * Create in-app notification for candidate
-   * Checks notification preferences before creating
+   * Create notification for candidate (In-App + Email)
+   * Checks notification preferences before sending
    */
   private static async createInAppNotification(data: NotificationData): Promise<void> {
     const { prisma } = await import('../../lib/prisma');
     const { CandidateNotificationPreferencesService } = await import('../candidate/CandidateNotificationPreferencesService');
+    const { EmailService } = await import('../email/EmailService');
 
     try {
-      // Check if notification should be sent based on preferences
-      const shouldSend = await CandidateNotificationPreferencesService.shouldSendNotification(
+      // 1. In-App Notification
+      const shouldSendInApp = await CandidateNotificationPreferencesService.shouldSendNotification(
         data.candidateId,
         data.type,
         'inApp'
       );
 
-      if (!shouldSend) {
-        console.log(`⏭️ Notification skipped for candidate ${data.candidateId} (preferences disabled): ${data.title}`);
-        return;
+      if (shouldSendInApp) {
+        await prisma.notification.create({
+          data: {
+            id: randomUUID(),
+            candidate_id: data.candidateId,
+            type: data.type,
+            title: data.title,
+            message: data.message,
+            data: data.data || {},
+            read: false,
+          },
+        });
+        console.log(`✅ In-app notification created for candidate ${data.candidateId}: ${data.title}`);
+      } else {
+        console.log(`⏭️ In-app notification skipped for candidate ${data.candidateId}`);
       }
 
-      await prisma.notification.create({
-        data: {
-          id: randomUUID(),
-          candidate_id: data.candidateId,
-          type: data.type,
-          title: data.title,
-          message: data.message,
-          data: data.data || {},
-          read: false,
-        },
-      });
+      // 2. Email Notification
+      const shouldSendEmail = await CandidateNotificationPreferencesService.shouldSendNotification(
+        data.candidateId,
+        data.type,
+        'email'
+      );
 
-      console.log(`✅ In-app notification created for candidate ${data.candidateId}: ${data.title}`);
+      if (shouldSendEmail) {
+        const candidate = await prisma.candidate.findUnique({
+          where: { id: data.candidateId },
+          select: { email: true }
+        });
+
+        if (candidate?.email) {
+          // Use the generic notification email method
+          // data.data.actionUrl or similar might be useful if available, otherwise just generic link
+          const actionUrl = data.data?.actionUrl || '/candidate/dashboard';
+
+          await EmailService.getInstance().sendNotificationEmail(
+            candidate.email,
+            data.title,
+            data.message,
+            actionUrl
+          );
+          console.log(`✅ Email notification sent to candidate ${data.candidateId}`);
+        }
+      }
+
     } catch (error) {
-      console.error('❌ Failed to create in-app notification:', error);
+      console.error('❌ Failed to process notifications:', error);
     }
   }
 
@@ -116,6 +144,61 @@ export class ApplicationNotificationService {
     } catch (error) {
       console.error('❌ Error in notifyStatusChange:', error);
     }
+
+    // Notify Job Owner (Recruiter)
+    try {
+      if (job && job.createdBy) {
+        const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+        const { NotificationRecipientType } = await import('@prisma/client');
+
+        await UniversalNotificationService.createNotification({
+          recipientType: NotificationRecipientType.USER,
+          recipientId: job.createdBy,
+          type: 'APPLICATION_STATUS_CHANGED' as any,
+          title: 'Application Status Updated',
+          message: `Application for ${candidate.firstName} ${candidate.lastName} has been updated to "${newStatusLabel}".`,
+          jobId: job.id,
+          applicationId: applicationId,
+          actionUrl: `/jobs/${job.id}/applications/${applicationId}`,
+          data: {
+            oldStatus,
+            newStatus,
+            candidateId,
+            candidateName: `${candidate.firstName} ${candidate.lastName}`
+          }
+        });
+
+        // Email Notification for Recruiter
+        const { prisma } = await import('../../lib/prisma');
+        const { EmailService } = await import('../email/EmailService');
+        const { UserNotificationPreferencesService } = await import('../user/UserNotificationPreferencesService');
+
+        const recruiter = await prisma.user.findUnique({ where: { id: job.createdBy } });
+
+        if (recruiter && recruiter.email) {
+          // Check recruiter preferences
+          const shouldEmailRecruiter = await UserNotificationPreferencesService.shouldSendNotification(
+            recruiter.id,
+            'application_status_change',
+            'email'
+          );
+
+          if (shouldEmailRecruiter) {
+            await EmailService.getInstance().sendNotificationEmail(
+              recruiter.email,
+              `Application Status Updated: ${candidate.firstName} ${candidate.lastName}`,
+              `The status for ${candidate.firstName} ${candidate.lastName}'s application has been updated to "${newStatusLabel}".`,
+              `/jobs/${job.id}/applications/${applicationId}`
+            );
+            console.log(`✅ Status update email sent to recruiter ${recruiter.email}`);
+          } else {
+            console.log(`Kiip Recruiter email skipped (preferences): ${recruiter.email}`);
+          }
+        }
+      }
+    } catch (recruiterNotifyError) {
+      console.error('Failed to notify recruiter of status change:', recruiterNotifyError);
+    }
   }
 
   /**
@@ -177,6 +260,61 @@ export class ApplicationNotificationService {
       });
     } catch (error) {
       console.error('❌ Error in notifyStageChange:', error);
+    }
+
+    // Notify Job Owner (Recruiter)
+    try {
+      if (job && job.createdBy) {
+        const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+        const { NotificationRecipientType } = await import('@prisma/client');
+
+        await UniversalNotificationService.createNotification({
+          recipientType: NotificationRecipientType.USER,
+          recipientId: job.createdBy,
+          type: 'APPLICATION_STATUS_CHANGED' as any, // Reusing status change type or generic
+          title: 'Application Stage Updated',
+          message: `Application for ${candidate.firstName} ${candidate.lastName} has moved to "${newStageLabel}".`,
+          jobId: job.id,
+          applicationId: applicationId,
+          actionUrl: `/jobs/${job.id}/applications/${applicationId}`,
+          data: {
+            oldStage,
+            newStage,
+            candidateId,
+            candidateName: `${candidate.firstName} ${candidate.lastName}`
+          }
+        });
+
+        // Email Notification
+        const { prisma } = await import('../../lib/prisma');
+        const { EmailService } = await import('../email/EmailService');
+        const { UserNotificationPreferencesService } = await import('../user/UserNotificationPreferencesService');
+
+        const recruiter = await prisma.user.findUnique({ where: { id: job.createdBy } });
+
+        if (recruiter && recruiter.email) {
+          // Check recruiter preferences
+          const shouldEmailRecruiter = await UserNotificationPreferencesService.shouldSendNotification(
+            recruiter.id,
+            'application_status_change', // Using status change preference for stage too, or create new type
+            'email'
+          );
+
+          if (shouldEmailRecruiter) {
+            await EmailService.getInstance().sendNotificationEmail(
+              recruiter.email,
+              `Application Stage Updated: ${candidate.firstName} ${candidate.lastName}`,
+              `The stage for ${candidate.firstName} ${candidate.lastName}'s application has been updated to "${newStageLabel}".`,
+              `/jobs/${job.id}/applications/${applicationId}`
+            );
+            console.log(`✅ Stage update email sent to recruiter ${recruiter.email}`);
+          } else {
+            console.log(`Kiip Recruiter email skipped (preferences): ${recruiter.email}`);
+          }
+        }
+      }
+    } catch (recruiterNotifyError) {
+      console.error('Failed to notify recruiter of stage change:', recruiterNotifyError);
     }
   }
 

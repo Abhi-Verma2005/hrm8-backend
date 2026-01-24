@@ -192,25 +192,7 @@ export class ApplicationController {
 
 
 
-      // Send notification to employer
-      try {
-        if (job && job.createdBy) {
-          const candidateName = `${candidate.firstName} ${candidate.lastName}`;
-          await UniversalNotificationService.createNotification({
-            recipientType: NotificationRecipientType.USER,
-            recipientId: job.createdBy,
-            type: UniversalNotificationType.NEW_APPLICATION,
-            title: 'New Application Received',
-            message: `${candidateName} has applied for ${job.title}`,
-            jobId: job.id,
-            applicationId: application.id,
-            actionUrl: `/jobs/${job.id}/applications/${application.id}`,
-          });
-        }
-      } catch (notificationError) {
-        console.error('❌ Failed to send notification to employer:', notificationError);
-        // Don't block application submission if notification fails
-      }
+
 
       // Notify candidate in-app (for anonymous application - they get auto logged in)
       if (candidate && candidate.id) {
@@ -308,34 +290,7 @@ export class ApplicationController {
 
 
 
-      try {
-        const job = await JobModel.findById(result.jobId);
 
-
-        if (job && job.createdBy) {
-
-          const candidateName = `${candidate.firstName} ${candidate.lastName}`;
-          await UniversalNotificationService.createNotification({
-            recipientType: NotificationRecipientType.USER,
-            recipientId: job.createdBy,
-            type: UniversalNotificationType.NEW_APPLICATION,
-            title: 'New Application Received',
-            message: `${candidateName} has applied for ${job.title}`,
-            jobId: job.id,
-            applicationId: result.id,
-            actionUrl: `/jobs/${job.id}/applications/${result.id}`,
-          });
-        } else {
-          console.warn('⚠️ Cannot send notification - job or createdBy missing:', {
-            hasJob: !!job,
-            hasCreatedBy: !!job?.createdBy,
-            jobId: result.jobId
-          });
-        }
-      } catch (notificationError) {
-        console.error('❌ Failed to send notification to employer:', notificationError);
-        // Don't block application submission if notification fails
-      }
 
       // Send email notification for authenticated users
       try {

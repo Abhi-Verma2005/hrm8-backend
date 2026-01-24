@@ -112,7 +112,7 @@ export class InterviewService {
         },
       },
     });
-    
+
     if (existingInterviews.length > 0) {
       return VideoInterviewModel.mapPrismaToVideoInterview(existingInterviews[0]);
     }
@@ -122,7 +122,7 @@ export class InterviewService {
     if (!application) {
       throw new Error('Application not found');
     }
-    
+
     // Ensure candidate data is loaded
     if (!application.candidate) {
       throw new Error('Candidate information not found for application');
@@ -208,16 +208,51 @@ export class InterviewService {
           updated_at: new Date(),
         },
       });
-      
+
       return VideoInterviewModel.mapPrismaToVideoInterview(interview);
     }).then(async (interview) => {
-        // Send interview invitation email (after transaction commits)
-        try {
-            await InterviewInvitationEmailService.sendInterviewInvitation(interview);
-        } catch (error) {
-            console.error('Failed to send interview invitation email:', error);
+      // Send interview invitation email (after transaction commits)
+      try {
+        await InterviewInvitationEmailService.sendInterviewInvitation(interview);
+      } catch (error) {
+        console.error('Failed to send interview invitation email:', error);
+      }
+
+      // Send notifications
+      try {
+        const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+        const { NotificationRecipientType } = await import('@prisma/client');
+
+        // Notify Candidate
+        await UniversalNotificationService.createNotification({
+          recipientType: NotificationRecipientType.CANDIDATE,
+          recipientId: application.candidateId,
+          type: 'INTERVIEW_SCHEDULED' as any,
+          title: 'Interview Scheduled',
+          message: `An interview for ${job.title} has been scheduled for ${interview.scheduledDate.toLocaleString()}.`,
+          jobId: job.id,
+          applicationId: application.id,
+          actionUrl: `/candidate/interviews/${interview.id}`
+        });
+
+        // Notify Company (Job Creator)
+        if (job.createdBy) {
+          await UniversalNotificationService.createNotification({
+            recipientType: NotificationRecipientType.USER,
+            recipientId: job.createdBy,
+            type: 'INTERVIEW_SCHEDULED' as any,
+            title: 'Interview Scheduled',
+            message: `An interview with ${candidate.firstName} ${candidate.lastName} for ${job.title} is scheduled.`,
+            jobId: job.id,
+            applicationId: application.id,
+            actionUrl: `/interviews/${interview.id}`
+          });
         }
-        return interview;
+      } catch (notifyError) {
+        console.error('Failed to send interview notifications:', notifyError);
+      }
+
+      return interview;
     });
   }
 
@@ -231,10 +266,10 @@ export class InterviewService {
     const now = new Date();
     const maxDate = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
 
-      // Get available time slots from config
-      const availableSlots = (config.availableTimeSlots as string[]) || ['09:00', '10:00', '14:00', '15:00'];
-      const duration = config.defaultDuration; // Already validated to exist
-      const bufferMinutes = config.bufferTimeMinutes || 15;
+    // Get available time slots from config
+    const availableSlots = (config.availableTimeSlots as string[]) || ['09:00', '10:00', '14:00', '15:00'];
+    const duration = config.defaultDuration; // Already validated to exist
+    const bufferMinutes = config.bufferTimeMinutes || 15;
 
     // Try to find an available slot
     for (let day = 0; day < windowDays; day++) {
@@ -284,7 +319,7 @@ export class InterviewService {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(9, 0, 0, 0);
-    
+
     // Ensure tomorrow is actually in the future
     if (tomorrow <= now) {
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -374,7 +409,7 @@ export class InterviewService {
       if (params.newScheduledDate <= now) {
         throw new Error('Cannot reschedule interview to a past date/time');
       }
-      
+
       // Validate date is not too far in the future (e.g., max 1 year)
       const maxFutureDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
       if (params.newScheduledDate > maxFutureDate) {
@@ -393,8 +428,8 @@ export class InterviewService {
       const newEnd = new Date(params.newScheduledDate.getTime() + duration * 60 * 1000);
       const hasConflict = await this.checkTimeSlotConflictWithTx(
         tx,
-        params.newScheduledDate, 
-        newEnd, 
+        params.newScheduledDate,
+        newEnd,
         bufferMinutes,
         interview.id // Exclude current interview
       );
@@ -405,10 +440,10 @@ export class InterviewService {
 
       // Store old interview data for email
       const oldInterview = { ...interview };
-      
+
       // Get original interview ID (if this interview was already rescheduled)
       const originalInterviewId = interview.rescheduledFrom || interview.id;
-      
+
       // Preserve interviewer assignments on reschedule
       const preservedInterviewerIds = interview.interviewerIds || [];
 
@@ -449,19 +484,19 @@ export class InterviewService {
               // Get job and candidate for event details
               const application = await ApplicationModel.findById(interview.applicationId);
               const job = await JobModel.findById(interview.jobId);
-              
+
               // Ensure candidate data is loaded
               if (!application || !application.candidate) {
                 throw new Error('Application or candidate data not found');
               }
-              
+
               const candidate = application.candidate;
-              
+
               if (job && candidate) {
                 // Create new calendar event for rescheduled interview
                 const endDate = new Date(params.newScheduledDate.getTime() + duration * 60 * 1000);
                 const candidateName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || candidate.email;
-                
+
                 const newCalendarEvent = await GoogleCalendarService.createVideoInterviewEvent({
                   summary: `${job.title} - Interview with ${candidateName}`,
                   description: `Interview for ${job.title} (Rescheduled)`,
@@ -469,7 +504,7 @@ export class InterviewService {
                   end: endDate,
                   attendees: [{ email: candidate.email, name: candidateName }],
                 });
-                
+
                 // Update interview with new meeting link if generated
                 if (newCalendarEvent.meetingLink) {
                   await VideoInterviewModel.update(updatedInterview.id, {
@@ -477,7 +512,7 @@ export class InterviewService {
                   });
                   updatedInterview.meetingLink = newCalendarEvent.meetingLink;
                 }
-                
+
                 console.log('✅ Calendar event updated for rescheduled interview');
               }
             } catch (error) {
@@ -547,11 +582,11 @@ export class InterviewService {
     await VideoInterviewModel.update(interviewId, {
       overallScore: averageScore,
     });
-    
+
     // 4. Return the updated interview
     const finalInterview = await VideoInterviewModel.findById(interviewId);
     if (!finalInterview) throw new Error('Interview not found after update');
-    
+
     return finalInterview;
   }
 
@@ -618,11 +653,11 @@ export class InterviewService {
         const existingInterviews = await VideoInterviewModel.findByJobRoundId(interview.jobRoundId);
         const activeStatuses = ['SCHEDULED', 'RESCHEDULED', 'IN_PROGRESS'];
         const hasActiveInterview = existingInterviews.some(
-          (i) => i.applicationId === interview.applicationId && 
-                 activeStatuses.includes(i.status) &&
-                 i.id !== interview.id // Exclude the one we just cancelled
+          (i) => i.applicationId === interview.applicationId &&
+            activeStatuses.includes(i.status) &&
+            i.id !== interview.id // Exclude the one we just cancelled
         );
-        
+
         if (!hasActiveInterview) {
           await this.autoScheduleInterview({
             applicationId: interview.applicationId,
@@ -683,11 +718,11 @@ export class InterviewService {
         const existingInterviews = await VideoInterviewModel.findByJobRoundId(interview.jobRoundId);
         const activeStatuses = ['SCHEDULED', 'RESCHEDULED', 'IN_PROGRESS'];
         const hasActiveInterview = existingInterviews.some(
-          (i) => i.applicationId === interview.applicationId && 
-                 activeStatuses.includes(i.status) &&
-                 i.id !== interview.id // Exclude the one we just marked as no-show
+          (i) => i.applicationId === interview.applicationId &&
+            activeStatuses.includes(i.status) &&
+            i.id !== interview.id // Exclude the one we just marked as no-show
         );
-        
+
         if (!hasActiveInterview) {
           await this.autoScheduleInterview({
             applicationId: interview.applicationId,
@@ -930,7 +965,7 @@ export class InterviewService {
       const config = await InterviewConfigurationModel.findByJobRoundId(params.jobRoundId);
       const bufferMinutes = config?.bufferTimeMinutes || 15;
       const endDate = new Date(params.scheduledDate.getTime() + params.duration * 60 * 1000);
-      
+
       // Check for time conflicts
       const hasConflict = await this.checkTimeSlotConflict(params.scheduledDate, endDate, bufferMinutes);
       if (hasConflict) {
@@ -990,6 +1025,43 @@ export class InterviewService {
     } catch (error) {
       console.error('Failed to send interview invitation email:', error);
       // Don't fail interview creation if email fails
+    }
+
+    // Send notifications
+    try {
+      const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+      const { NotificationRecipientType } = await import('@prisma/client');
+
+      // Notify Candidate
+      await UniversalNotificationService.createNotification({
+        recipientType: NotificationRecipientType.CANDIDATE,
+        recipientId: application.candidateId,
+        type: 'INTERVIEW_SCHEDULED' as any,
+        title: 'Interview Scheduled',
+        message: `An interview for ${application.job?.title || 'the position'} has been scheduled for ${interview.scheduledDate.toLocaleString()}.`,
+        jobId: interview.jobId,
+        applicationId: application.id,
+        actionUrl: `/candidate/interviews/${interview.id}`
+      });
+
+      // Notify Company (Job Creator) - assuming job creator needs to know
+      // Fetch job to check creator (application.job might not be included in findById above, need to verify)
+      const job = await JobModel.findById(interview.jobId);
+      if (job && job.createdBy && job.createdBy !== params.scheduledBy) {
+        // Only notify if the creator isn't the one scheduling it (avoid self-notification)
+        await UniversalNotificationService.createNotification({
+          recipientType: NotificationRecipientType.USER,
+          recipientId: job.createdBy,
+          type: 'INTERVIEW_SCHEDULED' as any,
+          title: 'Interview Scheduled',
+          message: `An interview with ${application.candidate?.firstName} ${application.candidate?.lastName} for ${job.title} is scheduled.`,
+          jobId: job.id,
+          applicationId: application.id,
+          actionUrl: `/interviews/${interview.id}`
+        });
+      }
+    } catch (notifyError) {
+      console.error('Failed to send interview notifications:', notifyError);
     }
 
     return interview;

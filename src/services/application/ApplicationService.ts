@@ -259,6 +259,38 @@ export class ApplicationService {
         })();
       }
 
+      // Trigger 'New Application' notification for the company
+      try {
+        const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+        const { NotificationRecipientType } = await import('@prisma/client');
+
+        // Notify Job Owner (if exists)
+        if (job.createdBy) {
+          UniversalNotificationService.createNotification({
+            recipientType: NotificationRecipientType.USER,
+            recipientId: job.createdBy,
+            type: 'NEW_APPLICATION' as any,
+            title: `New Application: ${job.title}`,
+            message: `${candidate.firstName} ${candidate.lastName} has applied for ${job.title}.`,
+            data: {
+              applicationId: application.id,
+              jobId: job.id,
+              candidateId: candidate.id,
+              candidateName: `${candidate.firstName} ${candidate.lastName}`
+            },
+            jobId: job.id,
+            applicationId: application.id,
+            companyId: job.companyId,
+            actionUrl: `/applications/${application.id}`
+          }).catch(err => console.error('Failed to notify job owner about new application:', err));
+        }
+
+        // TODO: Also notify other admins/hiring managers based on preferences?
+        // For now, notifying the creator is the primary requirement.
+      } catch (notifyError) {
+        console.error('Failed to trigger new application notification:', notifyError);
+      }
+
       // Auto-create conversation for candidate ↔ job owner/consultant
       try {
         const existingConversation = await prisma.conversation.findFirst({
