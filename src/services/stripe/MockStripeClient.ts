@@ -14,7 +14,11 @@ const mockSessions = new Map<string, StripeCheckoutSession>();
  * Simulate webhook event (dev mode only)
  * Sends a POST request to the local webhook endpoint
  */
-async function simulateWebhook(event: {
+/**
+ * Simulate webhook event (dev mode only)
+ * Sends a POST request to the local webhook endpoint
+ */
+export async function simulateWebhook(event: {
     type: string;
     data: { object: any };
 }): Promise<void> {
@@ -34,7 +38,7 @@ async function simulateWebhook(event: {
         });
 
         if (response.ok) {
-            // console.log(`✅ Mock webhook sent: ${event.type}`);
+            console.log(`✅ Mock webhook sent: ${event.type}`);
         } else {
             console.error(`❌ Mock webhook failed with status ${response.status}`);
         }
@@ -182,14 +186,19 @@ export class MockStripeClient implements IStripeClient {
                 // Store session
                 mockSessions.set(sessionId, session);
 
-                // 🆕 AUTO-TRIGGER WEBHOOK after a small delay (simulating async payment)
+                // 🆕 AUTO-TRIGGER WEBHOOK DISABLED 
+                // We now trigger this manually via /api/integrations/stripe/mock-payment-success
+                // so the user can see the "Mock Checkout Page" and click "Pay".
+
+                /*
                 setTimeout(async () => {
                     console.log(`🧪 Triggering mock webhook for session ${sessionId}`);
                     await simulateWebhook({
                         type: 'checkout.session.completed',
                         data: { object: session },
                     });
-                }, 1000); // 1000ms delay to simulate real payment processing
+                }, 1000); 
+                */
 
                 return session;
             },
@@ -231,4 +240,11 @@ export function approveMockAccount(accountId: string): void {
  */
 export function getAllMockAccounts(): Map<string, StripeAccount> {
     return mockAccounts;
+}
+
+/**
+ * Helper to get a mock session
+ */
+export function getMockSession(sessionId: string): StripeCheckoutSession | undefined {
+    return mockSessions.get(sessionId);
 }

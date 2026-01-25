@@ -6,6 +6,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types';
 import { IntegrationStripeService, EntityType } from '../services/integrations/IntegrationStripeService';
+import { simulateWebhook, getMockSession } from '../services/stripe/MockStripeClient';
 
 /**
  * Get entity type and ID from request
@@ -277,26 +278,48 @@ export class IntegrationController {
 
 
 
-            // Import VirtualWalletService and prisma
-            const { VirtualWalletService } = await import('../services/virtualWalletService');
-            const prisma = (await import('../lib/prisma')).default;
-            const walletService = new VirtualWalletService(prisma);
+            // NEW LOGIC: Trigger Mock Webhook
+            // This ensures we test the exact same flow as production (Webhooks -> Service)
 
-            // Get or create virtual account for company
-            const virtualAccount = await walletService.getOrCreateAccount({
-                ownerType: 'COMPANY',
-                ownerId: entityId,
+            // Try to get actual session from store
+            const existingSession = getMockSession(sessionId);
+
+            // Construct mock session object (from existing or simplified)
+            const mockSession = existingSession ? {
+                ...existingSession,
+                payment_status: 'paid',
+                status: 'complete',
+                // Ensure metadata has type
+                metadata: {
+                    ...existingSession.metadata,
+                    ...req.body.metadata,
+                    type: existingSession.metadata?.type || req.body.metadata?.type || 'wallet_recharge',
+                }
+            } : {
+                id: sessionId,
+                object: 'checkout.session',
+                payment_status: 'paid',
+                status: 'complete',
+                amount_total: amount,
+                currency: 'usd',
+                metadata: {
+                    ...req.body.metadata, // Pass through any metadata from frontend
+                    type: req.body.metadata?.type || 'wallet_recharge', // Default to wallet_recharge if not specified, but usually passed
+                    integration_id: req.body.metadata?.integration_id,
+                },
+                payment_intent: `pi_mock_${Date.now()}`,
+            };
+
+            console.log(`🧪 [MockController] Triggering webhook for session ${sessionId}`);
+
+            // Simulate the webhook event
+            await simulateWebhook({
+                type: 'checkout.session.completed',
+                data: { object: mockSession },
             });
 
-            // Credit the wallet with payment amount
-            await walletService.creditAccount({
-                accountId: virtualAccount.id,
-                amount: amount / 100, // Convert cents to dollars
-                type: 'TRANSFER_IN',
-                description: `Mock Stripe payment - Session ${sessionId.substring(0, 20)}`,
-                referenceType: 'PAYMENT',
-                referenceId: sessionId,
-            });
+            // Wait a bit to allow webhook to process (optional, but good for immediate feedback in UI)
+            await new Promise(resolve => setTimeout(resolve, 500));
 
 
 

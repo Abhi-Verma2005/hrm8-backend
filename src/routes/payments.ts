@@ -384,6 +384,72 @@ export const stripeWebhookHandler = async (req: Request, res: Response): Promise
           warn('Job payment checkout session missing required metadata or not paid');
         }
       }
+      // Handle wallet recharge
+      else if (paymentType === 'wallet_recharge') {
+        const integrationId = metadata.integration_id;
+
+        if (session.payment_status === 'paid' && integrationId) {
+          try {
+            // Find integration to identify owner
+            const integration = await prisma.integration.findUnique({
+              where: { id: integrationId },
+            });
+
+            if (integration) {
+              let ownerType: any;
+              let ownerId: string = '';
+
+              if (integration.company_id) {
+                ownerType = 'COMPANY';
+                ownerId = integration.company_id;
+              } else if (integration.hrm8_user_id) {
+                ownerType = 'HRM8_USER';
+                ownerId = integration.hrm8_user_id;
+              } else if (integration.consultant_id) {
+                ownerType = 'CONSULTANT';
+                ownerId = integration.consultant_id;
+              }
+
+              if (ownerType && ownerId) {
+                // Import VirtualWalletService dynamically to avoid circular deps if any
+                const { VirtualWalletService } = await import('../services/virtualWalletService');
+                const walletService = new VirtualWalletService(prisma);
+
+                // Get or create account
+                const account = await walletService.getOrCreateAccount({
+                  ownerType,
+                  ownerId,
+                });
+
+                const amountDollars = (session.amount_total || 0) / 100;
+
+                // Credit account
+                await walletService.creditAccount({
+                  accountId: account.id,
+                  amount: amountDollars,
+                  type: 'TRANSFER_IN', // Or specific type for recharge
+                  description: `Wallet recharge via Stripe - $${amountDollars.toFixed(2)}`,
+                  referenceType: 'STRIPE_PAYMENT',
+                  referenceId: session.id,
+                  metadata: {
+                    stripe_payment_intent: typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent as any)?.id,
+                    session_id: session.id
+                  }
+                });
+
+                log(`✅ Wallet recharged for ${ownerType} ${ownerId}: $${amountDollars}`);
+              } else {
+                warn(`Could not determine wallet owner for integration ${integrationId}`);
+              }
+            } else {
+              warn(`Integration ${integrationId} not found for wallet recharge`);
+            }
+
+          } catch (error: any) {
+            errorLog(`❌ Error processing wallet recharge: ${error.message}`);
+          }
+        }
+      }
       // Handle company-level upgrades (legacy)
       else {
         // ... (legacy logic omitted for brevity, keeping original flow if needed, but for debug mainly job)
