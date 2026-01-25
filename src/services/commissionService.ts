@@ -1,5 +1,7 @@
-import { PrismaClient, CommissionType, CommissionStatus, WithdrawalStatus, VirtualTransactionType } from '@prisma/client';
+import { PrismaClient, CommissionType, CommissionStatus, WithdrawalStatus, VirtualTransactionType, UniversalNotificationType } from '@prisma/client';
 import { VirtualWalletService } from './virtualWalletService';
+import { UniversalNotificationService } from './notification/UniversalNotificationService';
+import { emailService } from './email/EmailService';
 
 export interface AwardCommissionInput {
     consultantId: string;
@@ -107,11 +109,30 @@ export class CommissionService {
                 },
             });
 
+            // Notify consultant
+            await UniversalNotificationService.createNotification({
+                recipientType: 'CONSULTANT',
+                recipientId: consultantId,
+                type: UniversalNotificationType.COMMISSION_EARNED,
+                title: 'Commission Earned!',
+                message: `You've earned $${amount.toFixed(2)} commission for ${description || type}.`,
+                jobId,
+                data: { subscriptionId }
+            });
+
+            await emailService.sendCommissionEarnedEmail(
+                consultant.email,
+                amount,
+                description || type
+            );
+
             return {
                 commission,
                 virtualAccount,
                 creditTransaction: transaction,
             };
+        }, {
+            timeout: 20000,
         });
     }
 

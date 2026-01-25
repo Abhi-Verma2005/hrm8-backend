@@ -6,7 +6,7 @@
 import { CommissionWithdrawalModel, CommissionWithdrawalData } from '../../models/CommissionWithdrawal';
 import { CommissionModel } from '../../models/Commission';
 import prisma from '../../lib/prisma';
-import { WithdrawalStatus } from '@prisma/client';
+import { WithdrawalStatus, UniversalNotificationType } from '@prisma/client';
 
 export interface WithdrawalBalance {
     availableBalance: number;
@@ -222,6 +222,32 @@ export class WithdrawalService {
                 // Don't fail the approval, but log the issue
             }
 
+            // Notify Consultant
+            const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+            const { emailService } = await import('../email/EmailService');
+            const { ConsultantModel } = await import('../../models/Consultant'); // Assuming we can get email from consultant ID
+
+            const consultant = await ConsultantModel.findById(withdrawal.consultantId);
+
+            if (consultant) {
+                await UniversalNotificationService.createNotification({
+                    recipientType: 'CONSULTANT',
+                    recipientId: withdrawal.consultantId,
+                    type: UniversalNotificationType.WITHDRAWAL_APPROVED,
+                    title: 'Withdrawal Approved',
+                    message: `Your withdrawal of $${withdrawal.amount.toFixed(2)} has been approved.`,
+                });
+
+                if (consultant.email) {
+                    await emailService.sendWithdrawalStatusEmail(
+                        consultant.email,
+                        'APPROVED',
+                        withdrawal.amount
+                    );
+                }
+            }
+
+
             return { success: true };
         } catch (error: any) {
             console.error('Approve withdrawal error:', error);
@@ -295,6 +321,32 @@ export class WithdrawalService {
             }
 
             await CommissionWithdrawalModel.reject(withdrawalId, adminId, reason);
+
+            // Notify Consultant
+            const { UniversalNotificationService } = await import('../notification/UniversalNotificationService');
+            const { emailService } = await import('../email/EmailService');
+            const { ConsultantModel } = await import('../../models/Consultant');
+
+            const consultant = await ConsultantModel.findById(withdrawal.consultantId);
+
+            if (consultant) {
+                await UniversalNotificationService.createNotification({
+                    recipientType: 'CONSULTANT',
+                    recipientId: withdrawal.consultantId,
+                    type: UniversalNotificationType.WITHDRAWAL_REJECTED,
+                    title: 'Withdrawal Rejected',
+                    message: `Your withdrawal request for $${withdrawal.amount.toFixed(2)} was rejected. Reason: ${reason}`,
+                });
+
+                if (consultant.email) {
+                    await emailService.sendWithdrawalStatusEmail(
+                        consultant.email,
+                        'REJECTED',
+                        withdrawal.amount,
+                        reason
+                    );
+                }
+            }
 
             return { success: true };
         } catch (error: any) {
