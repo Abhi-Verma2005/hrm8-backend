@@ -32,9 +32,10 @@ async function runFullUISimulation() {
 
         // 3. Create a Lead
         console.log('\n--- Step 1: Lead Management ---');
+        const randomSuffix = Date.now().toString().slice(-4);
         const lead = await LeadService.createLead({
-            companyName: 'Simulation Corp',
-            email: `admin_${Date.now().toString().slice(-4)}@simulation.test`,
+            companyName: `Simulation Corp ${randomSuffix}`,
+            email: `admin_${randomSuffix}@simulation_${randomSuffix}.test`,
             country: 'US',
             referredBy: agent.id
         });
