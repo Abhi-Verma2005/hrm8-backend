@@ -19,13 +19,7 @@ export async function authenticate(
   try {
     const sessionId = req.cookies?.sessionId;
 
-    console.log('[authenticate] Auth check:', {
-      path: req.path,
-      method: req.method,
-      hasSessionCookie: !!sessionId,
-      hasCookieHeader: !!req.headers.cookie,
-      hasAuthHeader: !!req.headers.authorization,
-    });
+
 
     if (!sessionId) {
       console.log('[authenticate] No sessionId cookie found');
@@ -60,13 +54,7 @@ export async function authenticate(
       type: session.companyId ? 'COMPANY' : undefined,
     };
 
-    console.log('[authenticate] User authenticated:', {
-      userId: session.userId,
-      email: session.email,
-      companyId: session.companyId,
-      role: session.userRole,
-      type: req.user.type,
-    });
+
 
     next();
   } catch (error) {

@@ -18,16 +18,7 @@ export class CompanySubscriptionController {
         try {
             const { id } = req.params;
 
-            console.log('[getActiveSubscription] Request received:', {
-                requestedCompanyId: id,
-                userId: req.user?.id,
-                userCompanyId: req.user?.companyId,
-                userType: req.user?.type,
-                headers: {
-                    authorization: req.headers.authorization ? 'present' : 'missing',
-                    cookie: req.headers.cookie ? 'present' : 'missing',
-                },
-            });
+
 
             // Verify the user belongs to this company
             if (req.user?.companyId !== id) {
@@ -42,7 +33,7 @@ export class CompanySubscriptionController {
                 return;
             }
 
-            console.log('[getActiveSubscription] Looking up active subscription for company:', id);
+
             // Find active subscription
             const subscription = await prisma.subscription.findFirst({
                 where: {
@@ -63,7 +54,7 @@ export class CompanySubscriptionController {
                 return;
             }
 
-            console.log('[getActiveSubscription] Found subscription:', subscription.id);
+
 
             // Calculate usage stats
             const usagePercent = subscription.job_quota && subscription.job_quota > 0

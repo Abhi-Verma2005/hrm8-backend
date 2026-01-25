@@ -54,15 +54,7 @@ export const getWalletBalance = async (req: AuthenticatedRequest, res: Response)
         const userId = req.user?.id;
         const userType = req.user?.type;
 
-        console.log('[getWalletBalance] Request received:', {
-            userId,
-            userType,
-            companyId: req.user?.companyId,
-            headers: {
-                authorization: req.headers.authorization ? 'present' : 'missing',
-                cookie: req.headers.cookie ? 'present' : 'missing',
-            },
-        });
+
 
         if (!userId || !userType) {
             console.log('[getWalletBalance] Unauthorized: missing userId or userType');
@@ -75,7 +67,7 @@ export const getWalletBalance = async (req: AuthenticatedRequest, res: Response)
             return res.status(401).json({ error: 'Unauthorized: Missing owner ID' });
         }
 
-        console.log('[getWalletBalance] Looking up wallet for:', { userType, ownerId });
+
         const account = await walletService.getAccountByOwner(userType, ownerId);
 
         if (!account) {
@@ -83,7 +75,7 @@ export const getWalletBalance = async (req: AuthenticatedRequest, res: Response)
             return res.status(404).json({ error: 'Wallet account not found' });
         }
 
-        console.log('[getWalletBalance] Found wallet account:', account.id);
+
 
         return res.json({
             success: true,

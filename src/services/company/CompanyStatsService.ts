@@ -69,33 +69,37 @@ export class CompanyStatsService {
      */
     async getCompanyStats(companyId: string) {
         const startTime = Date.now();
-        console.log('[CompanyStatsService.getCompanyStats] Starting stats fetch for company:', companyId);
+
 
         try {
             const results = await Promise.all([
                 this.getCompanyEmployeeCount(companyId).then(count => {
-                    console.log('[CompanyStatsService] employeeCount fetched:', count);
+                    // console.log('[CompanyStatsService] employeeCount fetched:', count);
+
                     return count;
                 }).catch(err => {
                     console.error('[CompanyStatsService] Error fetching employeeCount:', err.message);
                     throw err;
                 }),
                 this.getCompanyJobsPostedThisMonth(companyId).then(count => {
-                    console.log('[CompanyStatsService] jobsPostedThisMonth fetched:', count);
+                    // console.log('[CompanyStatsService] jobsPostedThisMonth fetched:', count);
+
                     return count;
                 }).catch(err => {
                     console.error('[CompanyStatsService] Error fetching jobsPostedThisMonth:', err.message);
                     throw err;
                 }),
                 this.getCompanyActiveJobs(companyId).then(count => {
-                    console.log('[CompanyStatsService] activeJobs fetched:', count);
+                    // console.log('[CompanyStatsService] activeJobs fetched:', count);
+
                     return count;
                 }).catch(err => {
                     console.error('[CompanyStatsService] Error fetching activeJobs:', err.message);
                     throw err;
                 }),
                 this.getCompanyApplicationsThisMonth(companyId).then(count => {
-                    console.log('[CompanyStatsService] applicationsThisMonth fetched:', count);
+                    // console.log('[CompanyStatsService] applicationsThisMonth fetched:', count);
+
                     return count;
                 }).catch(err => {
                     console.error('[CompanyStatsService] Error fetching applicationsThisMonth:', err.message);
@@ -106,12 +110,7 @@ export class CompanyStatsService {
             const [employeeCount, jobsPostedThisMonth, activeJobs, applicationsThisMonth] = results;
             const duration = Date.now() - startTime;
 
-            console.log('[CompanyStatsService.getCompanyStats] Completed in', duration, 'ms:', {
-                employeeCount,
-                jobsPostedThisMonth,
-                activeJobs,
-                applicationsThisMonth
-            });
+
 
             return {
                 employeeCount,

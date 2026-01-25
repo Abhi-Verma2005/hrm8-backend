@@ -276,16 +276,7 @@ export class CompanyController {
     try {
       const { id } = req.params;
 
-      console.log('[getCompanyStats] Request received:', {
-        requestedCompanyId: id,
-        userId: req.user?.id,
-        userCompanyId: req.user?.companyId,
-        userRole: req.user?.role,
-        headers: {
-          authorization: req.headers.authorization ? 'present' : 'missing',
-          cookie: req.headers.cookie ? 'present' : 'missing',
-        },
-      });
+
 
       // Verify the user belongs to this company
       if (req.user?.companyId !== id) {
@@ -300,9 +291,9 @@ export class CompanyController {
         return;
       }
 
-      console.log('[getCompanyStats] Fetching stats for company:', id);
+
       const stats = await companyStatsService.getCompanyStats(id);
-      console.log('[getCompanyStats] Stats fetched successfully');
+
 
       res.json({
         success: true,

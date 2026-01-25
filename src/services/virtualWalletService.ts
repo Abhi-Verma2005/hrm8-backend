@@ -146,7 +146,7 @@ export class VirtualWalletService {
      * Get account by owner
      */
     async getAccountByOwner(ownerType: VirtualAccountOwner, ownerId: string) {
-        console.log('[VirtualWalletService.getAccountByOwner] Looking up account:', { ownerType, ownerId });
+
         const startTime = Date.now();
 
         try {
@@ -165,16 +165,7 @@ export class VirtualWalletService {
 
             const duration = Date.now() - startTime;
 
-            if (account) {
-                console.log('[VirtualWalletService.getAccountByOwner] Found account in', duration, 'ms:', {
-                    accountId: account.id,
-                    balance: account.balance,
-                    status: account.status,
-                    transactionCount: account.transactions?.length || 0,
-                });
-            } else {
-                console.log('[VirtualWalletService.getAccountByOwner] No account found in', duration, 'ms for:', { ownerType, ownerId });
-            }
+
 
             return account;
         } catch (error: any) {
