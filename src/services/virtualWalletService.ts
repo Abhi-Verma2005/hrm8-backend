@@ -62,11 +62,15 @@ export class VirtualWalletService {
     constructor(private prisma: PrismaClient) { }
 
     private async runInTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
-        // If this.prisma is a transaction client, it won't have $transaction method
-        // In that case, we execute the function directly using the current transaction client
-        if (!('$transaction' in this.prisma)) {
+        // More robust check for Interactive Transaction (ITX) client
+        // ITX clients usually don't have $transaction, or have a specific internal marker
+        const isITX = (this.prisma as any)._transactionId || !('$transaction' in this.prisma);
+
+        if (isITX) {
+            // Already in a transaction, reuse it
             return fn(this.prisma);
         }
+
         // Otherwise start a new transaction
         return (this.prisma as PrismaClient).$transaction(fn);
     }

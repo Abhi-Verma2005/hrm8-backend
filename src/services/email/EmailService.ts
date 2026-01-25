@@ -3682,6 +3682,120 @@ The Hiring Team
   }
 
   /**
+   * Send role change notification email
+   */
+  async sendRoleChangeEmail(data: {
+    to: string;
+    name: string;
+    oldRole: string;
+    newRole: string;
+    loginUrl: string;
+  }): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const subject = `Account Role Updated: ${data.newRole}`;
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: data.to,
+        subject,
+        html: this.getRoleChangeTemplate(data.name, data.oldRole, data.newRole, data.loginUrl),
+        text: this.getRoleChangeText(data.name, data.oldRole, data.newRole, data.loginUrl),
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      if (!process.env.SMTP_USER) {
+        console.log('📧 Role Change Notification Email (Development Mode):');
+        console.log('To:', data.to);
+        console.log('Subject:', subject);
+        console.log('Old Role:', data.oldRole);
+        console.log('New Role:', data.newRole);
+        console.log('Login URL:', data.loginUrl);
+        console.log('---');
+      }
+    } catch (error) {
+      console.error('Failed to send role change notification email:', error);
+      throw new Error('Failed to send role change notification email');
+    }
+  }
+
+  /**
+   * Get HTML template for role change notification
+   */
+  private getRoleChangeTemplate(name: string, oldRole: string, newRole: string, loginUrl: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h1 style="color: #4a5568; margin-top: 0;">Role Updated</h1>
+            
+            <p>Hello ${name || 'there'},</p>
+            
+            <p>This is to inform you that your account role has been updated.</p>
+            
+            <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 20px 0; border: 1px solid #e2e8f0;">
+              <p style="margin: 0 0 10px 0;"><strong>Previous Role:</strong> ${oldRole}</p>
+              <p style="margin: 0;"><strong>New Role:</strong> <span style="color: #7c3aed; font-weight: bold;">${newRole}</span></p>
+            </div>
+            
+            <p>Please note that there are <strong>no changes to your login credentials</strong>. You can continue to use your existing email and password to access the system.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${loginUrl}" 
+                 style="background-color: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Go to Login Page
+              </a>
+            </div>
+            
+            <p>If you have any questions regarding this change, please contact your administrator.</p>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+            
+            <p style="color: #718096; font-size: 14px;">
+              Stay secure,<br>
+              The HRM8 Team
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get plain text version of role change notification
+   */
+  private getRoleChangeText(name: string, oldRole: string, newRole: string, loginUrl: string): string {
+    return `
+Role Updated
+
+Hello ${name || 'there'},
+
+This is to inform you that your account role has been updated.
+
+Previous Role: ${oldRole}
+New Role: ${newRole}
+
+Please note that there are no changes to your login credentials. You can continue to use your existing email and password to access the system.
+
+You can access the login page here: ${loginUrl}
+
+If you have any questions regarding this change, please contact your administrator.
+
+Best regards,
+The HRM8 Team
+    `.trim();
+  }
+
+  /**
    * Render template with merge fields
    */
   renderTemplate(template: string, variables: Record<string, any>): string {
@@ -4065,6 +4179,239 @@ You're receiving this email because you set up a job alert on HRM8.
 Good luck with your job search!
 The HRM8 Team
     `.trim();
+  }
+  /**
+   * Send subscription renewal failed email
+   */
+  async sendSubscriptionRenewalFailedEmail(
+    email: string,
+    subscriptionName: string,
+    shortfallAmount: number
+  ): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+      const rechargeUrl = `${baseUrl}/company/settings?tab=wallet`;
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: email,
+        subject: 'Action Required: Subscription Renewal Failed',
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: #fff1f2; padding: 30px; border-radius: 8px; border: 1px solid #e11d48;">
+                <h1 style="color: #be123c; margin-top: 0;">Renewal Failed</h1>
+                <p>Hello,</p>
+                <p>We were unable to renew your subscription <strong>${subscriptionName}</strong> due to insufficient wallet balance.</p>
+                <p><strong>Shortfall Amount:</strong> $${shortfallAmount.toFixed(2)}</p>
+                <p>To avoid service interruption, please recharge your wallet immediately.</p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${rechargeUrl}" style="background-color: #e11d48; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                    Recharge Wallet
+                  </a>
+                </div>
+                <hr style="border: none; border-top: 1px solid #be123c; margin: 30px 0; opacity: 0.2;">
+                <p style="color: #718096; font-size: 14px;">Best regards,<br>The HRM8 Team</p>
+              </div>
+            </body>
+          </html>
+        `,
+        text: `Renewal Failed\n\nHello,\n\nWe were unable to renew your subscription ${subscriptionName} due to insufficient wallet balance.\n\nShortfall Amount: $${shortfallAmount.toFixed(2)}\n\nPlease recharge your wallet immediately: ${rechargeUrl}\n\nBest regards,\nThe HRM8 Team`
+      };
+
+      await transporter.sendMail(mailOptions);
+    } catch (error) {
+      console.error('Failed to send renewal failed email:', error);
+    }
+  }
+
+  /**
+   * Send withdrawal status update email
+   */
+  async sendWithdrawalStatusEmail(
+    email: string,
+    status: 'APPROVED' | 'REJECTED',
+    amount: number,
+    notes?: string
+  ): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const isApproved = status === 'APPROVED';
+      const color = isApproved ? '#059669' : '#dc2626'; // Green or Red
+      const bgColor = isApproved ? '#ecfdf5' : '#fef2f2';
+      const title = isApproved ? 'Withdrawal Approved' : 'Withdrawal Request Rejected';
+
+      const message = isApproved
+        ? `Good news! Your withdrawal of <strong>$${amount.toFixed(2)}</strong> has been approved and processed.`
+        : `Your withdrawal request for <strong>$${amount.toFixed(2)}</strong> was rejected.`;
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: email,
+        subject: isApproved ? `Withdrawal Approved: $${amount.toFixed(2)}` : 'Update on your Withdrawal Request',
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: ${bgColor}; padding: 30px; border-radius: 8px; border: 1px solid ${color};">
+                <h1 style="color: ${color}; margin-top: 0;">${title}</h1>
+                <p>Hello,</p>
+                <p>${message}</p>
+                ${notes ? `<p><strong>Note:</strong> ${notes}</p>` : ''}
+                <hr style="border: none; border-top: 1px solid ${color}; margin: 30px 0; opacity: 0.2;">
+                <p style="color: #718096; font-size: 14px;">Best regards,<br>The HRM8 Team</p>
+              </div>
+            </body>
+          </html>
+        `,
+        text: `${title}\n\nHello,\n\n${message.replace(/<strong>|<\/strong>/g, '')}\n\n${notes ? `Note: ${notes}\n\n` : ''}Best regards,\nThe HRM8 Team`
+      };
+
+      await transporter.sendMail(mailOptions);
+    } catch (error) {
+      console.error('Failed to send withdrawal status email:', error);
+    }
+  }
+
+  /**
+   * Send new lead assignment email
+   */
+  async sendNewLeadAssignmentEmail(
+    email: string,
+    leadName: string,
+    companyName: string
+  ): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+      const dashboardUrl = `${baseUrl}/consultant/leads`;
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: email,
+        subject: 'New Lead Assigned to You',
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: #f0f9ff; padding: 30px; border-radius: 8px; border: 1px solid #0ea5e9;">
+                <h1 style="color: #0284c7; margin-top: 0;">New Lead Assigned</h1>
+                <p>Hello,</p>
+                <p>A new lead has been assigned to you for management:</p>
+                <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #e0f2fe;">
+                  <p style="margin: 5px 0;"><strong>Lead Name:</strong> ${leadName}</p>
+                  <p style="margin: 5px 0;"><strong>Company:</strong> ${companyName}</p>
+                </div>
+                <p>Please log in to your dashboard to follow up on this lead.</p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${dashboardUrl}" style="background-color: #0ea5e9; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                    View Leads Dashboard
+                  </a>
+                </div>
+                <hr style="border: none; border-top: 1px solid #0ea5e9; margin: 30px 0; opacity: 0.2;">
+                <p style="color: #718096; font-size: 14px;">Happy selling!<br>The HRM8 Team</p>
+              </div>
+            </body>
+          </html>
+        `,
+        text: `New Lead Assigned\n\nHello,\n\nA new lead has been assigned to you: ${leadName} from ${companyName}.\n\nView details here: ${dashboardUrl}\n\nHappy selling!\nThe HRM8 Team`
+      };
+
+      await transporter.sendMail(mailOptions);
+    } catch (error) {
+      console.error('Failed to send lead assignment email:', error);
+    }
+  }
+
+  /**
+   * Send lead converted email
+   */
+  async sendLeadConvertedEmail(
+    email: string,
+    companyName: string
+  ): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: email,
+        subject: 'Great news: Lead Converted!',
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: #ecfdf5; padding: 30px; border-radius: 8px; border: 1px solid #059669;">
+                <h1 style="color: #059669; margin-top: 0;">🎉 Conversion Successful!</h1>
+                <p>Hello,</p>
+                <p>Excellent work! The lead for <strong>${companyName}</strong> has been successfully converted into a company on HRM8.</p>
+                <p>Any associated commissions will be credited to your wallet shortly.</p>
+                <hr style="border: none; border-top: 1px solid #059669; margin: 30px 0; opacity: 0.2;">
+                <p style="color: #718096; font-size: 14px;">Keep up the great work!<br>The HRM8 Team</p>
+              </div>
+            </body>
+          </html>
+        `,
+        text: `Lead Converted!\n\nHello,\n\nExcellent work! The lead for ${companyName} has been successfully converted into a company on HRM8.\n\nKeep up the great work!\nThe HRM8 Team`
+      };
+
+      await transporter.sendMail(mailOptions);
+    } catch (error) {
+      console.error('Failed to send lead converted email:', error);
+    }
+  }
+
+  /**
+   * Send commission earned email
+   */
+  async sendCommissionEarnedEmail(
+    email: string,
+    amount: number,
+    reason: string
+  ): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      const fromEmail = process.env.EMAIL_FROM || 'noreply@hrm8.com';
+      const fromName = process.env.EMAIL_FROM_NAME || 'HRM8';
+
+      const mailOptions = {
+        from: `"${fromName}" <${fromEmail}>`,
+        to: email,
+        subject: `Commission Earned: $${amount.toFixed(2)}`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: #fdf2f7; padding: 30px; border-radius: 8px; border: 1px solid #db2777;">
+                <h1 style="color: #db2777; margin-top: 0;">💰 Commission Earned!</h1>
+                <p>Hello,</p>
+                <p>You have earned a new commission of <strong>$${amount.toFixed(2)}</strong>.</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+                <p>The funds have been added to your virtual wallet and are available for withdrawal calculation.</p>
+                <hr style="border: none; border-top: 1px solid #db2777; margin: 30px 0; opacity: 0.2;">
+                <p style="color: #718096; font-size: 14px;">Great job!<br>The HRM8 Team</p>
+              </div>
+            </body>
+          </html>
+        `,
+        text: `Commission Earned!\n\nHello,\n\nYou have earned a new commission of $${amount.toFixed(2)} for: ${reason}.\n\nGreat job!\nThe HRM8 Team`
+      };
+
+      await transporter.sendMail(mailOptions);
+    } catch (error) {
+      console.error('Failed to send commission earned email:', error);
+    }
   }
 }
 

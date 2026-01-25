@@ -7,6 +7,9 @@ import prisma from '../../lib/prisma';
 import { LeadStatus, LeadSource, OpportunityType } from '@prisma/client';
 import { CompanyService } from '../company/CompanyService';
 import { AuthService } from '../auth/AuthService';
+import { UniversalNotificationService } from '../notification/UniversalNotificationService';
+import { emailService } from '../email/EmailService';
+import { UniversalNotificationType } from '@prisma/client';
 
 export class LeadService {
   /**
@@ -46,7 +49,7 @@ export class LeadService {
       }
     }
 
-    return await prisma.lead.create({
+    const lead = await prisma.lead.create({
       data: {
         company_name: data.companyName,
         email: data.email,
@@ -63,6 +66,34 @@ export class LeadService {
         assigned_at: assignedConsultantId ? new Date() : null,
       },
     });
+
+    // Notify assigned consultant
+    if (assignedConsultantId) {
+      const consultant = await prisma.consultant.findUnique({
+        where: { id: assignedConsultantId },
+        select: { email: true, first_name: true }
+      });
+
+      if (consultant) {
+        await UniversalNotificationService.createNotification({
+          recipientType: 'CONSULTANT',
+          recipientId: assignedConsultantId as string,
+          type: UniversalNotificationType.NEW_LEAD,
+          title: 'New Lead Assigned',
+          message: `You have been assigned a new lead: ${data.companyName}`,
+          leadId: lead.id,
+          actionUrl: '/consultant/leads'
+        });
+
+        await emailService.sendNewLeadAssignmentEmail(
+          consultant.email,
+          data.companyName,
+          data.companyName // Using company name as lead name for now
+        );
+      }
+    }
+
+    return lead;
   }
 
   /**
@@ -155,7 +186,7 @@ export class LeadService {
       throw new Error('Cannot reassign a converted lead');
     }
 
-    return await prisma.lead.update({
+    const updatedLead = await prisma.lead.update({
       where: { id: leadId },
       data: {
         assigned_consultant_id: newConsultantId,
@@ -163,10 +194,31 @@ export class LeadService {
       },
       include: {
         consultant: {
-          select: { id: true, first_name: true, last_name: true }
+          select: { id: true, first_name: true, last_name: true, email: true }
         }
       }
     });
+
+    // Notify new consultant
+    if (updatedLead.consultant) {
+      await UniversalNotificationService.createNotification({
+        recipientType: 'CONSULTANT',
+        recipientId: newConsultantId,
+        type: UniversalNotificationType.NEW_LEAD,
+        title: 'Lead Reassigned to You',
+        message: `Lead ${updatedLead.company_name} has been reassigned to you.`,
+        leadId: leadId,
+        actionUrl: '/consultant/leads'
+      });
+
+      await emailService.sendNewLeadAssignmentEmail(
+        updatedLead.consultant.email,
+        updatedLead.company_name,
+        updatedLead.company_name
+      );
+    }
+
+    return updatedLead;
   }
 
   /**
@@ -270,7 +322,7 @@ export class LeadService {
     );
 
     // Update Lead
-    await prisma.lead.update({
+    const updatedLead = await prisma.lead.update({
       where: { id: leadId },
       data: {
         status: LeadStatus.CONVERTED,
@@ -278,6 +330,28 @@ export class LeadService {
         converted_at: new Date(),
       },
     });
+
+    // Notify Agent about Conversion
+    if (salesAgentId) {
+      const agent = await prisma.consultant.findUnique({
+        where: { id: salesAgentId },
+        select: { email: true }
+      });
+
+      if (agent) {
+        await UniversalNotificationService.createNotification({
+          recipientType: 'CONSULTANT',
+          recipientId: salesAgentId,
+          type: UniversalNotificationType.LEAD_CONVERTED,
+          title: 'Lead Converted!',
+          message: `Great job! Your lead ${updatedLead.company_name} has been converted to a company.`,
+          companyId: company.id,
+          leadId: leadId
+        });
+
+        await emailService.sendLeadConvertedEmail(agent.email, updatedLead.company_name);
+      }
+    }
 
     // Assign Attribution
     if (salesAgentId) {

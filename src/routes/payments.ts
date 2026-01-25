@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type Router as RouterType } from 'express';
 import Stripe from 'stripe';
-import { StripeUpgradeService, type UpgradeTier } from '../services/payments/StripeUpgradeService';
+import { StripeUpgradeService } from '../services/payments/StripeUpgradeService';
 import { JobPaymentService } from '../services/payments/JobPaymentService';
 import { prisma } from '../lib/prisma';
 

@@ -5,9 +5,8 @@
 
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types';
-import { RefundService } from '../services/refundService';
-import prisma from '../lib/prisma';
-const refundService = new RefundService(prisma);
+import { RefundRequestService } from '../services/company/RefundRequestService';
+import { RefundAdminService } from '../services/hrm8/RefundAdminService';
 
 /**
  * Create refund request
@@ -27,7 +26,7 @@ export const createRefundRequest = async (req: AuthenticatedRequest, res: Respon
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        const refundRequest = await refundService.createRefundRequest({
+        const result = await RefundRequestService.createRefundRequest({
             companyId,
             transactionId,
             transactionType,
@@ -35,9 +34,13 @@ export const createRefundRequest = async (req: AuthenticatedRequest, res: Respon
             reason,
         });
 
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
         return res.json({
             success: true,
-            data: refundRequest,
+            data: result.refundRequest,
             message: `Refund request for $${amount.toFixed(2)} submitted successfully. It will be reviewed by admin.`,
         });
     } catch (error: any) {
@@ -58,10 +61,7 @@ export const getCompanyRefunds = async (req: AuthenticatedRequest, res: Response
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        const limit = parseInt(req.query.limit as string) || 50;
-        const offset = parseInt(req.query.offset as string) || 0;
-
-        const result = await refundService.getCompanyRefunds(companyId, { limit, offset });
+        const result = await RefundRequestService.getCompanyRefundRequests(companyId);
 
         return res.json({
             success: true,
@@ -82,15 +82,11 @@ export const getCompanyRefunds = async (req: AuthenticatedRequest, res: Response
 export const getPendingRefunds = async (req: AuthenticatedRequest, res: Response) => {
     try {
         // TODO: Add admin authorization check
-        const limit = parseInt(req.query.limit as string) || 50;
-        const offset = parseInt(req.query.offset as string) || 0;
         const companyId = req.query.companyId as string;
 
-        const result = await refundService.getPendingRefunds({
+        const result = await RefundAdminService.getAllRefundRequests({
             companyId,
-            limit,
-            offset,
-        });
+        } as any);
 
         return res.json({
             success: true,
@@ -117,11 +113,15 @@ export const approveRefund = async (req: AuthenticatedRequest, res: Response) =>
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        const result = await refundService.approveRefund({
-            refundRequestId: refundId,
+        const result = await RefundAdminService.approveRefund(
+            refundId,
             adminId,
             adminNotes,
-        });
+        );
+
+        if (!result.success || !result.refundRequest) {
+            return res.status(400).json(result);
+        }
 
         return res.json({
             success: true,
@@ -149,15 +149,19 @@ export const rejectRefund = async (req: AuthenticatedRequest, res: Response) => 
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        const refund = await refundService.rejectRefund({
-            refundRequestId: refundId,
+        const result = await RefundAdminService.rejectRefund(
+            refundId,
             adminId,
             reason,
-        });
+        );
+
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
 
         return res.json({
             success: true,
-            data: refund,
+            data: result.refundRequest,
             message: 'Refund request rejected.',
         });
     } catch (error: any) {
@@ -177,7 +181,7 @@ export const getRefundStats = async (req: AuthenticatedRequest, res: Response) =
         const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
         const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
-        const stats = await refundService.getRefundStats({
+        const stats = await RefundAdminService.getRefundStats({
             companyId,
             startDate,
             endDate,

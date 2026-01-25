@@ -209,7 +209,7 @@ const setupScheduledJobs = () => {
   // Cleanup expired notifications every 24 hours
   setInterval(async () => {
     try {
-      const count = await UniversalNotificationService.cleanupExpiredNotifications();
+      await UniversalNotificationService.cleanupExpiredNotifications();
     } catch (error) {
       console.error('❌ Error during daily notification cleanup:', error);
     }

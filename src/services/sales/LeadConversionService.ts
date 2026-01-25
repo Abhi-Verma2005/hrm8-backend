@@ -6,7 +6,7 @@
 import { prisma } from '../../lib/prisma';
 import { LeadConversionRequestModel, LeadConversionRequestData } from '../../models/LeadConversionRequest';
 import { UniversalNotificationService } from '../notification/UniversalNotificationService';
-import { ConversionRequestStatus } from '@prisma/client';
+import { ConversionRequestStatus, UniversalNotificationType, NotificationRecipientType } from '@prisma/client';
 
 export class LeadConversionService {
     /**
@@ -93,6 +93,31 @@ export class LeadConversionService {
                 agentNotes: data.agentNotes,
                 tempPassword: data.tempPassword, // Save the password
             });
+
+            // Notify Regional Admins
+            try {
+                const regionalAdmins = await prisma.user.findMany({
+                    where: {
+                        region_id: lead.region_id,
+                        role: { in: ['ADMIN', 'SUPER_ADMIN'] }
+                    },
+                    select: { id: true }
+                });
+
+                for (const admin of regionalAdmins) {
+                    await UniversalNotificationService.createNotification({
+                        recipientType: 'HRM8_USER',
+                        recipientId: admin.id,
+                        type: UniversalNotificationType.LEAD_CONVERSION_REQUESTED,
+                        title: 'New Lead Conversion Request',
+                        message: `Agent has requested conversion for ${lead.company_name}`,
+                        leadId: lead.id,
+                        actionUrl: `/hrm8/conversion-requests`
+                    });
+                }
+            } catch (notifError) {
+                console.error('Failed to send conversion request notification:', notifError);
+            }
 
             return { success: true, request };
         } catch (error: any) {
@@ -280,9 +305,11 @@ export class LeadConversionService {
                 await UniversalNotificationService.createNotification({
                     recipientType: 'CONSULTANT',
                     recipientId: request.consultantId,
-                    title: 'Lead Conversion Request Declined',
-                    message: `Your conversion request for "${request.companyName}" has been declined. Reason: ${reason}`,
-                    type: 'SYSTEM_ANNOUNCEMENT',
+                    type: UniversalNotificationType.LEAD_CONVERSION_DECLINED,
+                    title: 'Conversion Request Declined',
+                    message: `Your request for "${request.companyName}" was declined. Reason: ${reason}`,
+                    leadId: request.leadId,
+                    actionUrl: `/consultant/leads`
                 });
             } catch (notifError) {
                 console.error('Failed to send decline notification to agent:', notifError);

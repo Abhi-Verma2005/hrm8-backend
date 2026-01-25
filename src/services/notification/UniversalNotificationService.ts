@@ -32,6 +32,7 @@ interface CreateNotificationParams {
     leadId?: string;
     regionId?: string;
     actionUrl?: string;
+    force?: boolean;
 }
 
 interface BulkCreateNotificationParams {
@@ -97,18 +98,19 @@ export class UniversalNotificationService {
                 return 'new_message';
             case 'SYSTEM_ANNOUNCEMENT':
                 return 'system_announcement';
-            case 'NEW_LEAD':
-            case 'LEAD_CONVERTED':
-                // Creating a simplified mapping for leads as they don't have a specific event type yet
-                // reusing 'new_application' (as "New Business" generally) or sticking to default if critical
-                // But for now, let's map to system_announcement to be safe OR add a new type?
-                // Given the constraints, let's map to 'system_announcement' BUT realistically these are business events.
-                // However, falling back to default 'system_announcement' makes them critical. 
-                // Let's assume leads are important enough to be 'new_application' equivalent or similar.
-                // Actually, let's look at the available types again. 
-                // 'support_ticket', 'user_signup', 'payment_failed'. 
-                // none fit perfectly. Let's map to 'job_posted' concept of "New Work Item" for now or keep as default.
+            case 'REFUND_STATUS_CHANGED':
+                return 'refund_update';
+            case UniversalNotificationType.SUBSCRIPTION_RENEWAL_FAILED:
+            case UniversalNotificationType.LOW_BALANCE_WARNING:
+                return 'subscription_change'; // reuse subscription prefs
+            case UniversalNotificationType.WITHDRAWAL_APPROVED:
+            case UniversalNotificationType.WITHDRAWAL_REJECTED:
+                return 'system_announcement'; // critical update, use system or payment type? 'payment_received' is close. Use 'payment_received' for positive, but maybe just system for now.
+            case UniversalNotificationType.NEW_LEAD:
+            case UniversalNotificationType.LEAD_CONVERTED:
                 return 'system_announcement';
+            case UniversalNotificationType.COMMISSION_EARNED:
+                return 'payment_received';
             default:
                 return 'system_announcement'; // Default fallback
         }
@@ -119,7 +121,7 @@ export class UniversalNotificationService {
      */
     static async createNotification(params: CreateNotificationParams): Promise<UniversalNotification | null> {
         // Preference Check for Users
-        if (params.recipientType === 'USER') {
+        if (params.recipientType === 'USER' && !params.force) {
             const eventType = this.mapToEventType(params.type);
 
             // Check if In-App notifications are enabled for this event

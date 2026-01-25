@@ -1,4 +1,4 @@
-import { PrismaClient, SubscriptionPlanType, SubscriptionStatus, VirtualTransactionType } from '@prisma/client';
+import { PrismaClient, SubscriptionPlanType, SubscriptionStatus, VirtualTransactionType, UniversalNotificationType } from '@prisma/client';
 import { VirtualWalletService } from './virtualWalletService';
 
 export interface CreateSubscriptionInput {
@@ -235,6 +235,9 @@ export class SubscriptionService {
             const hasBalance = await this.walletService.checkBalance(virtualAccount.id, subscription.base_price);
 
             if (!hasBalance) {
+                // Calculate shortfall
+                const shortfall = subscription.base_price - virtualAccount.balance;
+
                 // Mark renewal as failed
                 await tx.subscription.update({
                     where: { id: subscriptionId },
@@ -243,6 +246,45 @@ export class SubscriptionService {
                         renewal_failure_reason: `Insufficient balance. Required: $${subscription.base_price.toFixed(2)}`,
                     },
                 });
+
+                // Send In-App Notification
+                // We need to resolve the company owner/admin to send the notification to.
+                // Assuming company.created_by or finding an admin user.
+                // For now, let's try to notify the subscription creator or company owner.
+                // Since we don't have company owner ID handy, we might need to fetch it.
+                // Or we can notify all admins of the company.
+
+                // Fetch company admins
+                const companyAdmins = await tx.user.findMany({
+                    where: {
+                        company_id: subscription.company_id,
+                        role: { in: ['ADMIN', 'SUPER_ADMIN'] }
+                    },
+                    select: { id: true, email: true }
+                });
+
+                // Notify admins
+                const { UniversalNotificationService } = await import('./notification/UniversalNotificationService');
+                const { emailService } = await import('./email/EmailService');
+
+                for (const admin of companyAdmins) {
+                    await UniversalNotificationService.createNotification({
+                        recipientType: 'USER',
+                        recipientId: admin.id,
+                        type: UniversalNotificationType.SUBSCRIPTION_RENEWAL_FAILED,
+                        title: 'Subscription Renewal Failed',
+                        message: `Renewal for ${subscription.name} failed due to insufficient funds. Shortfall: $${shortfall.toFixed(2)}`,
+                        companyId: subscription.company_id,
+                        actionUrl: '/company/settings?tab=wallet'
+                    });
+
+                    // Send Email
+                    await emailService.sendSubscriptionRenewalFailedEmail(
+                        admin.email,
+                        subscription.name,
+                        shortfall
+                    );
+                }
 
                 throw new Error(
                     `Insufficient balance for renewal. Available: $${virtualAccount.balance.toFixed(
@@ -277,6 +319,8 @@ export class SubscriptionService {
             });
 
             return renewedSubscription;
+        }, {
+            timeout: 20000,
         });
     }
 
