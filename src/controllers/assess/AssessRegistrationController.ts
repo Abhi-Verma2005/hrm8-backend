@@ -155,12 +155,92 @@ export class AssessRegistrationController {
     }
 
     /**
+     * Login user
+     * POST /api/assess/login
+     */
+    static async login(req: Request, res: Response): Promise<void> {
+        try {
+            const { email, password } = req.body;
+
+            if (!email || !password) {
+                res.status(400).json({ success: false, error: 'Email and password are required' });
+                return;
+            }
+
+            // Find user
+            const user = await prisma.user.findUnique({
+                where: { email: email.toLowerCase() },
+                include: {
+                    company: {
+                        include: {
+                            profile: true
+                        }
+                    }
+                }
+            });
+
+            if (!user) {
+                res.status(401).json({ success: false, error: 'Invalid credentials' });
+                return;
+            }
+
+            // Verify password
+            // Import comparePassword only when needed to avoid circular deps if any
+            const { comparePassword } = await import('../../utils/password');
+            const isValid = await comparePassword(password, user.password_hash);
+
+            if (!isValid) {
+                res.status(401).json({ success: false, error: 'Invalid credentials' });
+                return;
+            }
+
+            if (user.status === 'SUSPENDED' || user.status === 'INACTIVE') {
+                res.status(403).json({ success: false, error: 'Account is suspended or inactive' });
+                return;
+            }
+
+            // Create session
+            const sessionId = generateSessionId();
+            const sessionExpiration = getSessionExpiration();
+
+            await prisma.session.create({
+                data: {
+                    session_id: sessionId,
+                    user_id: user.id,
+                    company_id: user.company.id,
+                    user_role: user.role,
+                    email: user.email,
+                    expires_at: sessionExpiration,
+                },
+            });
+
+            // Set session cookie
+            const cookieOptions = getSessionCookieOptions();
+            res.cookie('session', sessionId, cookieOptions);
+
+            res.json({
+                success: true,
+                data: {
+                    userId: user.id,
+                    companyId: user.company.id,
+                    email: user.email,
+                    message: 'Login successful'
+                }
+            });
+
+        } catch (error) {
+            console.error('[AssessRegistrationController.login] Error:', error);
+            res.status(500).json({ success: false, error: 'Login failed' });
+        }
+    }
+
+    /**
      * Get current assess user info
      * GET /api/assess/me
      */
     static async getCurrentUser(req: Request, res: Response): Promise<void> {
         try {
-            const sessionId = req.cookies?.session;
+            const sessionId = (req as any).cookies?.session;
 
             if (!sessionId) {
                 res.status(401).json({ success: false, error: 'Not authenticated' });
@@ -168,7 +248,7 @@ export class AssessRegistrationController {
             }
 
             const session = await prisma.session.findUnique({
-                where: { id: sessionId },
+                where: { session_id: sessionId },
                 include: {
                     user: {
                         include: {
@@ -219,11 +299,11 @@ export class AssessRegistrationController {
      */
     static async logout(req: Request, res: Response): Promise<void> {
         try {
-            const sessionId = req.cookies?.session;
+            const sessionId = (req as any).cookies?.session;
 
             if (sessionId) {
                 await prisma.session.deleteMany({
-                    where: { id: sessionId },
+                    where: { session_id: sessionId },
                 });
             }
 

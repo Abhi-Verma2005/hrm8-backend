@@ -34,6 +34,9 @@ router.post(
     AssessRegistrationController.register
 );
 
+// Login
+router.post('/login', AssessRegistrationController.login);
+
 // Get current assess user
 router.get('/me', AssessRegistrationController.getCurrentUser);
 
@@ -52,4 +55,26 @@ router.post('/jobs', upload.single('positionDescription'), AssessInternalJobCont
 // Upload position description file
 router.post('/jobs/upload-description', upload.single('file'), AssessInternalJobController.uploadPositionDescription);
 
+// Get user's jobs (for Roles tab)
+router.get('/my-jobs', AssessInternalJobController.getMyJobs);
+
+// Get company balance
+router.get('/balance', AssessInternalJobController.getCompanyBalance);
+
+// Add test credits (Dev only)
+router.post('/test-credits', AssessInternalJobController.addTestCredits);
+
+// Get single job with candidates
+router.get('/jobs/:jobId', AssessInternalJobController.getJobWithCandidates);
+
+// Add candidate to job
+router.post('/jobs/:jobId/candidates', upload.single('resume'), AssessInternalJobController.addCandidateToJob);
+
+// Upload candidate CV
+router.post('/upload-cv', upload.single('file'), AssessInternalJobController.uploadCandidateCV);
+
+// Move candidate to different stage (pipeline)
+router.post('/jobs/:jobId/candidates/:candidateId/move', AssessInternalJobController.moveCandidate);
+
 export default router;
+

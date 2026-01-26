@@ -40,13 +40,13 @@ export function isSessionExpired(expiresAt: Date): boolean {
  */
 export function getSessionCookieOptions(maxAge?: number) {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   // Determine sameSite setting:
   // - If explicitly set via env var, use that
   // - In production, default to 'none' for cross-site compatibility (common in cloud deployments)
   // - In development, use 'lax' for localhost compatibility
   let sameSite: 'lax' | 'strict' | 'none' = 'lax';
-  
+
   if (process.env.COOKIE_SAME_SITE) {
     const envValue = process.env.COOKIE_SAME_SITE.toLowerCase();
     if (envValue === 'none' || envValue === 'strict' || envValue === 'lax') {
@@ -57,11 +57,12 @@ export function getSessionCookieOptions(maxAge?: number) {
     // This is required when frontend and backend are on different domains
     sameSite = 'none';
   }
-  
+
   return {
     httpOnly: true, // Prevent XSS attacks
-    secure: isProduction, // HTTPS only in production (required for sameSite: 'none')
-    sameSite: sameSite,
+    secure: isProduction, // HTTPS only in production
+    // Use 'lax' for development to enable cookies across localhost ports
+    sameSite: isProduction ? 'none' : 'lax',
     maxAge: maxAge || 24 * 60 * 60 * 1000, // 24 hours default
     path: '/', // Available on all routes
     // Don't set domain - let browser handle it based on the request origin
