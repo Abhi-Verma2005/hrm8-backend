@@ -2358,6 +2358,7 @@ enum HiringMode {
   SHORTLISTING
   FULL_SERVICE
   EXECUTIVE_SEARCH
+  ASSESSMENT_ONLY
 }
 
 enum WorkArrangement {
@@ -2911,6 +2912,8 @@ enum VirtualTransactionType {
   PLATFORM_FEE
   TRANSFER_IN
   TRANSFER_OUT
+  ASSESSMENT_CREDIT_DEDUCTION
+  ASSESSMENT_CREDIT_REFUND
 }
 
 enum TransactionDirection {

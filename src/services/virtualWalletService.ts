@@ -167,10 +167,7 @@ export class VirtualWalletService {
                 },
             });
 
-            const duration = Date.now() - startTime;
-
-
-
+            // const duration = Date.now() - startTime;
             return account;
         } catch (error: any) {
             const duration = Date.now() - startTime;

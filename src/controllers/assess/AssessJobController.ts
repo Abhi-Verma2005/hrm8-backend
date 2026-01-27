@@ -25,17 +25,14 @@ export class AssessJobController {
                 .filter(d => d.department)
                 .map(d => d.department as string);
 
-            // Get locations from existing jobs
+            // Get locations from existing jobs (location is required, so just filter empty)
             const locationsResult = await prisma.job.groupBy({
                 by: ['location'],
-                where: {
-                    location: { not: null },
-                },
                 _count: true,
             });
             const locations = locationsResult
-                .filter(l => l.location)
-                .map(l => l.location as string);
+                .filter(l => l.location && l.location.trim() !== '')
+                .map(l => l.location!);
 
             // Standard employment types
             const employmentTypes = [
