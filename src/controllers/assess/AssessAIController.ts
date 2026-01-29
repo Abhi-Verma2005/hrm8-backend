@@ -13,6 +13,7 @@ export const QUESTION_TYPES = [
     { id: 'short-answer', name: 'Short Answer', description: 'Brief text response (1-2 sentences)' },
     { id: 'long-answer', name: 'Long Answer', description: 'Detailed written response' },
     { id: 'code-challenge', name: 'Code Challenge', description: 'Write and test code to solve a problem' },
+    { id: 'video-interview', name: 'Video Interview', description: 'Candidate records a video response' },
 ];
 
 // Assessment packs
@@ -126,6 +127,7 @@ export class AssessAIController {
         recommendedPackId: string;
         assessmentTypes: string[];
         questionTypes: Array<{ id: string; name: string; recommended: boolean; reason?: string }>;
+        assessmentSpecificRecommendations: Record<string, { type: string; reason: string }>;
         reasoning: string;
     }> {
         const openaiKey = process.env.OPENAI_API_KEY;
@@ -141,17 +143,25 @@ ${context}
 
 Please provide:
 1. Which assessment pack (basic=1 assessment, standard=2 assessments, comprehensive=3 assessments) is most suitable
-2. What types of assessments would be most relevant (e.g., cognitive ability, personality, technical skills, etc.)
-3. Which question types would be most effective: Multiple Choice, Multiple Select, Short Answer, Long Answer, Code Challenge
-4. Brief reasoning for your recommendations
+2. What types of assessments would be most relevant (e.g., "Cognitive Ability", "Sales Scenarios", "React Assessment"). Try to be specific to the role.
+3. Which question types would be most effective. DO NOT default to "Multiple Choice" for everything.
+   - For Technical/Coding roles: You MUST recommend "Code Challenge".
+   - For Sales/Leadership/Communication roles: You MUST recommend "Video Interview" or "Long Answer".
+   - For Analytical roles: "Multiple Choice" is okay but mix it with "Short Answer".
+4. Provide a specific, convincing reason why you chose that question type for that assessment.
 
 Respond in JSON format:
 {
   "packLevel": "basic" | "standard" | "comprehensive",
-  "assessmentTypes": ["type1", "type2"],
+  "assessmentTypes": ["Assessment Name 1", "Assessment Name 2"],
   "questionTypes": [{"type": "Multiple Choice", "recommended": true, "reason": "..."}],
+  "assessmentMapping": { 
+      "Assessment Name 1": { "type": "code-challenge", "reason": "Code challenges are essential for validating real-world skills." }, 
+      "Assessment Name 2": { "type": "video-interview", "reason": "Video responses evaluate communication style and confidence." } 
+  },
   "reasoning": "..."
-}`;
+}
+IMPORTANT: The keys in "assessmentMapping" MUST EXACTLY MATCH the strings in "assessmentTypes".`;
 
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -185,6 +195,8 @@ Respond in JSON format:
                             pqt.type?.toLowerCase().includes(qt.name.toLowerCase())
                         )?.reason,
                     })),
+                    // Map generic types to specific recommendations if available in parsed response
+                    assessmentSpecificRecommendations: parsed.assessmentMapping || {},
                     reasoning: parsed.reasoning || 'AI-generated recommendation based on job requirements.',
                 };
             }
@@ -203,6 +215,7 @@ Respond in JSON format:
         recommendedPackId: string;
         assessmentTypes: string[];
         questionTypes: Array<{ id: string; name: string; description: string; recommended: boolean; reason?: string }>;
+        assessmentSpecificRecommendations: Record<string, { type: string; reason: string }>;
         reasoning: string;
     } {
         const titleLower = data.title.toLowerCase();
@@ -231,46 +244,48 @@ Respond in JSON format:
         if (isSales) assessmentTypes.push('Sales Aptitude', 'Communication Skills');
         assessmentTypes.push('Workplace Personality');
 
-        // Determine question types
-        const questionTypes = QUESTION_TYPES.map(qt => ({
-            ...qt,
-            recommended: false as boolean,
-            reason: undefined as string | undefined,
-        }));
+        // Determine question types for each assessment type
+        const assessmentSpecificRecommendations: Record<string, { type: string; reason: string }> = {};
 
-        // Multiple Choice - always recommended
-        const mcIndex = questionTypes.findIndex(qt => qt.id === 'multiple-choice');
-        if (mcIndex >= 0) {
-            questionTypes[mcIndex].recommended = true;
-            questionTypes[mcIndex].reason = 'Quick to administer and evaluate, good for knowledge testing';
-        }
-
-        // Code Challenge for technical roles
+        // Default mappings for rule-based
         if (isTechnical) {
-            const ccIndex = questionTypes.findIndex(qt => qt.id === 'code-challenge');
-            if (ccIndex >= 0) {
-                questionTypes[ccIndex].recommended = true;
-                questionTypes[ccIndex].reason = 'Essential for evaluating technical skills and problem-solving';
-            }
+            assessmentSpecificRecommendations['Technical Skills'] = {
+                type: 'code-challenge',
+                reason: 'Best for evaluating coding proficiency'
+            };
+            assessmentSpecificRecommendations['Problem Solving'] = {
+                type: 'multiple-choice',
+                reason: 'Efficiently tests logic and reasoning'
+            };
         }
 
-        // Long Answer for leadership/senior roles
-        if (isLeadership || isSenior) {
-            const laIndex = questionTypes.findIndex(qt => qt.id === 'long-answer');
-            if (laIndex >= 0) {
-                questionTypes[laIndex].recommended = true;
-                questionTypes[laIndex].reason = 'Evaluates communication skills and strategic thinking';
-            }
+        if (isLeadership) {
+            assessmentSpecificRecommendations['Leadership Assessment'] = {
+                type: 'video-interview',
+                reason: 'Video response allows for evaluating communication style and presence'
+            };
+            assessmentSpecificRecommendations['Emotional Intelligence'] = {
+                type: 'long-answer',
+                reason: 'Allows for detailed expression of behavioral scenarios'
+            };
         }
 
-        // Multiple Select for complex evaluation
-        if (recommendedPackId === 'pack-comprehensive') {
-            const msIndex = questionTypes.findIndex(qt => qt.id === 'multiple-select');
-            if (msIndex >= 0) {
-                questionTypes[msIndex].recommended = true;
-                questionTypes[msIndex].reason = 'Tests nuanced understanding of complex topics';
-            }
+        if (isSales) {
+            assessmentSpecificRecommendations['Sales Aptitude'] = {
+                type: 'video-interview',
+                reason: 'Critical for assessing verbal pitch and confidence'
+            };
         }
+
+        // Defaults for others
+        assessmentSpecificRecommendations['Cognitive Ability'] = {
+            type: 'multiple-choice',
+            reason: 'Standard format for aptitude testing'
+        };
+        assessmentSpecificRecommendations['Workplace Personality'] = {
+            type: 'multiple-choice',
+            reason: 'Standard format for personality inventory'
+        };
 
         const reasoning = isTechnical
             ? `For ${data.title}, we recommend technical skill assessments with coding challenges to evaluate problem-solving abilities.`
@@ -280,10 +295,18 @@ Respond in JSON format:
                     ? `For ${data.title}, we recommend assessments focusing on communication and sales aptitude.`
                     : `For ${data.title}, we recommend a balanced assessment approach covering cognitive ability and role-specific skills.`;
 
+        // Generate question types list with recommendations
+        const questionTypes = QUESTION_TYPES.map(qt => ({
+            ...qt,
+            recommended: Object.values(assessmentSpecificRecommendations).some(r => r.type === qt.id),
+            reason: Object.values(assessmentSpecificRecommendations).find(r => r.type === qt.id)?.reason
+        }));
+
         return {
             recommendedPackId,
             assessmentTypes,
             questionTypes,
+            assessmentSpecificRecommendations,
             reasoning,
         };
     }

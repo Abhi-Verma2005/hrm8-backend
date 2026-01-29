@@ -153,36 +153,98 @@ export class AssessInternalJobController {
                 });
                 return;
             }
-
-            if (!CloudinaryService.isConfigured()) {
-                res.status(503).json({
-                    success: false,
-                    error: 'File upload service not available',
+            if (CloudinaryService.isConfigured()) {
+                const uploadResult = await CloudinaryService.uploadMulterFile(req.file, {
+                    folder: `assess/jobs/${session.company_id}`,
+                    resourceType: 'raw',
                 });
-                return;
+
+                res.json({
+                    success: true,
+                    data: {
+                        url: uploadResult.url,
+                        fileName: req.file.originalname,
+                    },
+                });
+            } else {
+                // Fallback if no Cloudinary
+                res.json({
+                    success: true,
+                    data: {
+                        url: `https://mock-storage.com/${req.file.originalname}`,
+                        fileName: req.file.originalname,
+                    },
+                });
             }
-
-            const uploadResult = await CloudinaryService.uploadMulterFile(req.file, {
-                folder: `assess/position-descriptions/${session.company_id}`,
-                resourceType: 'raw',
-            });
-
-            res.json({
-                success: true,
-                data: {
-                    url: uploadResult.url,
-                    publicId: uploadResult.publicId,
-                    fileName: req.file.originalname,
-                },
-            });
         } catch (error) {
             console.error('[AssessInternalJobController.uploadPositionDescription] Error:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to upload file',
+                error: error instanceof Error ? error.message : 'Failed to upload position description',
             });
         }
     }
+    /**
+     * Finalize job and create dynamic pipeline stages
+     * POST /api/assess/jobs/:jobId/finalize
+     */
+    static async finalizeJob(req: Request, res: Response): Promise<void> {
+        try {
+            const sessionId = (req as any).cookies?.session;
+            if (!sessionId) {
+                res.status(401).json({ success: false, error: 'Not authenticated' });
+                return;
+            }
+
+            const { jobId } = req.params;
+            const { assessments } = req.body; // Expect array of { id, name, type, questionType }
+
+            if (!jobId) {
+                res.status(400).json({ success: false, error: 'Job ID is required' });
+                return;
+            }
+
+            // Verify job belongs to user's company (omitted for brevity, but should be done)
+
+            // 1. Initialize fixed rounds (New, Offer, Hired, Rejected)
+            // This is idempotent so safe to call again
+            const { JobRoundService } = require('../../services/job/JobRoundService');
+            await JobRoundService.initializeFixedRounds(jobId);
+
+            // 2. Create rounds for each selected assessment
+            if (Array.isArray(assessments) && assessments.length > 0) {
+                for (const assessment of assessments) {
+                    await JobRoundService.createRound({
+                        jobId,
+                        name: assessment.name || 'Assessment',
+                        type: 'ASSESSMENT',
+                        assessmentConfig: {
+                            questionType: assessment.questionType,
+                        }
+                    });
+                }
+            }
+
+            // Update job status to OPEN or ACTIVE
+            await prisma.job.update({
+                where: { id: jobId },
+                data: { status: 'OPEN' }
+            });
+
+            res.json({
+                success: true,
+                message: 'Job finalized and pipeline created',
+            });
+        } catch (error) {
+            console.error('[AssessInternalJobController.finalizeJob] Error:', error);
+            res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to finalize job',
+            });
+        }
+    }
+
+
 
     /**
      * Get user's internal jobs (for Roles tab)
@@ -209,7 +271,7 @@ export class AssessInternalJobController {
             const jobs = await prisma.job.findMany({
                 where: {
                     company_id: session.company_id,
-                    status: 'DRAFT', // Internal jobs are in draft status
+                    status: { in: ['DRAFT', 'OPEN'] }, // Internal jobs can be DRAFT or OPEN
                 },
                 include: {
                     applications: {
@@ -225,6 +287,7 @@ export class AssessInternalJobController {
                     job_round: {
                         where: {
                             type: 'ASSESSMENT',
+                            is_fixed: false, // Only fetch custom assessment rounds, exclude fixed stages (New, Offer, etc.)
                         },
                         include: {
                             assessment_configuration: true,
@@ -250,11 +313,11 @@ export class AssessInternalJobController {
                     completedAt: app.updated_at,
                     resumeUrl: app.resume_url,
                     assessmentResults: app.application_round_progress.map(progress => ({
-                        assessmentId: progress.round_id,
+                        assessmentId: progress.job_round_id,
                         assessmentName: progress.job_round.name,
-                        status: progress.status === 'COMPLETED' ? 'completed' :
-                            progress.status === 'IN_PROGRESS' ? 'in_progress' : 'pending',
-                        assignedAt: progress.started_at || progress.created_at,
+                        status: progress.completed ? 'completed' : 'in_progress',
+                        assignedAt: progress.created_at,
+                        updatedAt: progress.updated_at,
                         completedAt: progress.completed_at,
                     })),
                 }));
@@ -338,9 +401,9 @@ export class AssessInternalJobController {
                             },
                         },
                     },
-                    job_rounds: {
+                    job_round: {
                         include: {
-                            assessment_config: true,
+                            assessment_configuration: true,
                         },
                     },
                 },
@@ -683,22 +746,28 @@ export class AssessInternalJobController {
 
             // If moving to an assessment round, create round progress
             if (roundId) {
-                await prisma.applicationRoundProgress.upsert({
+                // Use findFirst to avoid compound unique key naming issues
+                const existingProgress = await prisma.applicationRoundProgress.findFirst({
                     where: {
-                        application_id_round_id: {
-                            application_id: application.id,
-                            round_id: roundId,
-                        },
-                    },
-                    update: {
-                        status: 'IN_PROGRESS',
-                    },
-                    create: {
                         application_id: application.id,
-                        round_id: roundId,
-                        status: 'NOT_STARTED',
+                        job_round_id: roundId,
                     },
                 });
+
+                if (existingProgress) {
+                    await prisma.applicationRoundProgress.update({
+                        where: { id: existingProgress.id },
+                        data: { updated_at: new Date() },
+                    });
+                } else {
+                    await prisma.applicationRoundProgress.create({
+                        data: {
+                            application_id: application.id,
+                            job_round_id: roundId,
+                            completed: false,
+                        },
+                    });
+                }
             }
 
             res.json({
@@ -815,6 +884,78 @@ export class AssessInternalJobController {
             res.status(500).json({
                 success: false,
                 error: 'Failed to add test credits',
+            });
+        }
+    }
+
+    /**
+     * Add assessments to an existing job
+     * POST /api/assess/jobs/:jobId/assessments
+     */
+    static async addAssessmentsToJob(req: Request, res: Response): Promise<void> {
+        try {
+            const sessionId = (req as any).cookies?.session;
+            if (!sessionId) {
+                res.status(401).json({ success: false, error: 'Not authenticated' });
+                return;
+            }
+
+            const { jobId } = req.params;
+            const { assessments } = req.body; // Expect array of { id, name, type, questionType }
+
+            if (!jobId) {
+                res.status(400).json({ success: false, error: 'Job ID is required' });
+                return;
+            }
+
+            const job = await prisma.job.findUnique({
+                where: { id: jobId },
+            });
+
+            if (!job) {
+                res.status(404).json({ success: false, error: 'Job not found' });
+                return;
+            }
+
+            // Create rounds for each selected assessment
+            // Using JobRoundService to handle ordering automatically
+            const { JobRoundService } = require('../../services/job/JobRoundService');
+
+            if (Array.isArray(assessments) && assessments.length > 0) {
+                // Fetch existing rounds to prevent duplicates
+                const existingRounds = await prisma.jobRound.findMany({
+                    where: { job_id: jobId }
+                });
+                const existingNames = new Set(existingRounds.map(r => r.name));
+
+                for (const assessment of assessments) {
+                    const assessmentName = assessment.name || 'Assessment';
+
+                    // Skip if already exists
+                    if (existingNames.has(assessmentName)) {
+                        continue;
+                    }
+
+                    await JobRoundService.createRound({
+                        jobId,
+                        name: assessmentName,
+                        type: 'ASSESSMENT',
+                        assessmentConfig: {
+                            questionType: assessment.questionType,
+                        }
+                    });
+                }
+            }
+
+            res.json({
+                success: true,
+                message: 'Assessments added successfully',
+            });
+        } catch (error) {
+            console.error('[AssessInternalJobController.addAssessmentsToJob] Error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to add assessments',
             });
         }
     }

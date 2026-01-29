@@ -5,6 +5,10 @@ export interface CreateJobRoundRequest {
   jobId: string;
   name: string;
   type: JobRoundType;
+  assessmentConfig?: {
+    questionType?: string;
+    questions?: any;
+  };
 }
 
 export interface UpdateJobRoundRequest {
@@ -25,13 +29,13 @@ export class JobRoundService {
     const existingFixedKeys = existingFixedRounds
       .filter(r => r.isFixed && r.fixedKey)
       .map(r => r.fixedKey!);
-    
+
     // Only create fixed rounds that don't exist
     if (!existingFixedKeys.includes('NEW')) {
       await JobRoundModel.create({
         jobId,
         name: 'New',
-        type: 'ASSESSMENT' as JobRoundType, // New doesn't have a type, use ASSESSMENT as default
+        type: 'INTERVIEW' as JobRoundType, // New isn't an interview but we use this to distinguish from ASSESSMENT
         order: 1,
         isFixed: true,
         fixedKey: 'NEW',
@@ -42,7 +46,7 @@ export class JobRoundService {
       await JobRoundModel.create({
         jobId,
         name: 'Offer',
-        type: 'ASSESSMENT' as JobRoundType, // Offer doesn't have a type, use ASSESSMENT as default
+        type: 'INTERVIEW' as JobRoundType,
         order: 999, // Place far in pipeline - will be adjusted when user adds rounds
         isFixed: true,
         fixedKey: 'OFFER',
@@ -53,7 +57,7 @@ export class JobRoundService {
       await JobRoundModel.create({
         jobId,
         name: 'Hired',
-        type: 'ASSESSMENT' as JobRoundType, // Hired doesn't have a type, use ASSESSMENT as default
+        type: 'INTERVIEW' as JobRoundType,
         order: 1000,
         isFixed: true,
         fixedKey: 'HIRED',
@@ -64,7 +68,7 @@ export class JobRoundService {
       await JobRoundModel.create({
         jobId,
         name: 'Rejected',
-        type: 'ASSESSMENT' as JobRoundType, // Rejected doesn't have a type, use ASSESSMENT as default
+        type: 'INTERVIEW' as JobRoundType,
         order: 1001,
         isFixed: true,
         fixedKey: 'REJECTED',
@@ -112,6 +116,7 @@ export class JobRoundService {
       order: newOrder,
       isFixed: false,
       fixedKey: null,
+      assessmentConfig: request.assessmentConfig,
     });
 
     return round;
@@ -141,7 +146,7 @@ export class JobRoundService {
       // Ensure new order is valid (not in fixed rounds range)
       const fixedOrders = fixedRounds.map(r => r.order);
       const minFixedOrder = Math.min(...fixedOrders.filter(o => o > 1)); // Exclude NEW which is at 1
-      
+
       // If moving to position near fixed rounds, adjust
       let newOrder = request.order;
       if (newOrder >= minFixedOrder) {
@@ -151,7 +156,7 @@ export class JobRoundService {
 
       // Reorder other custom rounds
       customRounds.sort((a, b) => a.order - b.order);
-      
+
       let currentOrder = 2; // Start after NEW (order 1)
       for (const round of customRounds) {
         if (currentOrder === newOrder) {
@@ -212,5 +217,3 @@ export class JobRoundService {
     }
   }
 }
-
-
