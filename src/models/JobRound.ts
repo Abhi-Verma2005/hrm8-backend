@@ -52,17 +52,36 @@ export class JobRoundModel {
     type: JobRoundType;
     isFixed?: boolean;
     fixedKey?: string | null;
+    assessmentConfig?: {
+      questionType?: string;
+      questions?: any;
+    };
   }): Promise<JobRoundData> {
+    const jobRoundData: any = {
+      job_id: data.jobId,
+      name: data.name,
+      order: data.order,
+      type: data.type,
+      is_fixed: data.isFixed ?? false,
+      fixed_key: data.fixedKey,
+      updated_at: new Date(),
+    };
+
+    if (data.assessmentConfig) {
+      jobRoundData.assessment_configuration = {
+        create: {
+          enabled: true,
+          questions: data.assessmentConfig.questions || { type: data.assessmentConfig.questionType },
+          auto_assign: true,
+        },
+      };
+    }
+
     const round = await prisma.jobRound.create({
-      data: {
-        job_id: data.jobId,
-        name: data.name,
-        order: data.order,
-        type: data.type,
-        is_fixed: data.isFixed ?? false,
-        fixed_key: data.fixedKey,
-        updated_at: new Date(),
-      },
+      data: jobRoundData,
+      include: {
+        assessment_configuration: true,
+      }
     });
 
     return this.mapPrismaToJobRound(round);

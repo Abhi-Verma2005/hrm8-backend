@@ -147,6 +147,11 @@ export class AssessRegistrationController {
             });
         } catch (error) {
             console.error('[AssessRegistrationController.register] Error:', error);
+            if (error instanceof Error) {
+                console.error('[AssessRegistrationController.register] Stack:', error.stack);
+            }
+            console.error('[AssessRegistrationController.register] Request Data:', JSON.stringify(req.body, null, 2));
+
             res.status(500).json({
                 success: false,
                 error: error instanceof Error ? error.message : 'Registration failed. Please try again.',

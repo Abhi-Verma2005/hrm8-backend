@@ -76,5 +76,11 @@ router.post('/upload-cv', upload.single('file'), AssessInternalJobController.upl
 // Move candidate to different stage (pipeline)
 router.post('/jobs/:jobId/candidates/:candidateId/move', AssessInternalJobController.moveCandidate);
 
+// Finalize job and create pipeline
+router.post('/jobs/:jobId/finalize', AssessInternalJobController.finalizeJob);
+
+// Add assessments to existing job
+router.post('/jobs/:jobId/assessments', AssessInternalJobController.addAssessmentsToJob);
+
 export default router;
 

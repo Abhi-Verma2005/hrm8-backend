@@ -435,12 +435,17 @@ export class UniversalNotificationService {
      * Cleanup expired notifications (to be called by scheduled job)
      */
     static async cleanupExpiredNotifications(): Promise<number> {
-        const result = await prisma.universalNotification.deleteMany({
-            where: {
-                expires_at: { lt: new Date() },
-            },
-        });
-        return result.count;
+        try {
+            const result = await prisma.universalNotification.deleteMany({
+                where: {
+                    expires_at: { lt: new Date() },
+                },
+            });
+            return result.count;
+        } catch (error) {
+            console.warn('[UniversalNotificationService] Failed to cleanup expired notifications:', error);
+            return 0;
+        }
     }
 
     /**
